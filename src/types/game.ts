@@ -1,4 +1,5 @@
 export type StatType = 'fuerza' | 'inteligencia' | 'espiritualidad' | 'carisma';
+export type ItemCategory = 'armas' | 'armaduras' | 'mascotas' | 'consumibles' | 'real';
 
 export interface CharacterStats {
   level: number;
@@ -21,10 +22,23 @@ export interface Quest {
   lastCompleted?: string;
 }
 
-export interface Reward {
+export interface ShopItem {
   id: string;
   title: string;
   cost: number;
-  type: 'real' | 'virtual';
+  category: ItemCategory;
   icon: string;
+  description?: string;
+  rarity: 'comun' | 'raro' | 'epico' | 'legendario';
+}
+
+export interface GameState {
+  stats: CharacterStats;
+  quests: Quest[];
+  inventory: string[]; // IDs de items comprados
+  shopSeeds: {
+    daily: string;
+    weekly: string;
+    monthly: string;
+  };
 }

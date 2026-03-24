@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { CharacterStats, Quest, Reward, StatType } from '../types/game';
+import { useState, useEffect, useMemo } from 'react';
+import { CharacterStats, Quest, ShopItem, StatType } from '../types/game';
+import { ALL_ITEMS } from '../data/items';
 import { showSuccess, showError } from '../utils/toast';
 
 const INITIAL_STATS: CharacterStats = {
@@ -28,19 +29,42 @@ export function useGameState() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [rewards, setRewards] = useState<Reward[]>(() => {
-    const saved = localStorage.getItem('habitquest_rewards');
-    return saved ? JSON.parse(saved) : [
-      { id: '1', title: '1h de Netflix', cost: 20, type: 'real', icon: 'Tv' },
-      { id: '2', title: 'Pizza el Viernes', cost: 150, type: 'real', icon: 'Pizza' },
-    ];
+  const [inventory, setInventory] = useState<string[]>(() => {
+    const saved = localStorage.getItem('habitquest_inventory');
+    return saved ? JSON.parse(saved) : [];
   });
 
   useEffect(() => {
     localStorage.setItem('habitquest_stats', JSON.stringify(stats));
     localStorage.setItem('habitquest_quests', JSON.stringify(quests));
-    localStorage.setItem('habitquest_rewards', JSON.stringify(rewards));
-  }, [stats, quests, rewards]);
+    localStorage.setItem('habitquest_inventory', JSON.stringify(inventory));
+  }, [stats, quests, inventory]);
+
+  // Lógica de rotación de tienda basada en tiempo
+  const shopItems = useMemo(() => {
+    const now = new Date();
+    const daySeed = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+    const weekSeed = `${now.getFullYear()}-W${Math.ceil(now.getDate() / 7)}`;
+    const monthSeed = `${now.getFullYear()}-${now.getMonth()}`;
+
+    const getItems = (seed: string, count: number, excludeCategories: string[]) => {
+      const filtered = ALL_ITEMS.filter(item => !excludeCategories.includes(item.category));
+      // Mezcla pseudo-aleatoria simple basada en seed
+      let hash = 0;
+      for (let i = 0; i < seed.length; i++) hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+      
+      return [...filtered]
+        .sort(() => (hash % 100) - 50)
+        .slice(0, count);
+    };
+
+    return {
+      daily: getItems(daySeed, 5, ['real']),
+      weekly: getItems(weekSeed, 5, ['real']),
+      monthly: getItems(monthSeed, 5, ['real']),
+      real: ALL_ITEMS.filter(item => item.category === 'real')
+    };
+  }, []);
 
   const addXp = (amount: number, stat: StatType) => {
     setStats(prev => {
@@ -105,17 +129,22 @@ export function useGameState() {
     setQuests(prev => [...prev, quest]);
   };
 
-  const buyReward = (rewardId: string) => {
-    const reward = rewards.find(r => r.id === rewardId);
-    if (!reward) return;
+  const buyItem = (item: ShopItem) => {
+    if (inventory.includes(item.id) && item.category !== 'consumibles' && item.category !== 'real') {
+      showError("Ya posees este objeto único.");
+      return;
+    }
 
-    if (stats.gold >= reward.cost) {
-      setStats(prev => ({ ...prev, gold: prev.gold - reward.cost }));
-      showSuccess(`¡Canjeado: ${reward.title}! Disfruta tu recompensa.`);
+    if (stats.gold >= item.cost) {
+      setStats(prev => ({ ...prev, gold: prev.gold - item.cost }));
+      if (item.category !== 'consumibles' && item.category !== 'real') {
+        setInventory(prev => [...prev, item.id]);
+      }
+      showSuccess(`¡Comprado: ${item.title}!`);
     } else {
-      showError("No tienes suficiente oro, ¡sigue esforzándote!");
+      showError("No tienes suficiente oro.");
     }
   };
 
-  return { stats, quests, rewards, completeQuest, takeDamage, addQuest, buyReward };
+  return { stats, quests, inventory, shopItems, completeQuest, takeDamage, addQuest, buyItem };
 }
