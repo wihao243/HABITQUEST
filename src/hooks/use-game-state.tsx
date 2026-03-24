@@ -21,6 +21,15 @@ const INITIAL_STATS: CharacterStats = {
   },
 };
 
+// Función auxiliar para obtener el número de semana real (ISO)
+const getISOWeek = (date: Date) => {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+};
+
 export function useGameState() {
   const [virtualTime, setVirtualTime] = useState(() => {
     const saved = localStorage.getItem('habitquest_time');
@@ -50,23 +59,35 @@ export function useGameState() {
     return saved ? JSON.parse(saved) : { daily: [], weekly: [], monthly: [], real: [] };
   });
 
-  const seeds = useMemo(() => ({
-    day: `${virtualTime.getFullYear()}-${virtualTime.getMonth()}-${virtualTime.getDate()}`,
-    week: `${virtualTime.getFullYear()}-W${Math.ceil(virtualTime.getDate() / 7)}`,
-    month: `${virtualTime.getFullYear()}-${virtualTime.getMonth()}`
-  }), [virtualTime]);
+  // Semillas únicas para cada periodo
+  const seeds = useMemo(() => {
+    const d = virtualTime;
+    return {
+      day: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
+      week: `${d.getFullYear()}-W${getISOWeek(d)}`,
+      month: `${d.getFullYear()}-${d.getMonth()}`
+    };
+  }, [virtualTime]);
 
+  // Resetear stock cuando cambian las semillas
   useEffect(() => {
-    const lastSeeds = JSON.parse(localStorage.getItem('habitquest_last_seeds') || '{}');
-    const newBought = { ...boughtInRotation };
-    let changed = false;
-    if (lastSeeds.day !== seeds.day) { newBought.daily = []; changed = true; }
-    if (lastSeeds.week !== seeds.week) { newBought.weekly = []; changed = true; }
-    if (lastSeeds.month !== seeds.month) { newBought.monthly = []; changed = true; }
-    if (changed) {
-      setBoughtInRotation(newBought);
-      localStorage.setItem('habitquest_last_seeds', JSON.stringify(seeds));
-    }
+    const lastSeedsStr = localStorage.getItem('habitquest_last_seeds');
+    const lastSeeds = lastSeedsStr ? JSON.parse(lastSeedsStr) : {};
+    
+    setBoughtInRotation(prev => {
+      const next = { ...prev };
+      let changed = false;
+
+      if (lastSeeds.day !== seeds.day) { next.daily = []; changed = true; }
+      if (lastSeeds.week !== seeds.week) { next.weekly = []; changed = true; }
+      if (lastSeeds.month !== seeds.month) { next.monthly = []; changed = true; }
+
+      if (changed) {
+        localStorage.setItem('habitquest_last_seeds', JSON.stringify(seeds));
+        return next;
+      }
+      return prev;
+    });
   }, [seeds]);
 
   useEffect(() => {
@@ -77,20 +98,32 @@ export function useGameState() {
     localStorage.setItem('habitquest_bought_rotation', JSON.stringify(boughtInRotation));
   }, [stats, quests, inventory, virtualTime, boughtInRotation]);
 
+  // Generador de objetos basado en semilla (Seeded Random)
   const shopItems = useMemo(() => {
-    const getItems = (seed: string, count: number, excludeCategories: string[]) => {
-      const filtered = ALL_ITEMS.filter(item => !excludeCategories.includes(item.category));
-      let hash = 0;
-      for (let i = 0; i < seed.length; i++) hash = seed.charCodeAt(i) + ((hash << 5) - hash);
-      return [...filtered].sort(() => {
-        hash = (hash * 9301 + 49297) % 233280;
-        return (hash / 233280) - 0.5;
-      }).slice(0, count);
+    const getSeededItems = (seed: string, count: number, excludeCategories: string[]) => {
+      const pool = ALL_ITEMS.filter(item => !excludeCategories.includes(item.category));
+      if (pool.length === 0) return [];
+
+      // Hash simple de la semilla
+      let h = 0;
+      for (let i = 0; i < seed.length; i++) h = seed.charCodeAt(i) + ((h << 5) - h);
+      
+      const result: ShopItem[] = [];
+      const tempPool = [...pool];
+      
+      for (let i = 0; i < count && tempPool.length > 0; i++) {
+        // Generador congruencial lineal para obtener el siguiente índice
+        h = (h * 1664525 + 1013904223) >>> 0;
+        const index = h % tempPool.length;
+        result.push(tempPool.splice(index, 1)[0]);
+      }
+      return result;
     };
+
     return {
-      daily: getItems(seeds.day, 5, ['real']),
-      weekly: getItems(seeds.week, 5, ['real']),
-      monthly: getItems(seeds.month, 5, ['real']),
+      daily: getSeededItems(seeds.day, 5, ['real']),
+      weekly: getSeededItems(seeds.week, 5, ['real']),
+      monthly: getSeededItems(seeds.month, 5, ['real']),
       real: ALL_ITEMS.filter(item => item.category === 'real')
     };
   }, [seeds]);
@@ -117,33 +150,27 @@ export function useGameState() {
     setStats(prev => {
       const next = { ...prev };
       const { effect } = item;
-
       if (effect.type === 'hp') next.hp = Math.min(next.maxHp, next.hp + effect.value);
       if (effect.type === 'gold') next.gold += effect.value;
       if (effect.type === 'xp') {
         next.xp += effect.value;
-        if (next.xp >= next.maxXp) {
+        while (next.xp >= next.maxXp) {
           next.level += 1;
           next.xp -= next.maxXp;
           next.maxXp = Math.floor(next.maxXp * 1.2);
           showSuccess("¡NIVEL SUBIDO!");
         }
       }
-      if (effect.type === 'stat' && effect.stat) {
-        next.attributes[effect.stat] += effect.value;
-      }
-
+      if (effect.type === 'stat' && effect.stat) next.attributes[effect.stat] += effect.value;
       return next;
     });
 
-    // Eliminar una instancia del inventario
     const index = inventory.indexOf(itemId);
     if (index > -1) {
       const newInv = [...inventory];
       newInv.splice(index, 1);
       setInventory(newInv);
     }
-
     showSuccess(`¡Usado: ${item.title}!`);
   };
 
