@@ -2,14 +2,22 @@ import { CharacterStats } from "@/types/game";
 import { StatBar } from "./StatBar";
 import { Heart, Star, Coins, Shield, Brain, Zap, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { ProfileEdit } from "./ProfileEdit";
 
-export const CharacterHeader = ({ stats }: { stats: CharacterStats }) => {
+interface CharacterHeaderProps {
+  stats: CharacterStats;
+  onUpdateProfile: (updates: Partial<CharacterStats>) => void;
+}
+
+export const CharacterHeader = ({ stats, onUpdateProfile }: CharacterHeaderProps) => {
   return (
-    <Card className="p-6 bg-slate-900 text-white border-4 border-slate-800 shadow-xl">
+    <Card className="p-6 bg-slate-900 text-white border-4 border-slate-800 shadow-xl relative overflow-hidden">
+      <ProfileEdit stats={stats} onUpdate={onUpdateProfile} />
+      
       <div className="flex flex-col md:flex-row gap-8 items-center">
         <div className="relative">
           <div className="w-24 h-24 rounded-full bg-indigo-600 border-4 border-yellow-500 flex items-center justify-center text-4xl shadow-lg">
-            🧙‍♂️
+            {stats.avatar}
           </div>
           <div className="absolute -bottom-2 -right-2 bg-yellow-500 text-slate-900 font-black px-2 py-1 rounded-md text-sm border-2 border-slate-900">
             LVL {stats.level}
@@ -18,7 +26,10 @@ export const CharacterHeader = ({ stats }: { stats: CharacterStats }) => {
 
         <div className="flex-1 space-y-4 w-full">
           <div className="flex justify-between items-end">
-            <h2 className="text-2xl font-black tracking-tighter italic uppercase">Héroe de la Rutina</h2>
+            <div>
+              <h2 className="text-2xl font-black tracking-tighter italic uppercase leading-none">{stats.name}</h2>
+              <p className="text-indigo-400 font-bold text-xs uppercase tracking-widest mt-1">{stats.title}</p>
+            </div>
             <div className="flex items-center gap-2 text-yellow-400 font-bold">
               <Coins className="w-5 h-5" />
               <span>{stats.gold} Oro</span>

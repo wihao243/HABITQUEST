@@ -9,7 +9,7 @@ import { Trophy, Users, Settings, Calendar, Repeat, CheckSquare, ShoppingBag } f
 import { MadeWithDyad } from "@/components/made-with-dyad";
 
 const Index = () => {
-  const { stats, quests, inventory, shopItems, completeQuest, takeDamage, addQuest, buyItem } = useGameState();
+  const { stats, quests, inventory, shopItems, completeQuest, takeDamage, addQuest, buyItem, updateProfile } = useGameState();
 
   const handleAddNewQuest = (type: 'daily' | 'habit' | 'todo') => {
     const title = prompt(`Nombre de la ${type === 'habit' ? 'hábito' : 'misión'}:`);
@@ -43,7 +43,7 @@ const Index = () => {
       </nav>
 
       <main className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
-        <CharacterHeader stats={stats} />
+        <CharacterHeader stats={stats} onUpdateProfile={updateProfile} />
 
         <Tabs defaultValue="daily" className="w-full">
           <TabsList className="grid grid-cols-4 w-full h-14 bg-white border-2 border-slate-200 p-1 rounded-2xl shadow-sm sticky top-20 z-40">

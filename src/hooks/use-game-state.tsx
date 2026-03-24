@@ -4,6 +4,9 @@ import { ALL_ITEMS } from '../data/items';
 import { showSuccess, showError } from '../utils/toast';
 
 const INITIAL_STATS: CharacterStats = {
+  name: "Héroe de la Rutina",
+  avatar: "🧙‍♂️",
+  title: "Novato del Hábito",
   level: 1,
   xp: 0,
   maxXp: 100,
@@ -21,7 +24,12 @@ const INITIAL_STATS: CharacterStats = {
 export function useGameState() {
   const [stats, setStats] = useState<CharacterStats>(() => {
     const saved = localStorage.getItem('habitquest_stats');
-    return saved ? JSON.parse(saved) : INITIAL_STATS;
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Asegurar que los nuevos campos existan para usuarios antiguos
+      return { ...INITIAL_STATS, ...parsed };
+    }
+    return INITIAL_STATS;
   });
 
   const [quests, setQuests] = useState<Quest[]>(() => {
@@ -40,7 +48,6 @@ export function useGameState() {
     localStorage.setItem('habitquest_inventory', JSON.stringify(inventory));
   }, [stats, quests, inventory]);
 
-  // Lógica de rotación de tienda basada en tiempo
   const shopItems = useMemo(() => {
     const now = new Date();
     const daySeed = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
@@ -49,7 +56,6 @@ export function useGameState() {
 
     const getItems = (seed: string, count: number, excludeCategories: string[]) => {
       const filtered = ALL_ITEMS.filter(item => !excludeCategories.includes(item.category));
-      // Mezcla pseudo-aleatoria simple basada en seed
       let hash = 0;
       for (let i = 0; i < seed.length; i++) hash = seed.charCodeAt(i) + ((hash << 5) - hash);
       
@@ -65,6 +71,11 @@ export function useGameState() {
       real: ALL_ITEMS.filter(item => item.category === 'real')
     };
   }, []);
+
+  const updateProfile = (updates: Partial<CharacterStats>) => {
+    setStats(prev => ({ ...prev, ...updates }));
+    showSuccess("¡Perfil actualizado!");
+  };
 
   const addXp = (amount: number, stat: StatType) => {
     setStats(prev => {
@@ -146,5 +157,5 @@ export function useGameState() {
     }
   };
 
-  return { stats, quests, inventory, shopItems, completeQuest, takeDamage, addQuest, buyItem };
+  return { stats, quests, inventory, shopItems, completeQuest, takeDamage, addQuest, buyItem, updateProfile };
 }
