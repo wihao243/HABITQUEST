@@ -1,6 +1,12 @@
 export type StatType = 'fuerza' | 'inteligencia' | 'espiritualidad' | 'carisma';
 export type ItemCategory = 'armas' | 'armaduras' | 'mascotas' | 'consumibles' | 'real';
 
+export interface ItemEffect {
+  type: 'hp' | 'xp' | 'gold' | 'stat';
+  value: number;
+  stat?: StatType;
+}
+
 export interface CharacterStats {
   name: string;
   avatar: string;
@@ -31,6 +37,7 @@ export interface ShopItem {
   cost: number;
   category: ItemCategory;
   icon: string;
-  description?: string;
+  description: string;
   rarity: 'comun' | 'raro' | 'epico' | 'legendario';
+  effect?: ItemEffect;
 }
