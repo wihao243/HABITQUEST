@@ -67,22 +67,32 @@ export function useGameState() {
     };
   }, [virtualTime]);
 
+  // Lógica de cambio de ciclo (Día, Semana, Mes)
   useEffect(() => {
     const lastSeedsStr = localStorage.getItem('habitquest_last_seeds');
     const lastSeeds = lastSeedsStr ? JSON.parse(lastSeedsStr) : {};
     
-    setBoughtInRotation(prev => {
-      const next = { ...prev };
-      let changed = false;
-      if (lastSeeds.day !== seeds.day) { next.daily = []; changed = true; }
-      if (lastSeeds.week !== seeds.week) { next.weekly = []; changed = true; }
-      if (lastSeeds.month !== seeds.month) { next.monthly = []; changed = true; }
-      if (changed) {
-        localStorage.setItem('habitquest_last_seeds', JSON.stringify(seeds));
+    if (lastSeeds.day !== seeds.day) {
+      // 1. Reiniciar misiones diarias y hábitos
+      setQuests(prev => prev.map(q => 
+        (q.type === 'daily' || q.type === 'habit') 
+          ? { ...q, completed: false } 
+          : q
+      ));
+
+      // 2. Reiniciar rotaciones de tienda
+      setBoughtInRotation(prev => {
+        const next = { ...prev };
+        next.daily = [];
+        if (lastSeeds.week !== seeds.week) next.weekly = [];
+        if (lastSeeds.month !== seeds.month) next.monthly = [];
         return next;
-      }
-      return prev;
-    });
+      });
+
+      // 3. Guardar nuevas semillas
+      localStorage.setItem('habitquest_last_seeds', JSON.stringify(seeds));
+      console.log("¡Nuevo día detectado! Misiones reiniciadas.");
+    }
   }, [seeds]);
 
   useEffect(() => {
