@@ -2,14 +2,19 @@ import { useGameState } from "@/hooks/use-game-state";
 import { CharacterHeader } from "@/components/game/CharacterHeader";
 import { QuestList } from "@/components/game/QuestList";
 import { Shop } from "@/components/game/Shop";
+import { AdminPanel } from "@/components/game/AdminPanel";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, Users, Settings, Calendar, Repeat, CheckSquare, ShoppingBag } from "lucide-react";
+import { Trophy, Users, Calendar, Repeat, CheckSquare, ShoppingBag } from "lucide-react";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 
 const Index = () => {
-  const { stats, quests, inventory, shopItems, completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, updateProfile } = useGameState();
+  const { 
+    stats, quests, inventory, shopItems, 
+    completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, updateProfile,
+    adminReset, adminAddGold, adminLevelUp, adminClearInventory
+  } = useGameState();
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
@@ -22,7 +27,12 @@ const Index = () => {
           <div className="flex gap-1">
             <Button variant="ghost" size="icon" className="rounded-full"><Trophy className="w-5 h-5 text-slate-600" /></Button>
             <Button variant="ghost" size="icon" className="rounded-full"><Users className="w-5 h-5 text-slate-600" /></Button>
-            <Button variant="ghost" size="icon" className="rounded-full"><Settings className="w-5 h-5 text-slate-600" /></Button>
+            <AdminPanel 
+              onReset={adminReset} 
+              onAddGold={adminAddGold} 
+              onLevelUp={adminLevelUp} 
+              onClearInventory={adminClearInventory} 
+            />
           </div>
         </div>
       </nav>

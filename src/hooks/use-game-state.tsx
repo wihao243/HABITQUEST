@@ -167,5 +167,40 @@ export function useGameState() {
     }
   };
 
-  return { stats, quests, inventory, shopItems, completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, updateProfile };
+  // --- ADMIN FUNCTIONS ---
+  const adminReset = () => {
+    setStats(INITIAL_STATS);
+    setQuests([]);
+    setInventory([]);
+    localStorage.clear();
+    showSuccess("¡Partida reseteada por completo!");
+  };
+
+  const adminAddGold = (amount: number) => {
+    setStats(prev => ({ ...prev, gold: prev.gold + amount }));
+    showSuccess(`+${amount} Oro añadido`);
+  };
+
+  const adminLevelUp = () => {
+    setStats(prev => ({
+      ...prev,
+      level: prev.level + 1,
+      xp: 0,
+      maxXp: Math.floor(prev.maxXp * 1.2),
+      maxHp: prev.maxHp + 10,
+      hp: prev.maxHp + 10
+    }));
+    showSuccess("¡Nivel subido manualmente!");
+  };
+
+  const adminClearInventory = () => {
+    setInventory([]);
+    showSuccess("Inventario vaciado");
+  };
+
+  return { 
+    stats, quests, inventory, shopItems, 
+    completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, updateProfile,
+    adminReset, adminAddGold, adminLevelUp, adminClearInventory
+  };
 }
