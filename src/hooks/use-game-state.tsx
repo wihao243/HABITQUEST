@@ -26,7 +26,6 @@ export function useGameState() {
     const saved = localStorage.getItem('habitquest_stats');
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Asegurar que los nuevos campos existan para usuarios antiguos
       return { ...INITIAL_STATS, ...parsed };
     }
     return INITIAL_STATS;
@@ -138,6 +137,12 @@ export function useGameState() {
       streak: 0,
     };
     setQuests(prev => [...prev, quest]);
+    showSuccess("¡Misión añadida!");
+  };
+
+  const updateQuest = (id: string, updates: Partial<Quest>) => {
+    setQuests(prev => prev.map(q => q.id === id ? { ...q, ...updates } : q));
+    showSuccess("¡Misión actualizada!");
   };
 
   const buyItem = (item: ShopItem) => {
@@ -157,5 +162,5 @@ export function useGameState() {
     }
   };
 
-  return { stats, quests, inventory, shopItems, completeQuest, takeDamage, addQuest, buyItem, updateProfile };
+  return { stats, quests, inventory, shopItems, completeQuest, takeDamage, addQuest, updateQuest, buyItem, updateProfile };
 }

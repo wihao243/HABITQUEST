@@ -1,19 +1,25 @@
-import { Quest, StatType } from "@/types/game";
+import { useState } from "react";
+import { Quest } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Flame, Plus, Skull } from "lucide-react";
+import { CheckCircle2, Flame, Plus, Skull, Edit3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { QuestDialog } from "./QuestDialog";
 
 interface QuestListProps {
   quests: Quest[];
   type: 'daily' | 'habit' | 'todo';
   onComplete: (id: string) => void;
   onFail: (amount: number) => void;
-  onAdd: (type: 'daily' | 'habit' | 'todo') => void;
+  onAdd: (data: Omit<Quest, 'id' | 'completed' | 'streak'>) => void;
+  onUpdate: (id: string, data: Partial<Quest>) => void;
 }
 
-export const QuestList = ({ quests, type, onComplete, onFail, onAdd }: QuestListProps) => {
+export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate }: QuestListProps) => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingQuest, setEditingQuest] = useState<Quest | undefined>(undefined);
+
   const filteredQuests = quests.filter(q => q.type === type);
   
   const config = {
@@ -22,13 +28,31 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd }: QuestList
     todo: { label: 'Tareas Únicas', color: 'text-green-500', empty: 'Lista de tareas pendientes.' },
   };
 
+  const handleOpenCreate = () => {
+    setEditingQuest(undefined);
+    setIsDialogOpen(true);
+  };
+
+  const handleOpenEdit = (quest: Quest) => {
+    setEditingQuest(quest);
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = (data: any) => {
+    if (editingQuest) {
+      onUpdate(editingQuest.id, data);
+    } else {
+      onAdd(data);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center">
         <h3 className={cn("text-xl font-black uppercase italic tracking-tight", config[type].color)}>
           {config[type].label}
         </h3>
-        <Button onClick={() => onAdd(type)} size="sm" className="bg-slate-900 hover:bg-indigo-600">
+        <Button onClick={handleOpenCreate} size="sm" className="bg-slate-900 hover:bg-indigo-600 font-bold">
           <Plus className="w-4 h-4 mr-2" /> Añadir
         </Button>
       </div>
@@ -36,7 +60,7 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd }: QuestList
       <div className="grid gap-3">
         {filteredQuests.map(quest => (
           <Card key={quest.id} className={cn(
-            "p-4 flex items-center justify-between border-2 transition-all",
+            "p-4 flex items-center justify-between border-2 transition-all group",
             quest.completed ? "opacity-50 bg-slate-50" : "hover:border-indigo-400 shadow-md bg-white"
           )}>
             <div className="flex items-center gap-4">
@@ -47,7 +71,15 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd }: QuestList
                 {quest.stat.substring(0, 2).toUpperCase()}
               </div>
               <div>
-                <p className="font-black text-slate-800 text-lg leading-tight">{quest.title}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-black text-slate-800 text-lg leading-tight">{quest.title}</p>
+                  <button 
+                    onClick={() => handleOpenEdit(quest)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-indigo-600"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                </div>
                 <div className="flex gap-2 mt-1">
                   <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-tighter">
                     {quest.difficulty}
@@ -94,6 +126,14 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd }: QuestList
           </div>
         )}
       </div>
+
+      <QuestDialog 
+        open={isDialogOpen} 
+        onOpenChange={setIsDialogOpen} 
+        onSubmit={handleSubmit}
+        initialData={editingQuest}
+        type={type}
+      />
     </div>
   );
 };

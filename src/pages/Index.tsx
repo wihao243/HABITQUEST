@@ -9,22 +9,7 @@ import { Trophy, Users, Settings, Calendar, Repeat, CheckSquare, ShoppingBag } f
 import { MadeWithDyad } from "@/components/made-with-dyad";
 
 const Index = () => {
-  const { stats, quests, inventory, shopItems, completeQuest, takeDamage, addQuest, buyItem, updateProfile } = useGameState();
-
-  const handleAddNewQuest = (type: 'daily' | 'habit' | 'todo') => {
-    const title = prompt(`Nombre de la ${type === 'habit' ? 'hábito' : 'misión'}:`);
-    if (!title) return;
-    
-    const difficulty = prompt("Dificultad (easy, medium, hard):") as any;
-    const stat = prompt("Atributo (fuerza, inteligencia, espiritualidad, carisma):") as any;
-
-    addQuest({
-      title,
-      type,
-      difficulty: difficulty || 'medium',
-      stat: stat || 'fuerza'
-    });
-  };
+  const { stats, quests, inventory, shopItems, completeQuest, takeDamage, addQuest, updateQuest, buyItem, updateProfile } = useGameState();
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
@@ -63,15 +48,36 @@ const Index = () => {
 
           <div className="mt-8">
             <TabsContent value="daily">
-              <QuestList quests={quests} type="daily" onComplete={completeQuest} onFail={takeDamage} onAdd={handleAddNewQuest} />
+              <QuestList 
+                quests={quests} 
+                type="daily" 
+                onComplete={completeQuest} 
+                onFail={takeDamage} 
+                onAdd={addQuest}
+                onUpdate={updateQuest}
+              />
             </TabsContent>
             
             <TabsContent value="habit">
-              <QuestList quests={quests} type="habit" onComplete={completeQuest} onFail={takeDamage} onAdd={handleAddNewQuest} />
+              <QuestList 
+                quests={quests} 
+                type="habit" 
+                onComplete={completeQuest} 
+                onFail={takeDamage} 
+                onAdd={addQuest}
+                onUpdate={updateQuest}
+              />
             </TabsContent>
 
             <TabsContent value="todo">
-              <QuestList quests={quests} type="todo" onComplete={completeQuest} onFail={takeDamage} onAdd={handleAddNewQuest} />
+              <QuestList 
+                quests={quests} 
+                type="todo" 
+                onComplete={completeQuest} 
+                onFail={takeDamage} 
+                onAdd={addQuest}
+                onUpdate={updateQuest}
+              />
             </TabsContent>
 
             <TabsContent value="shop">
