@@ -18,6 +18,15 @@ export interface CharacterStats {
   maxHp: number;
   gold: number;
   attributes: Record<StatType, number>;
+  activePenalties: string[]; // IDs de los castigos activos
+}
+
+export interface Penalty {
+  id: string;
+  title: string;
+  description: string;
+  category: 'fisico' | 'limpieza' | 'digital' | 'social';
+  icon: string;
 }
 
 export interface Quest {

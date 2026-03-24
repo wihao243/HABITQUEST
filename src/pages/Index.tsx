@@ -4,6 +4,7 @@ import { QuestList } from "@/components/game/QuestList";
 import { Shop } from "@/components/game/Shop";
 import { Inventory } from "@/components/game/Inventory";
 import { AdminPanel } from "@/components/game/AdminPanel";
+import { DeathOverlay } from "@/components/game/DeathOverlay";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,11 +15,22 @@ const Index = () => {
   const { 
     stats, quests, inventory, shopItems, virtualTime, boughtInRotation,
     completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, useItem, updateProfile,
-    adminReset, adminAddGold, adminLevelUp, adminClearInventory, advanceTime
+    adminReset, adminAddGold, adminLevelUp, adminClearInventory, advanceTime,
+    completePenalty, revive
   } = useGameState();
+
+  const isDead = stats.hp <= 0;
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
+      {isDead && (
+        <DeathOverlay 
+          penaltyIds={stats.activePenalties} 
+          onComplete={completePenalty} 
+          onRevive={revive} 
+        />
+      )}
+
       <nav className="bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-50 shadow-sm">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">

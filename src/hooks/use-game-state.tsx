@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { CharacterStats, Quest, ShopItem, StatType } from '../types/game';
+import { CharacterStats, Quest, ShopItem, StatType, Penalty } from '../types/game';
 import { ALL_ITEMS } from '../data/items';
+import { ALL_PENALTIES } from '../data/penalties';
 import { showSuccess, showError } from '../utils/toast';
 
 const INITIAL_STATS: CharacterStats = {
@@ -19,6 +20,7 @@ const INITIAL_STATS: CharacterStats = {
     espiritualidad: 1,
     carisma: 1,
   },
+  activePenalties: [],
 };
 
 const getISOWeek = (date: Date) => {
@@ -67,20 +69,26 @@ export function useGameState() {
     };
   }, [virtualTime]);
 
-  // Lógica de cambio de ciclo (Día, Semana, Mes)
+  // Lógica de cambio de ciclo
   useEffect(() => {
     const lastSeedsStr = localStorage.getItem('habitquest_last_seeds');
     const lastSeeds = lastSeedsStr ? JSON.parse(lastSeedsStr) : {};
     
     if (lastSeeds.day !== seeds.day) {
-      // 1. Reiniciar misiones diarias y hábitos
-      setQuests(prev => prev.map(q => 
-        (q.type === 'daily' || q.type === 'habit') 
-          ? { ...q, completed: false } 
-          : q
-      ));
+      // 1. Reiniciar misiones
+      setQuests(prev => prev.map(q => (q.type === 'daily' || q.type === 'habit') ? { ...q, completed: false } : q));
 
-      // 2. Reiniciar rotaciones de tienda
+      // 2. Si está muerto, añadir otro castigo
+      if (stats.hp <= 0) {
+        const available = ALL_PENALTIES.filter(p => !stats.activePenalties.includes(p.id));
+        if (available.length > 0) {
+          const random = available[Math.floor(Math.random() * available.length)];
+          setStats(prev => ({ ...prev, activePenalties: [...prev.activePenalties, random.id] }));
+          showError("¡Un nuevo día de muerte! Se ha añadido otro castigo.");
+        }
+      }
+
+      // 3. Reiniciar tienda
       setBoughtInRotation(prev => {
         const next = { ...prev };
         next.daily = [];
@@ -89,11 +97,9 @@ export function useGameState() {
         return next;
       });
 
-      // 3. Guardar nuevas semillas
       localStorage.setItem('habitquest_last_seeds', JSON.stringify(seeds));
-      console.log("¡Nuevo día detectado! Misiones reiniciadas.");
     }
-  }, [seeds]);
+  }, [seeds, stats.hp]);
 
   useEffect(() => {
     localStorage.setItem('habitquest_stats', JSON.stringify(stats));
@@ -126,18 +132,14 @@ export function useGameState() {
   }, [seeds]);
 
   const buyItem = (item: ShopItem, source: 'daily' | 'weekly' | 'monthly') => {
-    if (boughtInRotation[source].includes(item.id)) {
-      showError("Agotado en esta rotación.");
-      return;
-    }
+    if (stats.hp <= 0) return showError("Estás muerto. No puedes comprar.");
+    if (boughtInRotation[source].includes(item.id)) return showError("Agotado.");
     if (stats.gold >= item.cost) {
       setStats(prev => ({ ...prev, gold: prev.gold - item.cost }));
       setInventory(prev => [...prev, item.id]);
       setBoughtInRotation(prev => ({ ...prev, [source]: [...prev[source], item.id] }));
       showSuccess(`¡Comprado: ${item.title}!`);
-    } else {
-      showError("No tienes suficiente oro.");
-    }
+    } else showError("Oro insuficiente.");
   };
 
   const useItem = (itemId: string) => {
@@ -169,6 +171,48 @@ export function useGameState() {
     showSuccess(`¡Usado: ${item.title}!`);
   };
 
+  const completeQuest = (id: string) => {
+    if (stats.hp <= 0) return showError("Estás muerto. No puedes completar misiones.");
+    const q = quests.find(x => x.id === id);
+    if (!q) return;
+    const xp = q.difficulty === 'easy' ? 10 : q.difficulty === 'medium' ? 25 : 50;
+    const gold = q.difficulty === 'easy' ? 5 : q.difficulty === 'medium' ? 15 : 30;
+    setStats(prev => ({ ...prev, gold: prev.gold + gold, xp: prev.xp + xp }));
+    if (q.type === 'todo') setQuests(prev => prev.filter(x => x.id !== id));
+    else setQuests(prev => prev.map(x => x.id === id ? { ...x, completed: true, streak: (x.streak || 0) + 1 } : x));
+    showSuccess(`+${xp} XP | +${gold} Oro`);
+  };
+
+  const takeDamage = (amount: number) => {
+    setStats(prev => {
+      const newHp = Math.max(0, prev.hp - amount);
+      let penalties = prev.activePenalties;
+      
+      // Si acaba de morir, añadir primer castigo
+      if (newHp === 0 && prev.hp > 0) {
+        const random = ALL_PENALTIES[Math.floor(Math.random() * ALL_PENALTIES.length)];
+        penalties = [random.id];
+        showError("¡HAS MUERTO! Debes cumplir tu penitencia.");
+      }
+      
+      return { ...prev, hp: newHp, activePenalties: penalties };
+    });
+  };
+
+  const completePenalty = (id: string) => {
+    setStats(prev => ({
+      ...prev,
+      activePenalties: prev.activePenalties.filter(pId => pId !== id)
+    }));
+    showSuccess("Castigo cumplido.");
+  };
+
+  const revive = () => {
+    if (stats.activePenalties.length > 0) return showError("Aún tienes castigos pendientes.");
+    setStats(prev => ({ ...prev, hp: Math.floor(prev.maxHp * 0.2) }));
+    showSuccess("¡Has vuelto a la vida!");
+  };
+
   const advanceTime = (days: number) => {
     const newDate = new Date(virtualTime);
     newDate.setDate(newDate.getDate() + days);
@@ -180,17 +224,6 @@ export function useGameState() {
   const addQuest = (q: any) => setQuests(prev => [...prev, { ...q, id: Math.random().toString(36).substr(2, 9), completed: false, streak: 0 }]);
   const updateQuest = (id: string, u: any) => setQuests(prev => prev.map(q => q.id === id ? { ...q, ...u } : q));
   const deleteQuest = (id: string) => setQuests(prev => prev.filter(q => q.id !== id));
-  const completeQuest = (id: string) => {
-    const q = quests.find(x => x.id === id);
-    if (!q) return;
-    const xp = q.difficulty === 'easy' ? 10 : q.difficulty === 'medium' ? 25 : 50;
-    const gold = q.difficulty === 'easy' ? 5 : q.difficulty === 'medium' ? 15 : 30;
-    setStats(prev => ({ ...prev, gold: prev.gold + gold, xp: prev.xp + xp }));
-    if (q.type === 'todo') setQuests(prev => prev.filter(x => x.id !== id));
-    else setQuests(prev => prev.map(x => x.id === id ? { ...x, completed: true, streak: (x.streak || 0) + 1 } : x));
-    showSuccess(`+${xp} XP | +${gold} Oro`);
-  };
-  const takeDamage = (a: number) => setStats(prev => ({ ...prev, hp: Math.max(0, prev.hp - a) }));
 
   const adminReset = () => { 
     setStats(INITIAL_STATS); setQuests([]); setInventory([]); setVirtualTime(new Date()); 
@@ -203,6 +236,7 @@ export function useGameState() {
   return { 
     stats, quests, inventory, shopItems, virtualTime, boughtInRotation,
     completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, useItem, updateProfile,
-    adminReset, adminAddGold, adminLevelUp, adminClearInventory, advanceTime
+    adminReset, adminAddGold, adminLevelUp, adminClearInventory, advanceTime,
+    completePenalty, revive
   };
 }
