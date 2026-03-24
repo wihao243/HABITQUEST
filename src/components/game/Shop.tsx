@@ -2,7 +2,7 @@ import { ShopItem } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingBag, Calendar, Clock, Star, Heart, Info } from "lucide-react";
+import { ShoppingBag, Calendar, Clock, Star, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -11,19 +11,17 @@ interface ShopProps {
     daily: ShopItem[];
     weekly: ShopItem[];
     monthly: ShopItem[];
-    real: ShopItem[];
   };
   boughtInRotation: {
     daily: string[];
     weekly: string[];
     monthly: string[];
-    real: string[];
   };
-  onBuy: (item: ShopItem, source: 'daily' | 'weekly' | 'monthly' | 'real') => void;
+  onBuy: (item: ShopItem, source: 'daily' | 'weekly' | 'monthly') => void;
 }
 
 export const Shop = ({ items, boughtInRotation, onBuy }: ShopProps) => {
-  const renderItem = (item: ShopItem, source: 'daily' | 'weekly' | 'monthly' | 'real') => {
+  const renderItem = (item: ShopItem, source: 'daily' | 'weekly' | 'monthly') => {
     const isSoldOut = boughtInRotation[source].includes(item.id);
     
     return (
@@ -95,7 +93,7 @@ export const Shop = ({ items, boughtInRotation, onBuy }: ShopProps) => {
       </div>
 
       <Tabs defaultValue="daily" className="w-full">
-        <TabsList className="grid grid-cols-4 w-full bg-slate-100 p-1 rounded-xl border-2 border-slate-200">
+        <TabsList className="grid grid-cols-3 w-full bg-slate-100 p-1 rounded-xl border-2 border-slate-200">
           <TabsTrigger value="daily" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-xs">
             <Clock className="w-3 h-3 mr-1" /> Diaria
           </TabsTrigger>
@@ -104,9 +102,6 @@ export const Shop = ({ items, boughtInRotation, onBuy }: ShopProps) => {
           </TabsTrigger>
           <TabsTrigger value="monthly" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-xs">
             <Star className="w-3 h-3 mr-1" /> Mensual
-          </TabsTrigger>
-          <TabsTrigger value="real" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-xs">
-            <Heart className="w-3 h-3 mr-1" /> Reales
           </TabsTrigger>
         </TabsList>
 
@@ -119,9 +114,6 @@ export const Shop = ({ items, boughtInRotation, onBuy }: ShopProps) => {
           </TabsContent>
           <TabsContent value="monthly" className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {items.monthly.map(item => renderItem(item, 'monthly'))}
-          </TabsContent>
-          <TabsContent value="real" className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {items.real.map(item => renderItem(item, 'real'))}
           </TabsContent>
         </div>
       </Tabs>

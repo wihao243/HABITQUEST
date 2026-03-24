@@ -21,7 +21,6 @@ const INITIAL_STATS: CharacterStats = {
   },
 };
 
-// Función auxiliar para obtener el número de semana real (ISO)
 const getISOWeek = (date: Date) => {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const dayNum = d.getUTCDay() || 7;
@@ -53,13 +52,12 @@ export function useGameState() {
   });
 
   const [boughtInRotation, setBoughtInRotation] = useState<{
-    daily: string[], weekly: string[], monthly: string[], real: string[]
+    daily: string[], weekly: string[], monthly: string[]
   }>(() => {
     const saved = localStorage.getItem('habitquest_bought_rotation');
-    return saved ? JSON.parse(saved) : { daily: [], weekly: [], monthly: [], real: [] };
+    return saved ? JSON.parse(saved) : { daily: [], weekly: [], monthly: [] };
   });
 
-  // Semillas únicas para cada periodo
   const seeds = useMemo(() => {
     const d = virtualTime;
     return {
@@ -69,7 +67,6 @@ export function useGameState() {
     };
   }, [virtualTime]);
 
-  // Resetear stock cuando cambian las semillas
   useEffect(() => {
     const lastSeedsStr = localStorage.getItem('habitquest_last_seeds');
     const lastSeeds = lastSeedsStr ? JSON.parse(lastSeedsStr) : {};
@@ -77,11 +74,9 @@ export function useGameState() {
     setBoughtInRotation(prev => {
       const next = { ...prev };
       let changed = false;
-
       if (lastSeeds.day !== seeds.day) { next.daily = []; changed = true; }
       if (lastSeeds.week !== seeds.week) { next.weekly = []; changed = true; }
       if (lastSeeds.month !== seeds.month) { next.monthly = []; changed = true; }
-
       if (changed) {
         localStorage.setItem('habitquest_last_seeds', JSON.stringify(seeds));
         return next;
@@ -98,44 +93,36 @@ export function useGameState() {
     localStorage.setItem('habitquest_bought_rotation', JSON.stringify(boughtInRotation));
   }, [stats, quests, inventory, virtualTime, boughtInRotation]);
 
-  // Generador de objetos basado en semilla (Seeded Random)
   const shopItems = useMemo(() => {
-    const getSeededItems = (seed: string, count: number, excludeCategories: string[]) => {
-      const pool = ALL_ITEMS.filter(item => !excludeCategories.includes(item.category));
+    const getSeededItems = (seed: string, count: number) => {
+      const pool = ALL_ITEMS.filter(item => item.category !== 'real');
       if (pool.length === 0) return [];
-
-      // Hash simple de la semilla
       let h = 0;
       for (let i = 0; i < seed.length; i++) h = seed.charCodeAt(i) + ((h << 5) - h);
-      
       const result: ShopItem[] = [];
       const tempPool = [...pool];
-      
       for (let i = 0; i < count && tempPool.length > 0; i++) {
-        // Generador congruencial lineal para obtener el siguiente índice
         h = (h * 1664525 + 1013904223) >>> 0;
         const index = h % tempPool.length;
         result.push(tempPool.splice(index, 1)[0]);
       }
       return result;
     };
-
     return {
-      daily: getSeededItems(seeds.day, 5, ['real']),
-      weekly: getSeededItems(seeds.week, 5, ['real']),
-      monthly: getSeededItems(seeds.month, 5, ['real']),
-      real: ALL_ITEMS.filter(item => item.category === 'real')
+      daily: getSeededItems(seeds.day, 5),
+      weekly: getSeededItems(seeds.week, 5),
+      monthly: getSeededItems(seeds.month, 5)
     };
   }, [seeds]);
 
-  const buyItem = (item: ShopItem, source: 'daily' | 'weekly' | 'monthly' | 'real') => {
+  const buyItem = (item: ShopItem, source: 'daily' | 'weekly' | 'monthly') => {
     if (boughtInRotation[source].includes(item.id)) {
       showError("Agotado en esta rotación.");
       return;
     }
     if (stats.gold >= item.cost) {
       setStats(prev => ({ ...prev, gold: prev.gold - item.cost }));
-      if (item.category !== 'real') setInventory(prev => [...prev, item.id]);
+      setInventory(prev => [...prev, item.id]);
       setBoughtInRotation(prev => ({ ...prev, [source]: [...prev[source], item.id] }));
       showSuccess(`¡Comprado: ${item.title}!`);
     } else {
@@ -146,7 +133,6 @@ export function useGameState() {
   const useItem = (itemId: string) => {
     const item = ALL_ITEMS.find(i => i.id === itemId);
     if (!item || !item.effect) return;
-
     setStats(prev => {
       const next = { ...prev };
       const { effect } = item;
@@ -164,7 +150,6 @@ export function useGameState() {
       if (effect.type === 'stat' && effect.stat) next.attributes[effect.stat] += effect.value;
       return next;
     });
-
     const index = inventory.indexOf(itemId);
     if (index > -1) {
       const newInv = [...inventory];
@@ -199,7 +184,7 @@ export function useGameState() {
 
   const adminReset = () => { 
     setStats(INITIAL_STATS); setQuests([]); setInventory([]); setVirtualTime(new Date()); 
-    setBoughtInRotation({ daily: [], weekly: [], monthly: [], real: [] }); localStorage.clear(); 
+    setBoughtInRotation({ daily: [], weekly: [], monthly: [] }); localStorage.clear(); 
   };
   const adminAddGold = (a: number) => setStats(prev => ({ ...prev, gold: prev.gold + a }));
   const adminLevelUp = () => setStats(prev => ({ ...prev, level: prev.level + 1 }));
