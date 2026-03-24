@@ -9,7 +9,7 @@ import { Trophy, Users, Settings, Calendar, Repeat, CheckSquare, ShoppingBag } f
 import { MadeWithDyad } from "@/components/made-with-dyad";
 
 const Index = () => {
-  const { stats, quests, inventory, shopItems, completeQuest, takeDamage, addQuest, updateQuest, buyItem, updateProfile } = useGameState();
+  const { stats, quests, inventory, shopItems, completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, updateProfile } = useGameState();
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
@@ -55,6 +55,7 @@ const Index = () => {
                 onFail={takeDamage} 
                 onAdd={addQuest}
                 onUpdate={updateQuest}
+                onDelete={deleteQuest}
               />
             </TabsContent>
             
@@ -66,6 +67,7 @@ const Index = () => {
                 onFail={takeDamage} 
                 onAdd={addQuest}
                 onUpdate={updateQuest}
+                onDelete={deleteQuest}
               />
             </TabsContent>
 
@@ -77,6 +79,7 @@ const Index = () => {
                 onFail={takeDamage} 
                 onAdd={addQuest}
                 onUpdate={updateQuest}
+                onDelete={deleteQuest}
               />
             </TabsContent>
 

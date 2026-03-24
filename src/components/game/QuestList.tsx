@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Quest } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Flame, Plus, Skull, Edit3 } from "lucide-react";
+import { CheckCircle2, Flame, Plus, Skull, Edit3, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { QuestDialog } from "./QuestDialog";
@@ -14,9 +14,10 @@ interface QuestListProps {
   onFail: (amount: number) => void;
   onAdd: (data: Omit<Quest, 'id' | 'completed' | 'streak'>) => void;
   onUpdate: (id: string, data: Partial<Quest>) => void;
+  onDelete: (id: string) => void;
 }
 
-export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate }: QuestListProps) => {
+export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, onDelete }: QuestListProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingQuest, setEditingQuest] = useState<Quest | undefined>(undefined);
 
@@ -73,12 +74,20 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate }:
               <div>
                 <div className="flex items-center gap-2">
                   <p className="font-black text-slate-800 text-lg leading-tight">{quest.title}</p>
-                  <button 
-                    onClick={() => handleOpenEdit(quest)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-indigo-600"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                  </button>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => handleOpenEdit(quest)}
+                      className="text-slate-400 hover:text-indigo-600 p-1"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => onDelete(quest.id)}
+                      className="text-slate-400 hover:text-rose-600 p-1"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <div className="flex gap-2 mt-1">
                   <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-tighter">

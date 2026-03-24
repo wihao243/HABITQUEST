@@ -145,6 +145,11 @@ export function useGameState() {
     showSuccess("¡Misión actualizada!");
   };
 
+  const deleteQuest = (id: string) => {
+    setQuests(prev => prev.filter(q => q.id !== id));
+    showSuccess("Misión eliminada");
+  };
+
   const buyItem = (item: ShopItem) => {
     if (inventory.includes(item.id) && item.category !== 'consumibles' && item.category !== 'real') {
       showError("Ya posees este objeto único.");
@@ -162,5 +167,5 @@ export function useGameState() {
     }
   };
 
-  return { stats, quests, inventory, shopItems, completeQuest, takeDamage, addQuest, updateQuest, buyItem, updateProfile };
+  return { stats, quests, inventory, shopItems, completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, updateProfile };
 }
