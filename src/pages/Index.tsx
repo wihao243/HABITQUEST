@@ -12,7 +12,7 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 
 const Index = () => {
   const { 
-    stats, quests, inventory, shopItems, virtualTime,
+    stats, quests, inventory, shopItems, virtualTime, boughtInRotation,
     completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, updateProfile,
     adminReset, adminAddGold, adminLevelUp, adminClearInventory, advanceTime
   } = useGameState();
@@ -73,7 +73,7 @@ const Index = () => {
               <QuestList quests={quests} type="todo" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} />
             </TabsContent>
             <TabsContent value="shop">
-              <Shop items={shopItems} inventory={inventory} onBuy={buyItem} />
+              <Shop items={shopItems} boughtInRotation={boughtInRotation} onBuy={buyItem} />
             </TabsContent>
             <TabsContent value="inventory">
               <Inventory inventoryIds={inventory} />

@@ -12,18 +12,23 @@ interface ShopProps {
     monthly: ShopItem[];
     real: ShopItem[];
   };
-  inventory: string[];
-  onBuy: (item: ShopItem) => void;
+  boughtInRotation: {
+    daily: string[];
+    weekly: string[];
+    monthly: string[];
+    real: string[];
+  };
+  onBuy: (item: ShopItem, source: 'daily' | 'weekly' | 'monthly' | 'real') => void;
 }
 
-export const Shop = ({ items, inventory, onBuy }: ShopProps) => {
-  const renderItem = (item: ShopItem) => {
-    const isOwned = inventory.includes(item.id) && item.category !== 'consumibles' && item.category !== 'real';
+export const Shop = ({ items, boughtInRotation, onBuy }: ShopProps) => {
+  const renderItem = (item: ShopItem, source: 'daily' | 'weekly' | 'monthly' | 'real') => {
+    const isSoldOut = boughtInRotation[source].includes(item.id);
     
     return (
-      <Card key={item.id} className={cn(
+      <Card key={`${source}-${item.id}`} className={cn(
         "p-4 border-2 transition-all group relative overflow-hidden",
-        isOwned ? "opacity-60 bg-slate-50" : "hover:border-yellow-400"
+        isSoldOut ? "opacity-60 bg-slate-50 grayscale" : "hover:border-yellow-400"
       )}>
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -41,18 +46,18 @@ export const Shop = ({ items, inventory, onBuy }: ShopProps) => {
             </div>
           </div>
           <Button 
-            disabled={isOwned}
-            onClick={() => onBuy(item)}
-            variant={isOwned ? "secondary" : "outline"}
+            disabled={isSoldOut}
+            onClick={() => onBuy(item, source)}
+            variant={isSoldOut ? "secondary" : "outline"}
             className={cn(
-              "font-black border-2",
-              !isOwned && "border-yellow-500 text-yellow-700 hover:bg-yellow-500 hover:text-white"
+              "font-black border-2 min-w-[100px]",
+              !isSoldOut && "border-yellow-500 text-yellow-700 hover:bg-yellow-500 hover:text-white"
             )}
           >
-            {isOwned ? "Poseído" : `${item.cost} Oro`}
+            {isSoldOut ? "Agotado" : `${item.cost} Oro`}
           </Button>
         </div>
-        {item.rarity === 'legendario' && (
+        {item.rarity === 'legendario' && !isSoldOut && (
           <div className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-black px-2 py-0.5 rotate-12 uppercase">
             Legendario
           </div>
@@ -86,23 +91,23 @@ export const Shop = ({ items, inventory, onBuy }: ShopProps) => {
 
         <div className="mt-6">
           <TabsContent value="daily" className="grid gap-3">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-2">Se actualiza en 24h</p>
-            {items.daily.map(renderItem)}
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-2">Stock limitado por 24h</p>
+            {items.daily.map(item => renderItem(item, 'daily'))}
           </TabsContent>
           
           <TabsContent value="weekly" className="grid gap-3">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-2">Nuevos objetos cada Lunes</p>
-            {items.weekly.map(renderItem)}
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-2">Nuevos suministros cada Lunes</p>
+            {items.weekly.map(item => renderItem(item, 'weekly'))}
           </TabsContent>
 
           <TabsContent value="monthly" className="grid gap-3">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-2">Edición limitada del mes</p>
-            {items.monthly.map(renderItem)}
+            {items.monthly.map(item => renderItem(item, 'monthly'))}
           </TabsContent>
 
           <TabsContent value="real" className="grid gap-3">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-2">Canjea tu esfuerzo por placer real</p>
-            {items.real.map(renderItem)}
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-2">Recompensas de vida real</p>
+            {items.real.map(item => renderItem(item, 'real'))}
           </TabsContent>
         </div>
       </Tabs>
