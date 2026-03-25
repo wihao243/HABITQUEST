@@ -7,6 +7,13 @@ export interface ItemEffect {
   stat?: StatType;
 }
 
+export interface DailyActivity {
+  date: string; // ISO date string
+  tasks: number;
+  habits: number;
+  dailies: number;
+}
+
 export interface GameStats {
   tasksCompleted: number;
   habitsCompleted: number;
@@ -16,6 +23,7 @@ export interface GameStats {
   totalGoldEarned: number;
   totalDeaths: number;
   itemsBought: number;
+  history: DailyActivity[];
 }
 
 export interface Achievement {

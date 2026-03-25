@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { CharacterStats, Quest, ShopItem, StatType, Penalty, Monster, GameStats } from '../types/game';
+import { CharacterStats, Quest, ShopItem, StatType, Penalty, Monster, GameStats, DailyActivity } from '../types/game';
 import { ALL_ITEMS } from '../data/items';
 import { ALL_PENALTIES } from '../data/penalties';
 import { showSuccess, showError } from '../utils/toast';
@@ -13,6 +13,7 @@ const INITIAL_GAME_STATS: GameStats = {
   totalGoldEarned: 0,
   totalDeaths: 0,
   itemsBought: 0,
+  history: [],
 };
 
 const INITIAL_STATS: CharacterStats = {
@@ -88,7 +89,6 @@ export function useGameState() {
     };
   }, [virtualTime]);
 
-  // Lógica de generación de objetos de la tienda
   const shopItems = useMemo(() => {
     const getSeededItems = (seed: string, count: number) => {
       const pool = ALL_ITEMS.filter(item => item.category !== 'real');
@@ -210,13 +210,35 @@ export function useGameState() {
     const xp = q.difficulty === 'easy' ? 10 : q.difficulty === 'medium' ? 25 : 50;
     const gold = q.difficulty === 'easy' ? 5 : q.difficulty === 'medium' ? 15 : 30;
     
+    const today = virtualTime.toISOString().split('T')[0];
+
     setStats(prev => {
+      let nextGameStats = { ...prev.gameStats };
+      
+      // Actualizar historial diario
+      const historyIndex = nextGameStats.history.findIndex(h => h.date === today);
+      if (historyIndex > -1) {
+        const day = nextGameStats.history[historyIndex];
+        if (q.type === 'todo') day.tasks += 1;
+        if (q.type === 'habit') day.habits += 1;
+        if (q.type === 'daily') day.dailies += 1;
+      } else {
+        nextGameStats.history.push({
+          date: today,
+          tasks: q.type === 'todo' ? 1 : 0,
+          habits: q.type === 'habit' ? 1 : 0,
+          dailies: q.type === 'daily' ? 1 : 0,
+        });
+        // Mantener solo los últimos 30 días
+        if (nextGameStats.history.length > 30) nextGameStats.history.shift();
+      }
+
       let next = { 
         ...prev, 
         gold: prev.gold + gold, 
         xp: prev.xp + xp,
         gameStats: {
-          ...prev.gameStats,
+          ...nextGameStats,
           totalGoldEarned: prev.gameStats.totalGoldEarned + gold,
           tasksCompleted: q.type === 'todo' ? prev.gameStats.tasksCompleted + 1 : prev.gameStats.tasksCompleted,
           habitsCompleted: q.type === 'habit' ? prev.gameStats.habitsCompleted + 1 : prev.gameStats.habitsCompleted,

@@ -53,7 +53,7 @@ const Index = () => {
           </div>
           <div className="flex gap-1">
             <AchievementsDialog gameStats={stats.gameStats} />
-            <StatsDialog gameStats={stats.gameStats} />
+            <StatsDialog stats={stats} />
             <AdminPanel 
               onReset={adminReset} 
               onAddGold={adminAddGold} 

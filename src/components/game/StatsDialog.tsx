@@ -1,13 +1,32 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { User, CheckSquare, Repeat, Calendar, Sword, Skull, Coins, ShoppingCart } from "lucide-react";
-import { GameStats } from "@/types/game";
+import { User, CheckSquare, Repeat, Calendar, Sword, Skull, Coins, ShoppingCart, BarChart3, Activity } from "lucide-react";
+import { CharacterStats, GameStats } from "@/types/game";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend } from 'recharts';
 
 interface StatsDialogProps {
-  gameStats: GameStats;
+  stats: CharacterStats;
 }
 
-export const StatsDialog = ({ gameStats }: StatsDialogProps) => {
+export const StatsDialog = ({ stats }: StatsDialogProps) => {
+  const gameStats = stats.gameStats;
+
+  // Datos para el gráfico de radar (Atributos)
+  const attributeData = [
+    { subject: 'Fuerza', A: stats.attributes.fuerza, fullMark: 100 },
+    { subject: 'Inteligencia', A: stats.attributes.inteligencia, fullMark: 100 },
+    { subject: 'Espíritu', A: stats.attributes.espiritualidad, fullMark: 100 },
+    { subject: 'Carisma', A: stats.attributes.carisma, fullMark: 100 },
+  ];
+
+  // Datos para el gráfico de barras (Historial de los últimos 7 días)
+  const historyData = gameStats.history.slice(-7).map(day => ({
+    name: day.date.split('-').slice(1).join('/'),
+    Tareas: day.tasks,
+    Hábitos: day.habits,
+    Diarias: day.dailies,
+  }));
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -15,30 +34,79 @@ export const StatsDialog = ({ gameStats }: StatsDialogProps) => {
           <User className="w-5 h-5 text-slate-600" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] bg-white rounded-2xl border-4 border-slate-900">
+      <DialogContent className="sm:max-w-[600px] bg-white rounded-2xl border-4 border-slate-900 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter text-slate-900 flex items-center gap-2">
             <User className="w-6 h-6" /> Registro de Héroe
           </DialogTitle>
         </DialogHeader>
         
-        <div className="grid grid-cols-2 gap-4 pt-4">
-          <StatCard icon={<CheckSquare className="text-emerald-500" />} label="Tareas" value={gameStats.tasksCompleted} />
-          <StatCard icon={<Repeat className="text-purple-500" />} label="Hábitos" value={gameStats.habitsCompleted} />
-          <StatCard icon={<Calendar className="text-blue-500" />} label="Diarias" value={gameStats.dailiesCompleted} />
-          <StatCard icon={<Sword className="text-rose-500" />} label="Enemigos" value={gameStats.monstersDefeated} />
-          <StatCard icon={<Skull className="text-slate-900" />} label="Jefes" value={gameStats.bossesDefeated} />
-          <StatCard icon={<Coins className="text-amber-500" />} label="Oro Total" value={gameStats.totalGoldEarned} />
-          <StatCard icon={<Skull className="text-rose-700" />} label="Muertes" value={gameStats.totalDeaths} />
-          <StatCard icon={<ShoppingCart className="text-indigo-500" />} label="Compras" value={gameStats.itemsBought} />
-        </div>
+        <div className="space-y-8 pt-4">
+          {/* Resumen Numérico */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard icon={<CheckSquare className="text-emerald-500" />} label="Tareas" value={gameStats.tasksCompleted} />
+            <StatCard icon={<Repeat className="text-purple-500" />} label="Hábitos" value={gameStats.habitsCompleted} />
+            <StatCard icon={<Calendar className="text-blue-500" />} label="Diarias" value={gameStats.dailiesCompleted} />
+            <StatCard icon={<Sword className="text-rose-500" />} label="Enemigos" value={gameStats.monstersDefeated} />
+          </div>
 
-        <div className="mt-6 p-4 bg-slate-50 rounded-xl border-2 border-slate-100">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Resumen de Carrera</p>
-          <p className="text-sm font-bold text-slate-600 italic">
-            Has completado un total de {gameStats.tasksCompleted + gameStats.habitsCompleted + gameStats.dailiesCompleted} actividades de disciplina. 
-            {gameStats.monstersDefeated > 0 ? ` Has liberado al mundo de ${gameStats.monstersDefeated} amenazas.` : " Aún no has entrado en combate."}
-          </p>
+          {/* Gráfico de Atributos (Radar) */}
+          <div className="bg-slate-50 p-6 rounded-2xl border-2 border-slate-100">
+            <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+              <Activity className="w-4 h-4" /> Distribución de Atributos
+            </h4>
+            <div className="h-[250px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={attributeData}>
+                  <PolarGrid stroke="#e2e8f0" />
+                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 'bold' }} />
+                  <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={false} axisLine={false} />
+                  <Radar
+                    name="Atributos"
+                    dataKey="A"
+                    stroke="#4f46e5"
+                    fill="#4f46e5"
+                    fillOpacity={0.6}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Gráfico de Actividad (Barras) */}
+          <div className="bg-slate-50 p-6 rounded-2xl border-2 border-slate-100">
+            <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" /> Actividad de los últimos 7 días
+            </h4>
+            {historyData.length > 0 ? (
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={historyData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#64748b', fontSize: 10, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '12px', color: '#fff' }}
+                      itemStyle={{ fontWeight: 'bold', fontSize: '12px' }}
+                    />
+                    <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
+                    <Bar dataKey="Tareas" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Hábitos" fill="#a855f7" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Diarias" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-[200px] flex items-center justify-center text-slate-400 font-bold italic text-sm">
+                No hay datos de actividad todavía. ¡Empieza a completar misiones!
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard icon={<Coins className="text-amber-500" />} label="Oro Total" value={gameStats.totalGoldEarned} />
+            <StatCard icon={<Skull className="text-rose-700" />} label="Muertes" value={gameStats.totalDeaths} />
+          </div>
         </div>
       </DialogContent>
     </Dialog>
