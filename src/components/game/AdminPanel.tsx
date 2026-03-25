@@ -1,6 +1,8 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, FastForward } from "lucide-react";
+import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, ShoppingBag } from "lucide-react";
+import { ShopEditor } from "./ShopEditor";
+import { ShopItem } from "@/types/game";
 
 interface AdminPanelProps {
   onReset: () => void;
@@ -9,9 +11,16 @@ interface AdminPanelProps {
   onClearInventory: () => void;
   onAdvanceTime: (days: number) => void;
   currentTime: Date;
+  allItems: ShopItem[];
+  onAddShopItem: (item: Omit<ShopItem, 'id'>) => void;
+  onUpdateShopItem: (id: string, updates: Partial<ShopItem>) => void;
+  onDeleteShopItem: (id: string) => void;
 }
 
-export const AdminPanel = ({ onReset, onAddGold, onLevelUp, onClearInventory, onAdvanceTime, currentTime }: AdminPanelProps) => {
+export const AdminPanel = ({ 
+  onReset, onAddGold, onLevelUp, onClearInventory, onAdvanceTime, currentTime,
+  allItems, onAddShopItem, onUpdateShopItem, onDeleteShopItem
+}: AdminPanelProps) => {
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -45,6 +54,16 @@ export const AdminPanel = ({ onReset, onAddGold, onLevelUp, onClearInventory, on
                 +1 Mes
               </Button>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gestión de Tienda</p>
+            <ShopEditor 
+              items={allItems} 
+              onAdd={onAddShopItem} 
+              onUpdate={onUpdateShopItem} 
+              onDelete={onDeleteShopItem} 
+            />
           </div>
 
           <div className="space-y-2">

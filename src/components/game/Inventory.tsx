@@ -1,5 +1,4 @@
 import { ShopItem } from "@/types/game";
-import { ALL_ITEMS } from "@/data/items";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Package, Smartphone, Utensils, Coffee, ShoppingCart, Users, Info, Clock, Pause, Play } from "lucide-react";
@@ -12,20 +11,20 @@ interface InventoryProps {
   activeTimers: Record<string, number>;
   pausedTimers: Record<string, boolean>;
   onTogglePause: (id: string) => void;
+  allItems: ShopItem[];
 }
 
-export const Inventory = ({ inventoryIds, onUseItem, activeTimers, pausedTimers, onTogglePause }: InventoryProps) => {
+export const Inventory = ({ inventoryIds, onUseItem, activeTimers, pausedTimers, onTogglePause, allItems }: InventoryProps) => {
   const itemCounts = inventoryIds.reduce((acc, id) => {
     acc[id] = (acc[id] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
   const uniqueItemIds = Object.keys(itemCounts);
-  const ownedItems = ALL_ITEMS.filter(item => uniqueItemIds.includes(item.id));
+  const ownedItems = allItems.filter(item => uniqueItemIds.includes(item.id));
   
-  // También mostramos los objetos que tienen temporizadores activos aunque ya no estén en el inventario
   const activeTimerIds = Object.keys(activeTimers);
-  const itemsWithTimers = ALL_ITEMS.filter(item => activeTimerIds.includes(item.id) && !uniqueItemIds.includes(item.id));
+  const itemsWithTimers = allItems.filter(item => activeTimerIds.includes(item.id) && !uniqueItemIds.includes(item.id));
   
   const allDisplayItems = [...ownedItems, ...itemsWithTimers];
 
@@ -93,20 +92,13 @@ export const Inventory = ({ inventoryIds, onUseItem, activeTimers, pausedTimers,
                             <p className="text-[10px] uppercase font-black text-slate-400">{item.rarity}</p>
                           </div>
                         </div>
-                        
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button className="text-slate-300 hover:text-indigo-500 transition-colors">
-                              <Info className="w-5 h-5" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent className="bg-slate-900 text-white border-none p-3 max-w-[200px]">
-                            <p className="text-xs font-bold">{item.description}</p>
-                          </TooltipContent>
-                        </Tooltip>
                       </div>
 
-                      <div className="flex flex-col gap-2">
+                      <div className="space-y-3">
+                        <p className="text-xs text-slate-500 font-medium italic bg-slate-50 p-2 rounded-lg border border-slate-100">
+                          {item.description}
+                        </p>
+
                         {timeLeft ? (
                           <div className="space-y-2">
                             <div className={cn(

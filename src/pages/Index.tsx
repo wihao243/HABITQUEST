@@ -17,10 +17,11 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 
 const Index = () => {
   const { 
-    stats, quests, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, pausedTimers,
+    stats, quests, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, pausedTimers, allItems,
     completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, useItem, updateProfile,
     adminReset, adminAddGold, adminLevelUp, adminClearInventory, advanceTime, togglePauseTimer,
-    completePenalty, revive, setActiveCombat, winCombat, loseCombat, escapeCombat
+    completePenalty, revive, setActiveCombat, winCombat, loseCombat, escapeCombat,
+    addShopItem, updateShopItem, deleteShopItem
   } = useGameState();
 
   const isDead = stats.hp <= 0;
@@ -61,6 +62,10 @@ const Index = () => {
               onClearInventory={adminClearInventory} 
               onAdvanceTime={advanceTime}
               currentTime={virtualTime}
+              allItems={allItems}
+              onAddShopItem={addShopItem}
+              onUpdateShopItem={updateShopItem}
+              onDeleteShopItem={deleteShopItem}
             />
           </div>
         </div>
@@ -114,6 +119,7 @@ const Index = () => {
                 activeTimers={stats.activeTimers} 
                 pausedTimers={pausedTimers}
                 onTogglePause={togglePauseTimer}
+                allItems={allItems}
               />
             </TabsContent>
           </div>

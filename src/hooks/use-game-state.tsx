@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { CharacterStats, Quest, Monster, ShopItem } from "@/types/game";
-import { ALL_ITEMS } from "@/data/items";
+import { ALL_ITEMS as INITIAL_ITEMS } from "@/data/items";
 import { showSuccess, showError } from "@/utils/toast";
 
 const INITIAL_GAME_STATS = {
@@ -87,14 +87,13 @@ export const useGameState = () => {
   const [activeCombat, setActiveCombat] = useState<Monster | null>(null);
   const [boughtItems, setBoughtItems] = useState<Record<string, number>>({});
   const [pausedTimers, setPausedTimers] = useState<Record<string, boolean>>({});
+  const [allItems, setAllItems] = useState<ShopItem[]>(INITIAL_ITEMS);
 
-  // Efecto para manejar los temporizadores activos cada segundo
   useEffect(() => {
     const interval = setInterval(() => {
       setStats(prev => {
         const newTimers = { ...prev.activeTimers };
         let changed = false;
-
         Object.keys(newTimers).forEach(itemId => {
           if (!pausedTimers[itemId] && newTimers[itemId] > 0) {
             newTimers[itemId] -= 1;
@@ -105,11 +104,9 @@ export const useGameState = () => {
             }
           }
         });
-
         return changed ? { ...prev, activeTimers: newTimers } : prev;
       });
     }, 1000);
-
     return () => clearInterval(interval);
   }, [pausedTimers]);
 
@@ -120,26 +117,26 @@ export const useGameState = () => {
   }), [virtualTime]);
 
   const shopItems = useMemo(() => {
-    const dailyPool = ALL_ITEMS.filter(item => item.effect.daily);
-    const weeklyPool = ALL_ITEMS.filter(item => item.effect.weekly);
-    const monthlyPool = ALL_ITEMS.filter(item => item.effect.monthly);
+    const dailyPool = allItems.filter(item => item.effect.daily);
+    const weeklyPool = allItems.filter(item => item.effect.weekly);
+    const monthlyPool = allItems.filter(item => item.effect.monthly);
     return {
       daily: getRotatedItems(dailyPool, seeds.daily, 5),
       weekly: getRotatedItems(weeklyPool, seeds.weekly, 5),
       monthly: getRotatedItems(monthlyPool, seeds.monthly, 5),
     };
-  }, [seeds]);
+  }, [seeds, allItems]);
 
   const boughtInRotation = useMemo(() => {
     const result: Record<string, boolean> = {};
     Object.entries(boughtItems).forEach(([itemId, seed]) => {
-      const item = ALL_ITEMS.find(i => i.id === itemId);
+      const item = allItems.find(i => i.id === itemId);
       if (!item) return;
       const currentSeed = item.effect.daily ? seeds.daily : item.effect.weekly ? seeds.weekly : seeds.monthly;
       if (seed === currentSeed) result[itemId] = true;
     });
     return result;
-  }, [boughtItems, seeds]);
+  }, [boughtItems, seeds, allItems]);
 
   const buyItem = (item: ShopItem) => {
     if (stats.gold < item.cost) {
@@ -150,9 +147,7 @@ export const useGameState = () => {
       showError("Este objeto ya ha sido comprado en este periodo.");
       return;
     }
-
     const currentSeed = item.effect.daily ? seeds.daily : item.effect.weekly ? seeds.weekly : seeds.monthly;
-    
     setStats(prev => ({
       ...prev,
       gold: prev.gold - item.cost,
@@ -164,23 +159,20 @@ export const useGameState = () => {
   };
 
   const useItem = (id: string) => {
-    const item = ALL_ITEMS.find(i => i.id === id);
+    const item = allItems.find(i => i.id === id);
     if (!item) return;
-
-    // Si el objeto tiene un temporizador, lo activamos
     if (item.effect.timer) {
       setStats(prev => ({
         ...prev,
         activeTimers: {
           ...prev.activeTimers,
-          [id]: (prev.activeTimers[id] || 0) + (item.effect.timer! * 60) // Convertimos minutos a segundos
+          [id]: (prev.activeTimers[id] || 0) + (item.effect.timer! * 60)
         }
       }));
       showSuccess(`¡Temporizador de ${item.title} iniciado!`);
     } else {
       showSuccess(`Has canjeado: ${item.title}`);
     }
-
     setInventory(prev => {
       const index = prev.indexOf(id);
       if (index > -1) {
@@ -193,10 +185,7 @@ export const useGameState = () => {
   };
 
   const togglePauseTimer = (itemId: string) => {
-    setPausedTimers(prev => ({
-      ...prev,
-      [itemId]: !prev[itemId]
-    }));
+    setPausedTimers(prev => ({ ...prev, [itemId]: !prev[itemId] }));
   };
 
   const advanceTime = (days: number) => {
@@ -206,9 +195,26 @@ export const useGameState = () => {
     showSuccess(`Tiempo avanzado ${days} días.`);
   };
 
+  // Funciones del Editor de Tienda
+  const addShopItem = (item: Omit<ShopItem, 'id'>) => {
+    const newItem = { ...item, id: `custom-${Math.random().toString(36).substr(2, 9)}` };
+    setAllItems(prev => [...prev, newItem]);
+    showSuccess("Objeto añadido a la tienda.");
+  };
+
+  const updateShopItem = (id: string, updates: Partial<ShopItem>) => {
+    setAllItems(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    showSuccess("Objeto actualizado.");
+  };
+
+  const deleteShopItem = (id: string) => {
+    setAllItems(prev => prev.filter(item => item.id !== id));
+    showSuccess("Objeto eliminado de la tienda.");
+  };
+
   return {
-    stats, quests, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, pausedTimers,
-    buyItem, advanceTime, togglePauseTimer,
+    stats, quests, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, pausedTimers, allItems,
+    buyItem, advanceTime, togglePauseTimer, addShopItem, updateShopItem, deleteShopItem,
     completeQuest: (id: string) => {
       const quest = quests.find(q => q.id === id);
       if (!quest) return;
