@@ -7,6 +7,8 @@ import { AdminPanel } from "@/components/game/AdminPanel";
 import { DeathOverlay } from "@/components/game/DeathOverlay";
 import { WorldMap } from "@/components/game/WorldMap";
 import { Combat } from "@/components/game/Combat";
+import { AchievementsDialog } from "@/components/game/AchievementsDialog";
+import { StatsDialog } from "@/components/game/StatsDialog";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -50,8 +52,8 @@ const Index = () => {
             <h1 className="text-xl font-black italic tracking-tighter text-slate-900">HABITQUEST</h1>
           </div>
           <div className="flex gap-1">
-            <Button variant="ghost" size="icon" className="rounded-full"><Trophy className="w-5 h-5 text-slate-600" /></Button>
-            <Button variant="ghost" size="icon" className="rounded-full"><Users className="w-5 h-5 text-slate-600" /></Button>
+            <AchievementsDialog gameStats={stats.gameStats} />
+            <StatsDialog gameStats={stats.gameStats} />
             <AdminPanel 
               onReset={adminReset} 
               onAddGold={adminAddGold} 

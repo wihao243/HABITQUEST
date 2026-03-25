@@ -1,8 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
-import { CharacterStats, Quest, ShopItem, StatType, Penalty, Monster } from '../types/game';
+import { CharacterStats, Quest, ShopItem, StatType, Penalty, Monster, GameStats } from '../types/game';
 import { ALL_ITEMS } from '../data/items';
 import { ALL_PENALTIES } from '../data/penalties';
 import { showSuccess, showError } from '../utils/toast';
+
+const INITIAL_GAME_STATS: GameStats = {
+  tasksCompleted: 0,
+  habitsCompleted: 0,
+  dailiesCompleted: 0,
+  monstersDefeated: 0,
+  bossesDefeated: 0,
+  totalGoldEarned: 0,
+  totalDeaths: 0,
+  itemsBought: 0,
+};
 
 const INITIAL_STATS: CharacterStats = {
   name: "Héroe de la Rutina",
@@ -23,6 +34,7 @@ const INITIAL_STATS: CharacterStats = {
   activePenalties: [],
   unlockedRegions: ['r1'],
   monsterCooldowns: {},
+  gameStats: INITIAL_GAME_STATS,
 };
 
 const getISOWeek = (date: Date) => {
@@ -41,7 +53,10 @@ export function useGameState() {
 
   const [stats, setStats] = useState<CharacterStats>(() => {
     const saved = localStorage.getItem('habitquest_stats');
-    if (saved) return { ...INITIAL_STATS, ...JSON.parse(saved) };
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { ...INITIAL_STATS, ...parsed, gameStats: { ...INITIAL_GAME_STATS, ...parsed.gameStats } };
+    }
     return INITIAL_STATS;
   });
 
@@ -123,33 +138,15 @@ export function useGameState() {
     localStorage.setItem('habitquest_bought_rotation', JSON.stringify(boughtInRotation));
   }, [stats, quests, inventory, virtualTime, boughtInRotation]);
 
-  const shopItems = useMemo(() => {
-    const getSeededItems = (seed: string, count: number) => {
-      const pool = ALL_ITEMS.filter(item => item.category !== 'real');
-      if (pool.length === 0) return [];
-      let h = 0;
-      for (let i = 0; i < seed.length; i++) h = seed.charCodeAt(i) + ((h << 5) - h);
-      const result: ShopItem[] = [];
-      const tempPool = [...pool];
-      for (let i = 0; i < count && tempPool.length > 0; i++) {
-        h = (h * 1664525 + 1013904223) >>> 0;
-        const index = h % tempPool.length;
-        result.push(tempPool.splice(index, 1)[0]);
-      }
-      return result;
-    };
-    return {
-      daily: getSeededItems(seeds.day, 5),
-      weekly: getSeededItems(seeds.week, 5),
-      monthly: getSeededItems(seeds.month, 5)
-    };
-  }, [seeds]);
-
   const buyItem = (item: ShopItem, source: 'daily' | 'weekly' | 'monthly') => {
     if (stats.hp <= 0) return showError("Estás muerto. No puedes comprar.");
     if (boughtInRotation[source].includes(item.id)) return showError("Agotado.");
     if (stats.gold >= item.cost) {
-      setStats(prev => ({ ...prev, gold: prev.gold - item.cost }));
+      setStats(prev => ({ 
+        ...prev, 
+        gold: prev.gold - item.cost,
+        gameStats: { ...prev.gameStats, itemsBought: prev.gameStats.itemsBought + 1 }
+      }));
       setInventory(prev => [...prev, item.id]);
       setBoughtInRotation(prev => ({ ...prev, [source]: [...prev[source], item.id] }));
       showSuccess(`¡Comprado: ${item.title}!`);
@@ -163,7 +160,10 @@ export function useGameState() {
       let next = { ...prev };
       const { effect } = item;
       if (effect.type === 'hp') next.hp = Math.min(next.maxHp, next.hp + effect.value);
-      if (effect.type === 'gold') next.gold += effect.value;
+      if (effect.type === 'gold') {
+        next.gold += effect.value;
+        next.gameStats.totalGoldEarned += effect.value;
+      }
       if (effect.type === 'xp') {
         next.xp += effect.value;
         next = checkLevelUp(next);
@@ -186,11 +186,24 @@ export function useGameState() {
     if (!q) return;
     const xp = q.difficulty === 'easy' ? 10 : q.difficulty === 'medium' ? 25 : 50;
     const gold = q.difficulty === 'easy' ? 5 : q.difficulty === 'medium' ? 15 : 30;
+    
     setStats(prev => {
-      let next = { ...prev, gold: prev.gold + gold, xp: prev.xp + xp };
+      let next = { 
+        ...prev, 
+        gold: prev.gold + gold, 
+        xp: prev.xp + xp,
+        gameStats: {
+          ...prev.gameStats,
+          totalGoldEarned: prev.gameStats.totalGoldEarned + gold,
+          tasksCompleted: q.type === 'todo' ? prev.gameStats.tasksCompleted + 1 : prev.gameStats.tasksCompleted,
+          habitsCompleted: q.type === 'habit' ? prev.gameStats.habitsCompleted + 1 : prev.gameStats.habitsCompleted,
+          dailiesCompleted: q.type === 'daily' ? prev.gameStats.dailiesCompleted + 1 : prev.gameStats.dailiesCompleted,
+        }
+      };
       next = checkLevelUp(next);
       return next;
     });
+    
     if (q.type === 'todo') setQuests(prev => prev.filter(x => x.id !== id));
     else setQuests(prev => prev.map(x => x.id === id ? { ...x, completed: true, streak: (x.streak || 0) + 1 } : x));
     showSuccess(`+${xp} XP | +${gold} Oro`);
@@ -200,12 +213,15 @@ export function useGameState() {
     setStats(prev => {
       const newHp = Math.max(0, prev.hp - amount);
       let penalties = prev.activePenalties;
+      let gameStats = { ...prev.gameStats };
+      
       if (newHp === 0 && prev.hp > 0) {
         const random = ALL_PENALTIES[Math.floor(Math.random() * ALL_PENALTIES.length)];
         penalties = [random.id];
+        gameStats.totalDeaths += 1;
         showError("¡HAS MUERTO! Debes cumplir tu penitencia.");
       }
-      return { ...prev, hp: newHp, activePenalties: penalties };
+      return { ...prev, hp: newHp, activePenalties: penalties, gameStats };
     });
   };
 
@@ -224,6 +240,12 @@ export function useGameState() {
         monsterCooldowns: {
           ...prev.monsterCooldowns,
           [activeCombat.id]: respawnTime.toISOString()
+        },
+        gameStats: {
+          ...prev.gameStats,
+          totalGoldEarned: prev.gameStats.totalGoldEarned + gold,
+          monstersDefeated: prev.gameStats.monstersDefeated + 1,
+          bossesDefeated: activeCombat.isBoss ? prev.gameStats.bossesDefeated + 1 : prev.gameStats.bossesDefeated,
         }
       };
       next = checkLevelUp(next);
@@ -271,7 +293,11 @@ export function useGameState() {
     setStats(INITIAL_STATS); setQuests([]); setInventory([]); setVirtualTime(new Date()); 
     setBoughtInRotation({ daily: [], weekly: [], monthly: [] }); localStorage.clear(); 
   };
-  const adminAddGold = (a: number) => setStats(prev => ({ ...prev, gold: prev.gold + a }));
+  const adminAddGold = (a: number) => setStats(prev => ({ 
+    ...prev, 
+    gold: prev.gold + a,
+    gameStats: { ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + a }
+  }));
   const adminLevelUp = () => setStats(prev => {
     let next = { ...prev, xp: prev.maxXp };
     return checkLevelUp(next);

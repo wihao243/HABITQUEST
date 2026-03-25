@@ -7,6 +7,26 @@ export interface ItemEffect {
   stat?: StatType;
 }
 
+export interface GameStats {
+  tasksCompleted: number;
+  habitsCompleted: number;
+  dailiesCompleted: number;
+  monstersDefeated: number;
+  bossesDefeated: number;
+  totalGoldEarned: number;
+  totalDeaths: number;
+  itemsBought: number;
+}
+
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  requirement: (stats: GameStats) => boolean;
+  unlocked?: boolean;
+}
+
 export interface CharacterStats {
   name: string;
   avatar: string;
@@ -20,7 +40,8 @@ export interface CharacterStats {
   attributes: Record<StatType, number>;
   activePenalties: string[];
   unlockedRegions: string[];
-  monsterCooldowns: Record<string, string>; // ID del monstruo -> ISO String de la fecha de reaparición
+  monsterCooldowns: Record<string, string>;
+  gameStats: GameStats;
 }
 
 export interface Monster {
@@ -34,6 +55,7 @@ export interface Monster {
   xpReward: number;
   goldReward: number;
   description: string;
+  isBoss?: boolean;
 }
 
 export interface Region {
