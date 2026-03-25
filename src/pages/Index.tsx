@@ -100,7 +100,7 @@ const Index = () => {
               <QuestList quests={quests} type="todo" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} />
             </TabsContent>
             <TabsContent value="world">
-              <WorldMap player={stats} onFight={setActiveCombat} />
+              <WorldMap player={stats} onFight={setActiveCombat} currentTime={virtualTime} />
             </TabsContent>
             <TabsContent value="shop">
               <Shop items={shopItems} boughtInRotation={boughtInRotation} onBuy={buyItem} />

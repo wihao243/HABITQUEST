@@ -22,6 +22,7 @@ const INITIAL_STATS: CharacterStats = {
   },
   activePenalties: [],
   unlockedRegions: ['r1'],
+  monsterCooldowns: {},
 };
 
 const getISOWeek = (date: Date) => {
@@ -72,22 +73,18 @@ export function useGameState() {
     };
   }, [virtualTime]);
 
-  // Lógica de subida de nivel centralizada
   const checkLevelUp = (currentStats: CharacterStats): CharacterStats => {
     let next = { ...currentStats };
     while (next.xp >= next.maxXp) {
       next.level += 1;
       next.xp -= next.maxXp;
       next.maxXp = Math.floor(next.maxXp * 1.2);
-      
-      // Mejora de estadísticas por nivel
       next.maxHp += 15;
-      next.hp = next.maxHp; // Curación completa al subir de nivel
+      next.hp = next.maxHp;
       next.attributes.fuerza += 0.5;
       next.attributes.inteligencia += 0.5;
       next.attributes.espiritualidad += 0.5;
       next.attributes.carisma += 0.5;
-      
       showSuccess(`¡NIVEL ${next.level}! Tus estadísticas han mejorado.`);
     }
     return next;
@@ -213,8 +210,22 @@ export function useGameState() {
   };
 
   const winCombat = (xp: number, gold: number, remainingHp: number) => {
+    if (!activeCombat) return;
+    
+    const respawnTime = new Date(virtualTime);
+    respawnTime.setHours(respawnTime.getHours() + 1);
+
     setStats(prev => {
-      let next = { ...prev, gold: prev.gold + gold, xp: prev.xp + xp, hp: remainingHp };
+      let next = { 
+        ...prev, 
+        gold: prev.gold + gold, 
+        xp: prev.xp + xp, 
+        hp: remainingHp,
+        monsterCooldowns: {
+          ...prev.monsterCooldowns,
+          [activeCombat.id]: respawnTime.toISOString()
+        }
+      };
       next = checkLevelUp(next);
       return next;
     });
@@ -223,7 +234,7 @@ export function useGameState() {
   };
 
   const loseCombat = (remainingHp: number) => {
-    takeDamage(stats.hp - remainingHp); // Aplicar el daño final
+    takeDamage(stats.hp - remainingHp);
     setActiveCombat(null);
   };
 

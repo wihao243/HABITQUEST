@@ -19,7 +19,8 @@ export interface CharacterStats {
   gold: number;
   attributes: Record<StatType, number>;
   activePenalties: string[];
-  unlockedRegions: string[]; // IDs de regiones desbloqueadas
+  unlockedRegions: string[];
+  monsterCooldowns: Record<string, string>; // ID del monstruo -> ISO String de la fecha de reaparición
 }
 
 export interface Monster {
