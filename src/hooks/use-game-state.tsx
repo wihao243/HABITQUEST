@@ -88,6 +88,29 @@ export function useGameState() {
     };
   }, [virtualTime]);
 
+  // Lógica de generación de objetos de la tienda
+  const shopItems = useMemo(() => {
+    const getSeededItems = (seed: string, count: number) => {
+      const pool = ALL_ITEMS.filter(item => item.category !== 'real');
+      if (pool.length === 0) return [];
+      let h = 0;
+      for (let i = 0; i < seed.length; i++) h = seed.charCodeAt(i) + ((h << 5) - h);
+      const result: ShopItem[] = [];
+      const tempPool = [...pool];
+      for (let i = 0; i < count && tempPool.length > 0; i++) {
+        h = (h * 1664525 + 1013904223) >>> 0;
+        const index = h % tempPool.length;
+        result.push(tempPool.splice(index, 1)[0]);
+      }
+      return result;
+    };
+    return {
+      daily: getSeededItems(seeds.day, 5),
+      weekly: getSeededItems(seeds.week, 5),
+      monthly: getSeededItems(seeds.month, 5)
+    };
+  }, [seeds]);
+
   const checkLevelUp = (currentStats: CharacterStats): CharacterStats => {
     let next = { ...currentStats };
     while (next.xp >= next.maxXp) {
