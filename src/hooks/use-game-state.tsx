@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { CharacterStats, Quest, Monster, ShopItem } from "@/types/game";
 import { ALL_ITEMS } from "@/data/items";
 import { showSuccess, showError } from "@/utils/toast";
@@ -57,6 +57,35 @@ const INITIAL_CHARACTER: CharacterStats = {
   monsterCooldowns: {},
 };
 
+// Función para obtener una semilla determinista basada en la fecha
+const getSeed = (date: Date, type: 'daily' | 'weekly' | 'monthly') => {
+  const y = date.getFullYear();
+  const m = date.getMonth();
+  const d = date.getDate();
+  
+  if (type === 'daily') return y * 10000 + m * 100 + d;
+  if (type === 'monthly') return y * 100 + m;
+  
+  // Para semanal, usamos el número de semana aproximado
+  const firstDayOfYear = new Date(y, 0, 1);
+  const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+  const weekNum = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+  return y * 100 + weekNum;
+};
+
+// Función para barajar un array de forma determinista con una semilla
+const getRotatedItems = (items: ShopItem[], seed: number, count: number) => {
+  if (items.length <= count) return items;
+  
+  const shuffled = [...items].sort((a, b) => {
+    const valA = Math.sin(seed + a.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) * 10000;
+    const valB = Math.sin(seed + b.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) * 10000;
+    return (valA - Math.floor(valA)) - (valB - Math.floor(valB));
+  });
+  
+  return shuffled.slice(0, count);
+};
+
 export const useGameState = () => {
   const [stats, setStats] = useState<CharacterStats>(INITIAL_CHARACTER);
   const [quests, setQuests] = useState<Quest[]>([]);
@@ -64,12 +93,18 @@ export const useGameState = () => {
   const [virtualTime, setVirtualTime] = useState(new Date());
   const [activeCombat, setActiveCombat] = useState<Monster | null>(null);
 
-  // Poblar la tienda filtrando por el tipo de efecto
-  const shopItems = {
-    daily: ALL_ITEMS.filter(item => item.effect.daily),
-    weekly: ALL_ITEMS.filter(item => item.effect.weekly),
-    monthly: ALL_ITEMS.filter(item => item.effect.monthly),
-  };
+  // Lógica de rotación de la tienda
+  const shopItems = useMemo(() => {
+    const dailyPool = ALL_ITEMS.filter(item => item.effect.daily);
+    const weeklyPool = ALL_ITEMS.filter(item => item.effect.weekly);
+    const monthlyPool = ALL_ITEMS.filter(item => item.effect.monthly);
+
+    return {
+      daily: getRotatedItems(dailyPool, getSeed(virtualTime, 'daily'), 5),
+      weekly: getRotatedItems(weeklyPool, getSeed(virtualTime, 'weekly'), 5),
+      monthly: getRotatedItems(monthlyPool, getSeed(virtualTime, 'monthly'), 5),
+    };
+  }, [virtualTime]);
 
   const buyItem = (item: ShopItem) => {
     if (stats.gold < item.cost) {
@@ -167,10 +202,46 @@ export const useGameState = () => {
     boughtInRotation: {},
     activeCombat,
     completeQuest: (id: string) => {
-      showSuccess("¡Misión completada!");
+      const quest = quests.find(q => q.id === id);
+      if (!quest) return;
+
+      // Recompensas básicas por misión
+      const rewards = {
+        easy: { xp: 10, gold: 5, attr: 0.1 },
+        medium: { xp: 25, gold: 15, attr: 0.2 },
+        hard: { xp: 60, gold: 40, attr: 0.5 },
+      };
+
+      const r = rewards[quest.difficulty];
+
+      setStats(prev => ({
+        ...prev,
+        xp: prev.xp + r.xp,
+        gold: prev.gold + r.gold,
+        attributes: {
+          ...prev.attributes,
+          [quest.stat]: prev.attributes[quest.stat] + r.attr
+        },
+        gameStats: {
+          ...prev.gameStats,
+          totalGoldEarned: prev.gameStats.totalGoldEarned + r.gold,
+          tasksCompleted: quest.type === 'todo' ? prev.gameStats.tasksCompleted + 1 : prev.gameStats.tasksCompleted,
+          habitsCompleted: quest.type === 'habit' ? prev.gameStats.habitsCompleted + 1 : prev.gameStats.habitsCompleted,
+          dailiesCompleted: quest.type === 'daily' ? prev.gameStats.dailiesCompleted + 1 : prev.gameStats.dailiesCompleted,
+        }
+      }));
+
+      if (quest.type === 'todo') {
+        setQuests(prev => prev.filter(q => q.id !== id));
+      } else {
+        setQuests(prev => prev.map(q => q.id === id ? { ...q, completed: true } : q));
+      }
+
+      showSuccess(`¡Misión completada! +${r.gold} Oro, +${r.xp} XP`);
     },
     takeDamage: (amount: number) => {
       setStats(prev => ({ ...prev, hp: Math.max(0, prev.hp - amount) }));
+      showError(`¡Has perdido ${amount} HP!`);
     },
     addQuest: (data: any) => {
       const newQuest: Quest = {
@@ -198,9 +269,15 @@ export const useGameState = () => {
     adminLevelUp,
     adminClearInventory,
     advanceTime,
-    completePenalty: (id: string) => {},
+    completePenalty: (id: string) => {
+      setStats(prev => ({
+        ...prev,
+        activePenalties: prev.activePenalties.filter(pId => pId !== id)
+      }));
+      showSuccess("Penitencia cumplida.");
+    },
     revive: () => {
-      setStats(prev => ({ ...prev, hp: prev.maxHp }));
+      setStats(prev => ({ ...prev, hp: prev.maxHp, activePenalties: [] }));
       showSuccess("¡Has revivido!");
     },
     setActiveCombat,
