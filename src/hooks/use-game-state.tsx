@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { CharacterStats, Quest, Monster, ShopItem } from "@/types/game";
 import { ALL_ITEMS } from "@/data/items";
 import { showSuccess, showError } from "@/utils/toast";
@@ -86,6 +86,32 @@ export const useGameState = () => {
   const [virtualTime, setVirtualTime] = useState(new Date());
   const [activeCombat, setActiveCombat] = useState<Monster | null>(null);
   const [boughtItems, setBoughtItems] = useState<Record<string, number>>({});
+  const [pausedTimers, setPausedTimers] = useState<Record<string, boolean>>({});
+
+  // Efecto para manejar los temporizadores activos cada segundo
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStats(prev => {
+        const newTimers = { ...prev.activeTimers };
+        let changed = false;
+
+        Object.keys(newTimers).forEach(itemId => {
+          if (!pausedTimers[itemId] && newTimers[itemId] > 0) {
+            newTimers[itemId] -= 1;
+            changed = true;
+            if (newTimers[itemId] <= 0) {
+              delete newTimers[itemId];
+              showSuccess(`¡El tiempo de recompensa ha terminado!`);
+            }
+          }
+        });
+
+        return changed ? { ...prev, activeTimers: newTimers } : prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [pausedTimers]);
 
   const seeds = useMemo(() => ({
     daily: getSeed(virtualTime, 'daily'),
@@ -137,6 +163,42 @@ export const useGameState = () => {
     showSuccess(`Has comprado: ${item.title}`);
   };
 
+  const useItem = (id: string) => {
+    const item = ALL_ITEMS.find(i => i.id === id);
+    if (!item) return;
+
+    // Si el objeto tiene un temporizador, lo activamos
+    if (item.effect.timer) {
+      setStats(prev => ({
+        ...prev,
+        activeTimers: {
+          ...prev.activeTimers,
+          [id]: (prev.activeTimers[id] || 0) + (item.effect.timer! * 60) // Convertimos minutos a segundos
+        }
+      }));
+      showSuccess(`¡Temporizador de ${item.title} iniciado!`);
+    } else {
+      showSuccess(`Has canjeado: ${item.title}`);
+    }
+
+    setInventory(prev => {
+      const index = prev.indexOf(id);
+      if (index > -1) {
+        const newInv = [...prev];
+        newInv.splice(index, 1);
+        return newInv;
+      }
+      return prev;
+    });
+  };
+
+  const togglePauseTimer = (itemId: string) => {
+    setPausedTimers(prev => ({
+      ...prev,
+      [itemId]: !prev[itemId]
+    }));
+  };
+
   const advanceTime = (days: number) => {
     const newTime = new Date(virtualTime);
     newTime.setDate(newTime.getDate() + days);
@@ -145,8 +207,8 @@ export const useGameState = () => {
   };
 
   return {
-    stats, quests, inventory, shopItems, virtualTime, boughtInRotation, activeCombat,
-    buyItem, advanceTime,
+    stats, quests, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, pausedTimers,
+    buyItem, advanceTime, togglePauseTimer,
     completeQuest: (id: string) => {
       const quest = quests.find(q => q.id === id);
       if (!quest) return;
@@ -182,14 +244,7 @@ export const useGameState = () => {
       setQuests(prev => prev.filter(q => q.id !== id));
       showSuccess("Misión eliminada.");
     },
-    useItem: (id: string) => {
-      setInventory(prev => {
-        const index = prev.indexOf(id);
-        if (index > -1) { const newInv = [...prev]; newInv.splice(index, 1); return newInv; }
-        return prev;
-      });
-      showSuccess("Recompensa canjeada.");
-    },
+    useItem,
     updateProfile: (updates: Partial<CharacterStats>) => {
       setStats(prev => ({ ...prev, ...updates }));
       showSuccess("Perfil actualizado.");

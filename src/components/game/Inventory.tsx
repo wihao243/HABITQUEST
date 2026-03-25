@@ -2,7 +2,7 @@ import { ShopItem } from "@/types/game";
 import { ALL_ITEMS } from "@/data/items";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Package, Smartphone, Utensils, Coffee, ShoppingCart, Users, Info } from "lucide-react";
+import { Package, Smartphone, Utensils, Coffee, ShoppingCart, Users, Info, Clock, Pause, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -10,9 +10,11 @@ interface InventoryProps {
   inventoryIds: string[];
   onUseItem: (id: string) => void;
   activeTimers: Record<string, number>;
+  pausedTimers: Record<string, boolean>;
+  onTogglePause: (id: string) => void;
 }
 
-export const Inventory = ({ inventoryIds, onUseItem, activeTimers }: InventoryProps) => {
+export const Inventory = ({ inventoryIds, onUseItem, activeTimers, pausedTimers, onTogglePause }: InventoryProps) => {
   const itemCounts = inventoryIds.reduce((acc, id) => {
     acc[id] = (acc[id] || 0) + 1;
     return acc;
@@ -20,6 +22,12 @@ export const Inventory = ({ inventoryIds, onUseItem, activeTimers }: InventoryPr
 
   const uniqueItemIds = Object.keys(itemCounts);
   const ownedItems = ALL_ITEMS.filter(item => uniqueItemIds.includes(item.id));
+  
+  // También mostramos los objetos que tienen temporizadores activos aunque ya no estén en el inventario
+  const activeTimerIds = Object.keys(activeTimers);
+  const itemsWithTimers = ALL_ITEMS.filter(item => activeTimerIds.includes(item.id) && !uniqueItemIds.includes(item.id));
+  
+  const allDisplayItems = [...ownedItems, ...itemsWithTimers];
 
   const categories = [
     { id: 'dopamina', label: 'Dopamina', icon: <Smartphone className="w-4 h-4" /> },
@@ -28,6 +36,13 @@ export const Inventory = ({ inventoryIds, onUseItem, activeTimers }: InventoryPr
     { id: 'hobbies', label: 'Hobbies', icon: <ShoppingCart className="w-4 h-4" /> },
     { id: 'social', label: 'Social', icon: <Users className="w-4 h-4" /> },
   ];
+
+  const formatTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h > 0 ? h + 'h ' : ''}${m}m ${s}s`;
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -38,7 +53,7 @@ export const Inventory = ({ inventoryIds, onUseItem, activeTimers }: InventoryPr
 
       <TooltipProvider>
         {categories.map(cat => {
-          const items = ownedItems.filter(i => i.category === cat.id);
+          const items = allDisplayItems.filter(i => i.category === cat.id);
           if (items.length === 0) return null;
 
           return (
@@ -49,15 +64,14 @@ export const Inventory = ({ inventoryIds, onUseItem, activeTimers }: InventoryPr
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {items.map(item => {
-                  const canUse = !activeTimers[item.id] || activeTimers[item.id] <= 0;
-                  const timerText = activeTimers[item.id] && activeTimers[item.id] > 0 
-                    ? `${Math.ceil(activeTimers[item.id] / 60)}h ${activeTimers[item.id] % 60}m` 
-                    : null;
+                  const timeLeft = activeTimers[item.id];
+                  const isPaused = pausedTimers[item.id];
+                  const count = itemCounts[item.id] || 0;
 
                   return (
                     <Card key={item.id} className={cn(
                       "p-4 border-2 border-slate-200 bg-white flex flex-col gap-3 shadow-sm hover:border-indigo-300 transition-colors",
-                      !canUse && "opacity-60 grayscale"
+                      timeLeft && "border-indigo-500 bg-indigo-50/30"
                     )}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -68,9 +82,9 @@ export const Inventory = ({ inventoryIds, onUseItem, activeTimers }: InventoryPr
                             item.rarity === 'raro' ? "bg-blue-100" : "bg-slate-100"
                           )}>
                             {item.icon}
-                            {itemCounts[item.id] > 1 && (
+                            {count > 1 && (
                               <span className="absolute -top-2 -right-2 bg-slate-900 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full border-2 border-white">
-                                x{itemCounts[item.id]}
+                                x{count}
                               </span>
                             )}
                           </div>
@@ -93,24 +107,42 @@ export const Inventory = ({ inventoryIds, onUseItem, activeTimers }: InventoryPr
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <p className="text-xs text-slate-500 italic line-clamp-2">{item.description}</p>
-                        {timerText && (
-                          <div className="bg-slate-100 p-2 rounded-lg text-xs font-bold text-slate-600 flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> {timerText}
+                        {timeLeft ? (
+                          <div className="space-y-2">
+                            <div className={cn(
+                              "flex items-center justify-between p-2 rounded-lg border-2 font-black text-sm",
+                              isPaused ? "bg-amber-100 border-amber-200 text-amber-700" : "bg-indigo-100 border-indigo-200 text-indigo-700"
+                            )}>
+                              <div className="flex items-center gap-2">
+                                <Clock className={cn("w-4 h-4", !isPaused && "animate-pulse")} />
+                                <span>{formatTime(timeLeft)}</span>
+                              </div>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                onClick={() => onTogglePause(item.id)}
+                                className="h-8 w-8 p-0 hover:bg-white/50"
+                              >
+                                {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                              </Button>
+                            </div>
+                            {count > 0 && (
+                              <Button 
+                                onClick={() => onUseItem(item.id)}
+                                className="w-full font-black uppercase h-9 text-xs bg-slate-900 hover:bg-indigo-600"
+                              >
+                                Usar otro (+{item.effect.timer}m)
+                              </Button>
+                            )}
                           </div>
+                        ) : (
+                          <Button 
+                            onClick={() => onUseItem(item.id)}
+                            className="w-full font-black uppercase h-9 text-xs bg-slate-900 hover:bg-indigo-600"
+                          >
+                            Canjear Recompensa {item.effect.timer ? `(${item.effect.timer}m)` : ''}
+                          </Button>
                         )}
-                        <Button 
-                          onClick={() => onUseItem(item.id)}
-                          disabled={!canUse}
-                          className={cn(
-                            "w-full font-black uppercase h-9 text-xs",
-                            canUse 
-                              ? "bg-slate-900 hover:bg-indigo-600" 
-                              : "bg-slate-200 text-slate-400 cursor-not-allowed"
-                          )}
-                        >
-                          {canUse ? "Canjear Recompensa" : "En Temporizador"}
-                        </Button>
                       </div>
                     </Card>
                   );
@@ -121,7 +153,7 @@ export const Inventory = ({ inventoryIds, onUseItem, activeTimers }: InventoryPr
         })}
       </TooltipProvider>
 
-      {inventoryIds.length === 0 && (
+      {allDisplayItems.length === 0 && (
         <div className="text-center py-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
           <p className="text-slate-400 font-bold italic">Tu inventario está vacío. ¡Gana oro y date un capricho!</p>
         </div>
