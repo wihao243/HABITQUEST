@@ -2,7 +2,7 @@ import { ShopItem } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingBag, Smartphone, Utensils, Coffee, Sparkles, ShoppingCart, Users, Info } from "lucide-react";
+import { ShoppingBag, Smartphone, Utensils, Coffee, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -12,13 +12,19 @@ interface ShopProps {
     weekly: ShopItem[];
     monthly: ShopItem[];
   };
+  boughtInRotation: Record<string, boolean>;
   onBuy: (item: ShopItem, source: string) => void;
 }
 
-export const Shop = ({ items, onBuy }: ShopProps) => {
+export const Shop = ({ items, boughtInRotation, onBuy }: ShopProps) => {
   const renderItem = (item: ShopItem, source: string) => {
+    const isSoldOut = boughtInRotation[item.id];
+
     return (
-      <Card key={`${source}-${item.id}`} className="p-4 border-2 transition-all group relative overflow-hidden hover:border-yellow-400 bg-white">
+      <Card key={`${source}-${item.id}`} className={cn(
+        "p-4 border-2 transition-all group relative overflow-hidden bg-white",
+        isSoldOut ? "opacity-60 grayscale" : "hover:border-yellow-400"
+      )}>
         <div className="flex flex-col gap-3">
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-3">
@@ -53,10 +59,16 @@ export const Shop = ({ items, onBuy }: ShopProps) => {
           <div className="space-y-2">
             <p className="text-xs text-slate-500 italic line-clamp-2">{item.description}</p>
             <Button 
+              disabled={isSoldOut}
               onClick={() => onBuy(item, source)}
-              className="w-full font-black border-2 border-yellow-500 text-yellow-700 bg-white hover:bg-yellow-500 hover:text-white transition-all"
+              className={cn(
+                "w-full font-black border-2 transition-all",
+                isSoldOut 
+                  ? "bg-slate-100 border-slate-200 text-slate-400" 
+                  : "border-yellow-500 text-yellow-700 bg-white hover:bg-yellow-500 hover:text-white"
+              )}
             >
-              {item.cost} Oro
+              {isSoldOut ? "Agotado" : `${item.cost} Oro`}
             </Button>
           </div>
         </div>
