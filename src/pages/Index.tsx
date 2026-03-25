@@ -18,7 +18,7 @@ const Index = () => {
     stats, quests, inventory, shopItems, virtualTime, boughtInRotation, activeCombat,
     completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, useItem, updateProfile,
     adminReset, adminAddGold, adminLevelUp, adminClearInventory, advanceTime,
-    completePenalty, revive, setActiveCombat, winCombat, loseCombat
+    completePenalty, revive, setActiveCombat, winCombat, loseCombat, escapeCombat
   } = useGameState();
 
   const isDead = stats.hp <= 0;
@@ -39,7 +39,7 @@ const Index = () => {
           player={stats} 
           onWin={winCombat} 
           onLose={loseCombat} 
-          onEscape={() => setActiveCombat(null)} 
+          onEscape={escapeCombat} 
         />
       )}
 

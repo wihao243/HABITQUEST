@@ -72,6 +72,27 @@ export function useGameState() {
     };
   }, [virtualTime]);
 
+  // Lógica de subida de nivel centralizada
+  const checkLevelUp = (currentStats: CharacterStats): CharacterStats => {
+    let next = { ...currentStats };
+    while (next.xp >= next.maxXp) {
+      next.level += 1;
+      next.xp -= next.maxXp;
+      next.maxXp = Math.floor(next.maxXp * 1.2);
+      
+      // Mejora de estadísticas por nivel
+      next.maxHp += 15;
+      next.hp = next.maxHp; // Curación completa al subir de nivel
+      next.attributes.fuerza += 0.5;
+      next.attributes.inteligencia += 0.5;
+      next.attributes.espiritualidad += 0.5;
+      next.attributes.carisma += 0.5;
+      
+      showSuccess(`¡NIVEL ${next.level}! Tus estadísticas han mejorado.`);
+    }
+    return next;
+  };
+
   useEffect(() => {
     const lastSeedsStr = localStorage.getItem('habitquest_last_seeds');
     const lastSeeds = lastSeedsStr ? JSON.parse(lastSeedsStr) : {};
@@ -142,18 +163,13 @@ export function useGameState() {
     const item = ALL_ITEMS.find(i => i.id === itemId);
     if (!item || !item.effect) return;
     setStats(prev => {
-      const next = { ...prev };
+      let next = { ...prev };
       const { effect } = item;
       if (effect.type === 'hp') next.hp = Math.min(next.maxHp, next.hp + effect.value);
       if (effect.type === 'gold') next.gold += effect.value;
       if (effect.type === 'xp') {
         next.xp += effect.value;
-        while (next.xp >= next.maxXp) {
-          next.level += 1;
-          next.xp -= next.maxXp;
-          next.maxXp = Math.floor(next.maxXp * 1.2);
-          showSuccess("¡NIVEL SUBIDO!");
-        }
+        next = checkLevelUp(next);
       }
       if (effect.type === 'stat' && effect.stat) next.attributes[effect.stat] += effect.value;
       return next;
@@ -174,13 +190,8 @@ export function useGameState() {
     const xp = q.difficulty === 'easy' ? 10 : q.difficulty === 'medium' ? 25 : 50;
     const gold = q.difficulty === 'easy' ? 5 : q.difficulty === 'medium' ? 15 : 30;
     setStats(prev => {
-      const next = { ...prev, gold: prev.gold + gold, xp: prev.xp + xp };
-      while (next.xp >= next.maxXp) {
-        next.level += 1;
-        next.xp -= next.maxXp;
-        next.maxXp = Math.floor(next.maxXp * 1.2);
-        showSuccess("¡NIVEL SUBIDO!");
-      }
+      let next = { ...prev, gold: prev.gold + gold, xp: prev.xp + xp };
+      next = checkLevelUp(next);
       return next;
     });
     if (q.type === 'todo') setQuests(prev => prev.filter(x => x.id !== id));
@@ -201,24 +212,25 @@ export function useGameState() {
     });
   };
 
-  const winCombat = (xp: number, gold: number) => {
+  const winCombat = (xp: number, gold: number, remainingHp: number) => {
     setStats(prev => {
-      const next = { ...prev, gold: prev.gold + gold, xp: prev.xp + xp };
-      while (next.xp >= next.maxXp) {
-        next.level += 1;
-        next.xp -= next.maxXp;
-        next.maxXp = Math.floor(next.maxXp * 1.2);
-        showSuccess("¡NIVEL SUBIDO!");
-      }
+      let next = { ...prev, gold: prev.gold + gold, xp: prev.xp + xp, hp: remainingHp };
+      next = checkLevelUp(next);
       return next;
     });
     setActiveCombat(null);
     showSuccess(`¡Victoria! +${xp} XP | +${gold} Oro`);
   };
 
-  const loseCombat = (damage: number) => {
-    takeDamage(damage);
+  const loseCombat = (remainingHp: number) => {
+    takeDamage(stats.hp - remainingHp); // Aplicar el daño final
     setActiveCombat(null);
+  };
+
+  const escapeCombat = (remainingHp: number) => {
+    setStats(prev => ({ ...prev, hp: remainingHp }));
+    setActiveCombat(null);
+    showError("Has escapado del combate.");
   };
 
   const completePenalty = (id: string) => {
@@ -249,13 +261,16 @@ export function useGameState() {
     setBoughtInRotation({ daily: [], weekly: [], monthly: [] }); localStorage.clear(); 
   };
   const adminAddGold = (a: number) => setStats(prev => ({ ...prev, gold: prev.gold + a }));
-  const adminLevelUp = () => setStats(prev => ({ ...prev, level: prev.level + 1 }));
+  const adminLevelUp = () => setStats(prev => {
+    let next = { ...prev, xp: prev.maxXp };
+    return checkLevelUp(next);
+  });
   const adminClearInventory = () => setInventory([]);
 
   return { 
     stats, quests, inventory, shopItems, virtualTime, boughtInRotation, activeCombat,
     completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, useItem, updateProfile,
     adminReset, adminAddGold, adminLevelUp, adminClearInventory, advanceTime,
-    completePenalty, revive, setActiveCombat, winCombat, loseCombat
+    completePenalty, revive, setActiveCombat, winCombat, loseCombat, escapeCombat
   };
 }

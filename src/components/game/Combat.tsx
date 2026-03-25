@@ -9,9 +9,9 @@ import { cn } from "@/lib/utils";
 interface CombatProps {
   monster: Monster;
   player: CharacterStats;
-  onWin: (xp: number, gold: number) => void;
-  onLose: (damage: number) => void;
-  onEscape: () => void;
+  onWin: (xp: number, gold: number, remainingHp: number) => void;
+  onLose: (remainingHp: number) => void;
+  onEscape: (remainingHp: number) => void;
 }
 
 export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps) => {
@@ -38,7 +38,7 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
       if (newMonsterHp <= 0) {
         setIsFinished(true);
         addLog(`¡Has derrotado a ${monster.name}!`);
-        setTimeout(() => onWin(monster.xpReward, monster.goldReward), 1500);
+        setTimeout(() => onWin(monster.xpReward, monster.goldReward, playerHp), 1500);
       } else {
         setIsPlayerTurn(false);
       }
@@ -74,7 +74,7 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
           if (newPlayerHp <= 0) {
             setIsFinished(true);
             addLog("¡Has caído en combate!");
-            setTimeout(() => onLose(player.hp), 1500);
+            setTimeout(() => onLose(0), 1500);
           } else {
             setIsPlayerTurn(true);
           }
@@ -153,7 +153,7 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
               </Button>
               <Button 
                 disabled={!isPlayerTurn || isFinished}
-                onClick={onEscape}
+                onClick={() => onEscape(playerHp)}
                 variant="outline"
                 className="col-span-2 border-2 border-slate-700 text-slate-400 font-black uppercase"
               >
