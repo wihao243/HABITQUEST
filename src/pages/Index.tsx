@@ -9,6 +9,7 @@ import { WorldMap } from "@/components/game/WorldMap";
 import { Combat } from "@/components/game/Combat";
 import { AchievementsDialog } from "@/components/game/AchievementsDialog";
 import { StatsDialog } from "@/components/game/StatsDialog";
+import { ShopEditor } from "@/components/game/ShopEditor";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -55,6 +56,12 @@ const Index = () => {
           <div className="flex gap-1">
             <AchievementsDialog stats={stats} />
             <StatsDialog stats={stats} />
+            <ShopEditor 
+              items={allItems} 
+              onAdd={addShopItem} 
+              onUpdate={updateShopItem} 
+              onDelete={deleteShopItem} 
+            />
             <AdminPanel 
               onReset={adminReset} 
               onAddGold={adminAddGold} 
@@ -62,10 +69,6 @@ const Index = () => {
               onClearInventory={adminClearInventory} 
               onAdvanceTime={advanceTime}
               currentTime={virtualTime}
-              allItems={allItems}
-              onAddShopItem={addShopItem}
-              onUpdateShopItem={updateShopItem}
-              onDeleteShopItem={deleteShopItem}
             />
           </div>
         </div>
