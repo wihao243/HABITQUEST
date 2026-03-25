@@ -2,18 +2,14 @@ export type StatType = 'fuerza' | 'inteligencia' | 'espiritualidad' | 'carisma';
 export type ItemCategory = 'dopamina' | 'gastronomia' | 'relax' | 'hobbies' | 'social';
 
 export interface ItemEffect {
-  type: 'hp' | 'xp' | 'gold' | 'stat';
-  value: number;
-  stat?: StatType;
-  // Nuevos efectos de tiempo
-  timer?: number; // minutos
+  timer?: number;
   daily?: boolean;
   weekly?: boolean;
   monthly?: boolean;
 }
 
 export interface DailyActivity {
-  date: string; // ISO date string
+  date: string;
   tasks: number;
   habits: number;
   dailies: number;
@@ -49,4 +45,83 @@ export interface GameStats {
   realLifeRewardsBought: number;
   lowHpHeals: number;
   friendsInvited: number;
+}
+
+export interface CharacterStats {
+  name: string;
+  avatar: string;
+  title: string;
+  level: number;
+  hp: number;
+  maxHp: number;
+  xp: number;
+  maxXp: number;
+  gold: number;
+  attributes: Record<StatType, number>;
+  gameStats: GameStats;
+  activePenalties: string[];
+  activeTimers: Record<string, number>;
+  monsterCooldowns: Record<string, string>;
+}
+
+export interface Quest {
+  id: string;
+  title: string;
+  type: 'daily' | 'habit' | 'todo';
+  difficulty: 'easy' | 'medium' | 'hard';
+  stat: StatType;
+  completed: boolean;
+  streak?: number;
+}
+
+export interface Monster {
+  id: string;
+  name: string;
+  avatar: string;
+  level: number;
+  hp: number;
+  maxHp: number;
+  damage: number;
+  xpReward: number;
+  goldReward: number;
+  description: string;
+}
+
+export interface Region {
+  id: string;
+  name: string;
+  description: string;
+  minLevel: number;
+  icon: string;
+  color: string;
+  monsters: Monster[];
+  boss?: Monster;
+}
+
+export interface ShopItem {
+  id: string;
+  title: string;
+  cost: number;
+  category: ItemCategory;
+  icon: string;
+  rarity: 'comun' | 'raro' | 'epico' | 'legendario';
+  description: string;
+  effect: ItemEffect;
+}
+
+export interface Achievement {
+  id: string;
+  category: string;
+  title: string;
+  description: string;
+  icon: string;
+  requirement: (gameStats: GameStats, charStats: CharacterStats) => boolean;
+}
+
+export interface Penalty {
+  id: string;
+  category: 'fisico' | 'limpieza' | 'digital' | 'social';
+  icon: string;
+  title: string;
+  description: string;
 }
