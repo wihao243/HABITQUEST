@@ -9,9 +9,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 interface InventoryProps {
   inventoryIds: string[];
   onUseItem: (id: string) => void;
+  activeTimers: Record<string, number>;
 }
 
-export const Inventory = ({ inventoryIds, onUseItem }: InventoryProps) => {
+export const Inventory = ({ inventoryIds, onUseItem, activeTimers }: InventoryProps) => {
   const itemCounts = inventoryIds.reduce((acc, id) => {
     acc[id] = (acc[id] || 0) + 1;
     return acc;
@@ -47,52 +48,73 @@ export const Inventory = ({ inventoryIds, onUseItem }: InventoryProps) => {
                 <span className="text-xs font-black uppercase tracking-widest">{cat.label}</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {items.map(item => (
-                  <Card key={item.id} className="p-4 border-2 border-slate-200 bg-white flex flex-col gap-3 shadow-sm hover:border-indigo-300 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "w-12 h-12 rounded-xl flex items-center justify-center text-2xl relative",
-                          item.rarity === 'legendario' ? "bg-orange-100" : 
-                          item.rarity === 'epico' ? "bg-purple-100" : 
-                          item.rarity === 'raro' ? "bg-blue-100" : "bg-slate-100"
-                        )}>
-                          {item.icon}
-                          {itemCounts[item.id] > 1 && (
-                            <span className="absolute -top-2 -right-2 bg-slate-900 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full border-2 border-white">
-                              x{itemCounts[item.id]}
-                            </span>
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-black text-slate-800 leading-tight">{item.title}</p>
-                          <p className="text-[10px] uppercase font-black text-slate-400">{item.rarity}</p>
-                        </div>
-                      </div>
-                      
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button className="text-slate-300 hover:text-indigo-500 transition-colors">
-                            <Info className="w-5 h-5" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent className="bg-slate-900 text-white border-none p-3 max-w-[200px]">
-                          <p className="text-xs font-bold">{item.description}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
+                {items.map(item => {
+                  const canUse = !activeTimers[item.id] || activeTimers[item.id] <= 0;
+                  const timerText = activeTimers[item.id] && activeTimers[item.id] > 0 
+                    ? `${Math.ceil(activeTimers[item.id] / 60)}h ${activeTimers[item.id] % 60}m` 
+                    : null;
 
-                    <div className="flex flex-col gap-2">
-                      <p className="text-xs text-slate-500 italic line-clamp-2">{item.description}</p>
-                      <Button 
-                        onClick={() => onUseItem(item.id)}
-                        className="w-full bg-slate-900 hover:bg-indigo-600 font-black uppercase h-9 text-xs"
-                      >
-                        Canjear Recompensa
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
+                  return (
+                    <Card key={item.id} className={cn(
+                      "p-4 border-2 border-slate-200 bg-white flex flex-col gap-3 shadow-sm hover:border-indigo-300 transition-colors",
+                      !canUse && "opacity-60 grayscale"
+                    )}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-12 h-12 rounded-xl flex items-center justify-center text-2xl relative",
+                            item.rarity === 'legendario' ? "bg-orange-100" : 
+                            item.rarity === 'epico' ? "bg-purple-100" : 
+                            item.rarity === 'raro' ? "bg-blue-100" : "bg-slate-100"
+                          )}>
+                            {item.icon}
+                            {itemCounts[item.id] > 1 && (
+                              <span className="absolute -top-2 -right-2 bg-slate-900 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full border-2 border-white">
+                                x{itemCounts[item.id]}
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-black text-slate-800 leading-tight">{item.title}</p>
+                            <p className="text-[10px] uppercase font-black text-slate-400">{item.rarity}</p>
+                          </div>
+                        </div>
+                        
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="text-slate-300 hover:text-indigo-500 transition-colors">
+                              <Info className="w-5 h-5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-slate-900 text-white border-none p-3 max-w-[200px]">
+                            <p className="text-xs font-bold">{item.description}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <p className="text-xs text-slate-500 italic line-clamp-2">{item.description}</p>
+                        {timerText && (
+                          <div className="bg-slate-100 p-2 rounded-lg text-xs font-bold text-slate-600 flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> {timerText}
+                          </div>
+                        )}
+                        <Button 
+                          onClick={() => onUseItem(item.id)}
+                          disabled={!canUse}
+                          className={cn(
+                            "w-full font-black uppercase h-9 text-xs",
+                            canUse 
+                              ? "bg-slate-900 hover:bg-indigo-600" 
+                              : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                          )}
+                        >
+                          {canUse ? "Canjear Recompensa" : "En Temporizador"}
+                        </Button>
+                      </div>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
           );

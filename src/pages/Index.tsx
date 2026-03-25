@@ -108,7 +108,7 @@ const Index = () => {
               <Shop items={shopItems} boughtInRotation={boughtInRotation} onBuy={buyItem} />
             </TabsContent>
             <TabsContent value="inventory">
-              <Inventory inventoryIds={inventory} onUseItem={useItem} />
+              <Inventory inventoryIds={inventory} onUseItem={useItem} activeTimers={stats.activeTimers} />
             </TabsContent>
           </div>
         </Tabs>

@@ -5,6 +5,11 @@ export interface ItemEffect {
   type: 'hp' | 'xp' | 'gold' | 'stat';
   value: number;
   stat?: StatType;
+  // Nuevos efectos de tiempo
+  timer?: number; // minutos
+  daily?: boolean;
+  weekly?: boolean;
+  monthly?: boolean;
 }
 
 export interface DailyActivity {
@@ -70,6 +75,8 @@ export interface CharacterStats {
   unlockedRegions: string[];
   monsterCooldowns: Record<string, string>;
   gameStats: GameStats;
+  // Nuevos temporizadores
+  activeTimers: Record<string, number>; // id: minutos restantes
 }
 
 export interface Monster {

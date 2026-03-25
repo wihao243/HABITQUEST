@@ -17,23 +17,23 @@ const INITIAL_GAME_STATS: GameStats = {
   currentStreak: 0,
   maxStreak: 0,
   perfectDays: 0,
-  waterDrank: 0,
-  exerciseDays: 0,
-  cardioSessions: 0,
-  healthyMeals: 0,
-  stepsMax: 0,
-  exerciseHours: 0,
-  pagesRead: 0,
-  languagePractice: 0,
-  meditationHours: 0,
-  deepWorkSessions: 0,
-  journalEntries: 0,
-  noSnoozeDays: 0,
-  cosmeticsBought: 0,
-  petsOwned: 0,
-  realLifeRewardsBought: 0,
-  lowHpHeals: 0,
-  friendsInvited: 0,
+  waterDrank: number;
+  exerciseDays: number;
+  cardioSessions: number;
+  healthyMeals: number;
+  stepsMax: number;
+  exerciseHours: number;
+  pagesRead: number;
+  languagePractice: number;
+  meditationHours: number;
+  deepWorkSessions: number;
+  journalEntries: number;
+  noSnoozeDays: number;
+  cosmeticsBought: number;
+  petsOwned: number;
+  realLifeRewardsBought: number;
+  lowHpHeals: number;
+  friendsInvited: number;
 };
 
 const INITIAL_STATS: CharacterStats = {
@@ -56,6 +56,7 @@ const INITIAL_STATS: CharacterStats = {
   unlockedRegions: ['r1'],
   monsterCooldowns: {},
   gameStats: INITIAL_GAME_STATS,
+  activeTimers: {},
 };
 
 const getISOWeek = (date: Date) => {
@@ -92,10 +93,10 @@ export function useGameState() {
   });
 
   const [boughtInRotation, setBoughtInRotation] = useState<{
-    dopamina: string[], gastronomia: string[], relax: string[], hobbies: string[], social: string[]
+    daily: string[], weekly: string[], monthly: string[]
   }>(() => {
     const saved = localStorage.getItem('habitquest_bought_rotation');
-    return saved ? JSON.parse(saved) : { dopamina: [], gastronomia: [], relax: [], hobbies: [], social: [] };
+    return saved ? JSON.parse(saved) : { daily: [], weekly: [], monthly: [] };
   });
 
   const [activeCombat, setActiveCombat] = useState<Monster | null>(null);
@@ -111,11 +112,9 @@ export function useGameState() {
 
   const shopItems = useMemo(() => {
     return {
-      dopamina: ALL_ITEMS.filter(i => i.category === 'dopamina'),
-      gastronomia: ALL_ITEMS.filter(i => i.category === 'gastronomia'),
-      relax: ALL_ITEMS.filter(i => i.category === 'relax'),
-      hobbies: ALL_ITEMS.filter(i => i.category === 'hobbies'),
-      social: ALL_ITEMS.filter(i => i.category === 'social'),
+      daily: ALL_ITEMS.filter(i => i.effect?.daily),
+      weekly: ALL_ITEMS.filter(i => i.effect?.weekly),
+      monthly: ALL_ITEMS.filter(i => i.effect?.monthly),
     };
   }, []);
 
@@ -159,6 +158,13 @@ export function useGameState() {
           showError("¡Un nuevo día de muerte! Se ha añadido otro castigo.");
         }
       }
+      setBoughtInRotation(prev => {
+        const next = { ...prev };
+        next.daily = [];
+        if (lastSeeds.week !== seeds.week) next.weekly = [];
+        if (lastSeeds.month !== seeds.month) next.monthly = [];
+        return next;
+      });
       localStorage.setItem('habitquest_last_seeds', JSON.stringify(seeds));
     }
   }, [seeds, stats.hp, quests]);
@@ -171,8 +177,22 @@ export function useGameState() {
     localStorage.setItem('habitquest_bought_rotation', JSON.stringify(boughtInRotation));
   }, [stats, quests, inventory, virtualTime, boughtInRotation]);
 
-  const buyItem = (item: ShopItem, source: any) => {
+  // Actualizar temporizadores activos
+  useEffect(() => {
+    const timers = { ...stats.activeTimers };
+    Object.keys(timers).forEach(id => {
+      if (timers[id] > 0) {
+        timers[id] = Math.max(0, timers[id] - 1);
+      }
+    });
+    if (JSON.stringify(timers) !== JSON.stringify(stats.activeTimers)) {
+      setStats(prev => ({ ...prev, activeTimers: timers }));
+    }
+  }, [stats.activeTimers, virtualTime]);
+
+  const buyItem = (item: ShopItem, source: 'daily' | 'weekly' | 'monthly') => {
     if (stats.hp <= 0) return showError("Estás muerto. No puedes comprar.");
+    if (boughtInRotation[source].includes(item.id)) return showError("Agotado.");
     if (stats.gold >= item.cost) {
       setStats(prev => ({ 
         ...prev, 
@@ -184,6 +204,7 @@ export function useGameState() {
         }
       }));
       setInventory(prev => [...prev, item.id]);
+      setBoughtInRotation(prev => ({ ...prev, [source]: [...prev[source], item.id] }));
       showSuccess(`¡Comprado: ${item.title}!`);
     } else showError("Oro insuficiente.");
   };
@@ -197,7 +218,17 @@ export function useGameState() {
       newInv.splice(index, 1);
       setInventory(newInv);
     }
-    showSuccess(`¡Has canjeado: ${item.title}! Disfruta tu recompensa.`);
+
+    // Activar temporizador si el objeto lo tiene
+    if (item.effect?.timer) {
+      setStats(prev => ({ 
+        ...prev, 
+        activeTimers: { ...prev.activeTimers, [itemId]: item.effect.timer }
+      }));
+      showSuccess(`¡Activado: ${item.title}! Duración: ${item.effect.timer} minutos.`);
+    } else {
+      showSuccess(`¡Has canjeado: ${item.title}! Disfruta tu recompensa.`);
+    }
   };
 
   const completeQuest = (id: string) => {
@@ -348,7 +379,7 @@ export function useGameState() {
 
   const adminReset = () => { 
     setStats(INITIAL_STATS); setQuests([]); setInventory([]); setVirtualTime(new Date()); 
-    setBoughtInRotation({ dopamina: [], gastronomia: [], relax: [], hobbies: [], social: [] }); localStorage.clear(); 
+    setBoughtInRotation({ daily: [], weekly: [], monthly: [] }); localStorage.clear(); 
   };
   const adminAddGold = (a: number) => setStats(prev => ({ 
     ...prev, 

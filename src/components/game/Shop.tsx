@@ -8,11 +8,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 interface ShopProps {
   items: {
-    dopamina: ShopItem[];
-    gastronomia: ShopItem[];
-    relax: ShopItem[];
-    hobbies: ShopItem[];
-    social: ShopItem[];
+    daily: ShopItem[];
+    weekly: ShopItem[];
+    monthly: ShopItem[];
   };
   onBuy: (item: ShopItem, source: string) => void;
 }
@@ -73,40 +71,28 @@ export const Shop = ({ items, onBuy }: ShopProps) => {
         <h3 className="text-xl font-black uppercase italic">Bazar de Recompensas</h3>
       </div>
 
-      <Tabs defaultValue="dopamina" className="w-full">
-        <TabsList className="grid grid-cols-5 w-full bg-slate-100 p-1 rounded-xl border-2 border-slate-200 h-auto">
-          <TabsTrigger value="dopamina" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-[10px] uppercase py-2 flex flex-col gap-1">
-            <Smartphone className="w-4 h-4" /> <span className="hidden md:inline">Dopamina</span>
+      <Tabs defaultValue="daily" className="w-full">
+        <TabsList className="grid grid-cols-3 w-full bg-slate-100 p-1 rounded-xl border-2 border-slate-200 h-auto">
+          <TabsTrigger value="daily" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-[10px] uppercase py-2 flex flex-col gap-1">
+            <Smartphone className="w-4 h-4" /> <span className="hidden md:inline">Diaria</span>
           </TabsTrigger>
-          <TabsTrigger value="gastronomia" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-[10px] uppercase py-2 flex flex-col gap-1">
-            <Utensils className="w-4 h-4" /> <span className="hidden md:inline">Comida</span>
+          <TabsTrigger value="weekly" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-[10px] uppercase py-2 flex flex-col gap-1">
+            <Utensils className="w-4 h-4" /> <span className="hidden md:inline">Semanal</span>
           </TabsTrigger>
-          <TabsTrigger value="relax" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-[10px] uppercase py-2 flex flex-col gap-1">
-            <Coffee className="w-4 h-4" /> <span className="hidden md:inline">Relax</span>
-          </TabsTrigger>
-          <TabsTrigger value="hobbies" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-[10px] uppercase py-2 flex flex-col gap-1">
-            <ShoppingCart className="w-4 h-4" /> <span className="hidden md:inline">Hobbies</span>
-          </TabsTrigger>
-          <TabsTrigger value="social" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-[10px] uppercase py-2 flex flex-col gap-1">
-            <Users className="w-4 h-4" /> <span className="hidden md:inline">Social</span>
+          <TabsTrigger value="monthly" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-[10px] uppercase py-2 flex flex-col gap-1">
+            <Coffee className="w-4 h-4" /> <span className="hidden md:inline">Mensual</span>
           </TabsTrigger>
         </TabsList>
 
         <div className="mt-6">
-          <TabsContent value="dopamina" className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {items.dopamina.map(item => renderItem(item, 'dopamina'))}
+          <TabsContent value="daily" className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {items.daily.map(item => renderItem(item, 'daily'))}
           </TabsContent>
-          <TabsContent value="gastronomia" className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {items.gastronomia.map(item => renderItem(item, 'gastronomia'))}
+          <TabsContent value="weekly" className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {items.weekly.map(item => renderItem(item, 'weekly'))}
           </TabsContent>
-          <TabsContent value="relax" className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {items.relax.map(item => renderItem(item, 'relax'))}
-          </TabsContent>
-          <TabsContent value="hobbies" className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {items.hobbies.map(item => renderItem(item, 'hobbies'))}
-          </TabsContent>
-          <TabsContent value="social" className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {items.social.map(item => renderItem(item, 'social'))}
+          <TabsContent value="monthly" className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {items.monthly.map(item => renderItem(item, 'monthly'))}
           </TabsContent>
         </div>
       </Tabs>
