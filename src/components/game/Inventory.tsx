@@ -2,7 +2,7 @@ import { ShopItem } from "@/types/game";
 import { ALL_ITEMS } from "@/data/items";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Package, Shield, Sword, Dog, Sparkles, Info } from "lucide-react";
+import { Package, Smartphone, Utensils, Coffee, ShoppingCart, Users, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -12,7 +12,6 @@ interface InventoryProps {
 }
 
 export const Inventory = ({ inventoryIds, onUseItem }: InventoryProps) => {
-  // Contar duplicados
   const itemCounts = inventoryIds.reduce((acc, id) => {
     acc[id] = (acc[id] || 0) + 1;
     return acc;
@@ -22,17 +21,18 @@ export const Inventory = ({ inventoryIds, onUseItem }: InventoryProps) => {
   const ownedItems = ALL_ITEMS.filter(item => uniqueItemIds.includes(item.id));
 
   const categories = [
-    { id: 'armas', label: 'Armas', icon: <Sword className="w-4 h-4" /> },
-    { id: 'armaduras', label: 'Armaduras', icon: <Shield className="w-4 h-4" /> },
-    { id: 'mascotas', label: 'Mascotas', icon: <Dog className="w-4 h-4" /> },
-    { id: 'consumibles', label: 'Consumibles', icon: <Sparkles className="w-4 h-4" /> },
+    { id: 'dopamina', label: 'Dopamina', icon: <Smartphone className="w-4 h-4" /> },
+    { id: 'gastronomia', label: 'Comida', icon: <Utensils className="w-4 h-4" /> },
+    { id: 'relax', label: 'Relax', icon: <Coffee className="w-4 h-4" /> },
+    { id: 'hobbies', label: 'Hobbies', icon: <ShoppingCart className="w-4 h-4" /> },
+    { id: 'social', label: 'Social', icon: <Users className="w-4 h-4" /> },
   ];
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center gap-2">
         <Package className="w-6 h-6 text-indigo-600" />
-        <h3 className="text-xl font-black uppercase italic">Cofre de Pertenencias</h3>
+        <h3 className="text-xl font-black uppercase italic">Cofre de Recompensas</h3>
       </div>
 
       <TooltipProvider>
@@ -88,7 +88,7 @@ export const Inventory = ({ inventoryIds, onUseItem }: InventoryProps) => {
                         onClick={() => onUseItem(item.id)}
                         className="w-full bg-slate-900 hover:bg-indigo-600 font-black uppercase h-9 text-xs"
                       >
-                        Usar Objeto
+                        Canjear Recompensa
                       </Button>
                     </div>
                   </Card>
@@ -101,7 +101,7 @@ export const Inventory = ({ inventoryIds, onUseItem }: InventoryProps) => {
 
       {inventoryIds.length === 0 && (
         <div className="text-center py-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-          <p className="text-slate-400 font-bold italic">Tu inventario está vacío. ¡Ve a la tienda!</p>
+          <p className="text-slate-400 font-bold italic">Tu inventario está vacío. ¡Gana oro y date un capricho!</p>
         </div>
       )}
     </div>

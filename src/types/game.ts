@@ -1,5 +1,5 @@
 export type StatType = 'fuerza' | 'inteligencia' | 'espiritualidad' | 'carisma';
-export type ItemCategory = 'armas' | 'armaduras' | 'mascotas' | 'consumibles' | 'real';
+export type ItemCategory = 'dopamina' | 'gastronomia' | 'relax' | 'hobbies' | 'social';
 
 export interface ItemEffect {
   type: 'hp' | 'xp' | 'gold' | 'stat';
@@ -24,7 +24,6 @@ export interface GameStats {
   totalDeaths: number;
   itemsBought: number;
   history: DailyActivity[];
-  // Nuevas métricas para los 50 logros
   currentStreak: number;
   maxStreak: number;
   perfectDays: number;

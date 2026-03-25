@@ -2,33 +2,25 @@ import { ShopItem } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingBag, Calendar, Clock, Star, Info } from "lucide-react";
+import { ShoppingBag, Smartphone, Utensils, Coffee, Sparkles, ShoppingCart, Users, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ShopProps {
   items: {
-    daily: ShopItem[];
-    weekly: ShopItem[];
-    monthly: ShopItem[];
+    dopamina: ShopItem[];
+    gastronomia: ShopItem[];
+    relax: ShopItem[];
+    hobbies: ShopItem[];
+    social: ShopItem[];
   };
-  boughtInRotation: {
-    daily: string[];
-    weekly: string[];
-    monthly: string[];
-  };
-  onBuy: (item: ShopItem, source: 'daily' | 'weekly' | 'monthly') => void;
+  onBuy: (item: ShopItem, source: string) => void;
 }
 
-export const Shop = ({ items, boughtInRotation, onBuy }: ShopProps) => {
-  const renderItem = (item: ShopItem, source: 'daily' | 'weekly' | 'monthly') => {
-    const isSoldOut = boughtInRotation[source].includes(item.id);
-    
+export const Shop = ({ items, onBuy }: ShopProps) => {
+  const renderItem = (item: ShopItem, source: string) => {
     return (
-      <Card key={`${source}-${item.id}`} className={cn(
-        "p-4 border-2 transition-all group relative overflow-hidden",
-        isSoldOut ? "opacity-60 bg-slate-50 grayscale" : "hover:border-yellow-400"
-      )}>
+      <Card key={`${source}-${item.id}`} className="p-4 border-2 transition-all group relative overflow-hidden hover:border-yellow-400 bg-white">
         <div className="flex flex-col gap-3">
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-3">
@@ -42,7 +34,7 @@ export const Shop = ({ items, boughtInRotation, onBuy }: ShopProps) => {
               </div>
               <div>
                 <p className="font-black text-slate-800 leading-tight">{item.title}</p>
-                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{item.category}</p>
+                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{item.rarity}</p>
               </div>
             </div>
 
@@ -61,26 +53,15 @@ export const Shop = ({ items, boughtInRotation, onBuy }: ShopProps) => {
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs text-slate-500 italic">{item.description}</p>
+            <p className="text-xs text-slate-500 italic line-clamp-2">{item.description}</p>
             <Button 
-              disabled={isSoldOut}
               onClick={() => onBuy(item, source)}
-              variant={isSoldOut ? "secondary" : "outline"}
-              className={cn(
-                "w-full font-black border-2",
-                !isSoldOut && "border-yellow-500 text-yellow-700 hover:bg-yellow-500 hover:text-white"
-              )}
+              className="w-full font-black border-2 border-yellow-500 text-yellow-700 bg-white hover:bg-yellow-500 hover:text-white transition-all"
             >
-              {isSoldOut ? "Agotado" : `${item.cost} Oro`}
+              {item.cost} Oro
             </Button>
           </div>
         </div>
-        
-        {item.rarity === 'legendario' && !isSoldOut && (
-          <div className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-black px-2 py-0.5 rotate-12 uppercase">
-            Legendario
-          </div>
-        )}
       </Card>
     );
   };
@@ -89,31 +70,43 @@ export const Shop = ({ items, boughtInRotation, onBuy }: ShopProps) => {
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <ShoppingBag className="w-6 h-6 text-indigo-600" />
-        <h3 className="text-xl font-black uppercase italic">Bazar de Aventureros</h3>
+        <h3 className="text-xl font-black uppercase italic">Bazar de Recompensas</h3>
       </div>
 
-      <Tabs defaultValue="daily" className="w-full">
-        <TabsList className="grid grid-cols-3 w-full bg-slate-100 p-1 rounded-xl border-2 border-slate-200">
-          <TabsTrigger value="daily" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-xs">
-            <Clock className="w-3 h-3 mr-1" /> Diaria
+      <Tabs defaultValue="dopamina" className="w-full">
+        <TabsList className="grid grid-cols-5 w-full bg-slate-100 p-1 rounded-xl border-2 border-slate-200 h-auto">
+          <TabsTrigger value="dopamina" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-[10px] uppercase py-2 flex flex-col gap-1">
+            <Smartphone className="w-4 h-4" /> <span className="hidden md:inline">Dopamina</span>
           </TabsTrigger>
-          <TabsTrigger value="weekly" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-xs">
-            <Calendar className="w-3 h-3 mr-1" /> Semanal
+          <TabsTrigger value="gastronomia" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-[10px] uppercase py-2 flex flex-col gap-1">
+            <Utensils className="w-4 h-4" /> <span className="hidden md:inline">Comida</span>
           </TabsTrigger>
-          <TabsTrigger value="monthly" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-xs">
-            <Star className="w-3 h-3 mr-1" /> Mensual
+          <TabsTrigger value="relax" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-[10px] uppercase py-2 flex flex-col gap-1">
+            <Coffee className="w-4 h-4" /> <span className="hidden md:inline">Relax</span>
+          </TabsTrigger>
+          <TabsTrigger value="hobbies" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-[10px] uppercase py-2 flex flex-col gap-1">
+            <ShoppingCart className="w-4 h-4" /> <span className="hidden md:inline">Hobbies</span>
+          </TabsTrigger>
+          <TabsTrigger value="social" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-[10px] uppercase py-2 flex flex-col gap-1">
+            <Users className="w-4 h-4" /> <span className="hidden md:inline">Social</span>
           </TabsTrigger>
         </TabsList>
 
         <div className="mt-6">
-          <TabsContent value="daily" className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {items.daily.map(item => renderItem(item, 'daily'))}
+          <TabsContent value="dopamina" className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {items.dopamina.map(item => renderItem(item, 'dopamina'))}
           </TabsContent>
-          <TabsContent value="weekly" className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {items.weekly.map(item => renderItem(item, 'weekly'))}
+          <TabsContent value="gastronomia" className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {items.gastronomia.map(item => renderItem(item, 'gastronomia'))}
           </TabsContent>
-          <TabsContent value="monthly" className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {items.monthly.map(item => renderItem(item, 'monthly'))}
+          <TabsContent value="relax" className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {items.relax.map(item => renderItem(item, 'relax'))}
+          </TabsContent>
+          <TabsContent value="hobbies" className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {items.hobbies.map(item => renderItem(item, 'hobbies'))}
+          </TabsContent>
+          <TabsContent value="social" className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {items.social.map(item => renderItem(item, 'social'))}
           </TabsContent>
         </div>
       </Tabs>

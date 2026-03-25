@@ -92,10 +92,10 @@ export function useGameState() {
   });
 
   const [boughtInRotation, setBoughtInRotation] = useState<{
-    daily: string[], weekly: string[], monthly: string[]
+    dopamina: string[], gastronomia: string[], relax: string[], hobbies: string[], social: string[]
   }>(() => {
     const saved = localStorage.getItem('habitquest_bought_rotation');
-    return saved ? JSON.parse(saved) : { daily: [], weekly: [], monthly: [] };
+    return saved ? JSON.parse(saved) : { dopamina: [], gastronomia: [], relax: [], hobbies: [], social: [] };
   });
 
   const [activeCombat, setActiveCombat] = useState<Monster | null>(null);
@@ -110,26 +110,14 @@ export function useGameState() {
   }, [virtualTime]);
 
   const shopItems = useMemo(() => {
-    const getSeededItems = (seed: string, count: number) => {
-      const pool = ALL_ITEMS.filter(item => item.category !== 'real');
-      if (pool.length === 0) return [];
-      let h = 0;
-      for (let i = 0; i < seed.length; i++) h = seed.charCodeAt(i) + ((h << 5) - h);
-      const result: ShopItem[] = [];
-      const tempPool = [...pool];
-      for (let i = 0; i < count && tempPool.length > 0; i++) {
-        h = (h * 1664525 + 1013904223) >>> 0;
-        const index = h % tempPool.length;
-        result.push(tempPool.splice(index, 1)[0]);
-      }
-      return result;
-    };
     return {
-      daily: getSeededItems(seeds.day, 5),
-      weekly: getSeededItems(seeds.week, 5),
-      monthly: getSeededItems(seeds.month, 5)
+      dopamina: ALL_ITEMS.filter(i => i.category === 'dopamina'),
+      gastronomia: ALL_ITEMS.filter(i => i.category === 'gastronomia'),
+      relax: ALL_ITEMS.filter(i => i.category === 'relax'),
+      hobbies: ALL_ITEMS.filter(i => i.category === 'hobbies'),
+      social: ALL_ITEMS.filter(i => i.category === 'social'),
     };
-  }, [seeds]);
+  }, []);
 
   const checkLevelUp = (currentStats: CharacterStats): CharacterStats => {
     let next = { ...currentStats };
@@ -153,7 +141,6 @@ export function useGameState() {
     const lastSeeds = lastSeedsStr ? JSON.parse(lastSeedsStr) : {};
     
     if (lastSeeds.day !== seeds.day) {
-      // Verificar si el día anterior fue perfecto
       const allDailiesDone = quests.filter(q => q.type === 'daily').every(q => q.completed);
       if (allDailiesDone && quests.some(q => q.type === 'daily')) {
         setStats(prev => ({
@@ -172,13 +159,6 @@ export function useGameState() {
           showError("¡Un nuevo día de muerte! Se ha añadido otro castigo.");
         }
       }
-      setBoughtInRotation(prev => {
-        const next = { ...prev };
-        next.daily = [];
-        if (lastSeeds.week !== seeds.week) next.weekly = [];
-        if (lastSeeds.month !== seeds.month) next.monthly = [];
-        return next;
-      });
       localStorage.setItem('habitquest_last_seeds', JSON.stringify(seeds));
     }
   }, [seeds, stats.hp, quests]);
@@ -191,9 +171,8 @@ export function useGameState() {
     localStorage.setItem('habitquest_bought_rotation', JSON.stringify(boughtInRotation));
   }, [stats, quests, inventory, virtualTime, boughtInRotation]);
 
-  const buyItem = (item: ShopItem, source: 'daily' | 'weekly' | 'monthly') => {
+  const buyItem = (item: ShopItem, source: any) => {
     if (stats.hp <= 0) return showError("Estás muerto. No puedes comprar.");
-    if (boughtInRotation[source].includes(item.id)) return showError("Agotado.");
     if (stats.gold >= item.cost) {
       setStats(prev => ({ 
         ...prev, 
@@ -201,45 +180,24 @@ export function useGameState() {
         gameStats: { 
           ...prev.gameStats, 
           itemsBought: prev.gameStats.itemsBought + 1,
-          cosmeticsBought: item.category === 'armaduras' ? prev.gameStats.cosmeticsBought + 1 : prev.gameStats.cosmeticsBought,
-          petsOwned: item.category === 'mascotas' ? prev.gameStats.petsOwned + 1 : prev.gameStats.petsOwned,
-          realLifeRewardsBought: item.category === 'real' ? prev.gameStats.realLifeRewardsBought + 1 : prev.gameStats.realLifeRewardsBought,
+          realLifeRewardsBought: prev.gameStats.realLifeRewardsBought + 1,
         }
       }));
       setInventory(prev => [...prev, item.id]);
-      setBoughtInRotation(prev => ({ ...prev, [source]: [...prev[source], item.id] }));
       showSuccess(`¡Comprado: ${item.title}!`);
     } else showError("Oro insuficiente.");
   };
 
   const useItem = (itemId: string) => {
     const item = ALL_ITEMS.find(i => i.id === itemId);
-    if (!item || !item.effect) return;
-    setStats(prev => {
-      let next = { ...prev };
-      const { effect } = item;
-      if (effect.type === 'hp') {
-        if (prev.hp < 5) next.gameStats.lowHpHeals += 1;
-        next.hp = Math.min(next.maxHp, next.hp + effect.value);
-      }
-      if (effect.type === 'gold') {
-        next.gold += effect.value;
-        next.gameStats.totalGoldEarned += effect.value;
-      }
-      if (effect.type === 'xp') {
-        next.xp += effect.value;
-        next = checkLevelUp(next);
-      }
-      if (effect.type === 'stat' && effect.stat) next.attributes[effect.stat] += effect.value;
-      return next;
-    });
+    if (!item) return;
     const index = inventory.indexOf(itemId);
     if (index > -1) {
       const newInv = [...inventory];
       newInv.splice(index, 1);
       setInventory(newInv);
     }
-    showSuccess(`¡Usado: ${item.title}!`);
+    showSuccess(`¡Has canjeado: ${item.title}! Disfruta tu recompensa.`);
   };
 
   const completeQuest = (id: string) => {
@@ -254,8 +212,6 @@ export function useGameState() {
 
     setStats(prev => {
       let nextGameStats = { ...prev.gameStats };
-      
-      // Lógica de métricas específicas
       const title = q.title.toLowerCase();
       if (title.includes('agua')) nextGameStats.waterDrank += 1;
       if (title.includes('ejercicio') || title.includes('gym')) {
@@ -271,7 +227,6 @@ export function useGameState() {
       if (title.includes('diario') || title.includes('escribir')) nextGameStats.journalEntries += 1;
       if (hour < 9) nextGameStats.noSnoozeDays += 1;
 
-      // Actualizar historial diario
       const historyIndex = nextGameStats.history.findIndex(h => h.date === today);
       if (historyIndex > -1) {
         const day = nextGameStats.history[historyIndex];
@@ -393,7 +348,7 @@ export function useGameState() {
 
   const adminReset = () => { 
     setStats(INITIAL_STATS); setQuests([]); setInventory([]); setVirtualTime(new Date()); 
-    setBoughtInRotation({ daily: [], weekly: [], monthly: [] }); localStorage.clear(); 
+    setBoughtInRotation({ dopamina: [], gastronomia: [], relax: [], hobbies: [], social: [] }); localStorage.clear(); 
   };
   const adminAddGold = (a: number) => setStats(prev => ({ 
     ...prev, 
