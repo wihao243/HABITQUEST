@@ -18,7 +18,32 @@ export interface CharacterStats {
   maxHp: number;
   gold: number;
   attributes: Record<StatType, number>;
-  activePenalties: string[]; // IDs de los castigos activos
+  activePenalties: string[];
+  unlockedRegions: string[]; // IDs de regiones desbloqueadas
+}
+
+export interface Monster {
+  id: string;
+  name: string;
+  avatar: string;
+  level: number;
+  hp: number;
+  maxHp: number;
+  damage: number;
+  xpReward: number;
+  goldReward: number;
+  description: string;
+}
+
+export interface Region {
+  id: string;
+  name: string;
+  description: string;
+  minLevel: number;
+  monsters: Monster[];
+  boss?: Monster;
+  icon: string;
+  color: string;
 }
 
 export interface Penalty {

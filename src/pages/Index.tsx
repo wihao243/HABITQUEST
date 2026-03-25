@@ -5,18 +5,20 @@ import { Shop } from "@/components/game/Shop";
 import { Inventory } from "@/components/game/Inventory";
 import { AdminPanel } from "@/components/game/AdminPanel";
 import { DeathOverlay } from "@/components/game/DeathOverlay";
+import { WorldMap } from "@/components/game/WorldMap";
+import { Combat } from "@/components/game/Combat";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, Users, Calendar, Repeat, CheckSquare, ShoppingBag, Package } from "lucide-react";
+import { Trophy, Users, Calendar, Repeat, CheckSquare, ShoppingBag, Package, Globe } from "lucide-react";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 
 const Index = () => {
   const { 
-    stats, quests, inventory, shopItems, virtualTime, boughtInRotation,
+    stats, quests, inventory, shopItems, virtualTime, boughtInRotation, activeCombat,
     completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, useItem, updateProfile,
     adminReset, adminAddGold, adminLevelUp, adminClearInventory, advanceTime,
-    completePenalty, revive
+    completePenalty, revive, setActiveCombat, winCombat, loseCombat
   } = useGameState();
 
   const isDead = stats.hp <= 0;
@@ -28,6 +30,16 @@ const Index = () => {
           penaltyIds={stats.activePenalties} 
           onComplete={completePenalty} 
           onRevive={revive} 
+        />
+      )}
+
+      {activeCombat && (
+        <Combat 
+          monster={activeCombat} 
+          player={stats} 
+          onWin={winCombat} 
+          onLose={loseCombat} 
+          onEscape={() => setActiveCombat(null)} 
         />
       )}
 
@@ -56,7 +68,7 @@ const Index = () => {
         <CharacterHeader stats={stats} onUpdateProfile={updateProfile} />
 
         <Tabs defaultValue="daily" className="w-full">
-          <TabsList className="grid grid-cols-5 w-full h-14 bg-white border-2 border-slate-200 p-1 rounded-2xl shadow-sm sticky top-20 z-40">
+          <TabsList className="grid grid-cols-6 w-full h-14 bg-white border-2 border-slate-200 p-1 rounded-2xl shadow-sm sticky top-20 z-40">
             <TabsTrigger value="daily" className="rounded-xl data-[state=active]:bg-indigo-600 data-[state=active]:text-white font-black text-[10px] uppercase tracking-tighter">
               <Calendar className="w-4 h-4 mr-1 hidden md:block" /> Diarias
             </TabsTrigger>
@@ -65,6 +77,9 @@ const Index = () => {
             </TabsTrigger>
             <TabsTrigger value="todo" className="rounded-xl data-[state=active]:bg-emerald-600 data-[state=active]:text-white font-black text-[10px] uppercase tracking-tighter">
               <CheckSquare className="w-4 h-4 mr-1 hidden md:block" /> Tareas
+            </TabsTrigger>
+            <TabsTrigger value="world" className="rounded-xl data-[state=active]:bg-rose-600 data-[state=active]:text-white font-black text-[10px] uppercase tracking-tighter">
+              <Globe className="w-4 h-4 mr-1 hidden md:block" /> Mundo
             </TabsTrigger>
             <TabsTrigger value="shop" className="rounded-xl data-[state=active]:bg-amber-500 data-[state=active]:text-white font-black text-[10px] uppercase tracking-tighter">
               <ShoppingBag className="w-4 h-4 mr-1 hidden md:block" /> Tienda
@@ -83,6 +98,9 @@ const Index = () => {
             </TabsContent>
             <TabsContent value="todo">
               <QuestList quests={quests} type="todo" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} />
+            </TabsContent>
+            <TabsContent value="world">
+              <WorldMap player={stats} onFight={setActiveCombat} />
             </TabsContent>
             <TabsContent value="shop">
               <Shop items={shopItems} boughtInRotation={boughtInRotation} onBuy={buyItem} />

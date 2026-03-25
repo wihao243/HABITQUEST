@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { CharacterStats, Quest, ShopItem, StatType, Penalty } from '../types/game';
+import { CharacterStats, Quest, ShopItem, StatType, Penalty, Monster } from '../types/game';
 import { ALL_ITEMS } from '../data/items';
 import { ALL_PENALTIES } from '../data/penalties';
 import { showSuccess, showError } from '../utils/toast';
@@ -21,6 +21,7 @@ const INITIAL_STATS: CharacterStats = {
     carisma: 1,
   },
   activePenalties: [],
+  unlockedRegions: ['r1'],
 };
 
 const getISOWeek = (date: Date) => {
@@ -60,6 +61,8 @@ export function useGameState() {
     return saved ? JSON.parse(saved) : { daily: [], weekly: [], monthly: [] };
   });
 
+  const [activeCombat, setActiveCombat] = useState<Monster | null>(null);
+
   const seeds = useMemo(() => {
     const d = virtualTime;
     return {
@@ -69,16 +72,12 @@ export function useGameState() {
     };
   }, [virtualTime]);
 
-  // Lógica de cambio de ciclo
   useEffect(() => {
     const lastSeedsStr = localStorage.getItem('habitquest_last_seeds');
     const lastSeeds = lastSeedsStr ? JSON.parse(lastSeedsStr) : {};
     
     if (lastSeeds.day !== seeds.day) {
-      // 1. Reiniciar misiones
       setQuests(prev => prev.map(q => (q.type === 'daily' || q.type === 'habit') ? { ...q, completed: false } : q));
-
-      // 2. Si está muerto, añadir otro castigo
       if (stats.hp <= 0) {
         const available = ALL_PENALTIES.filter(p => !stats.activePenalties.includes(p.id));
         if (available.length > 0) {
@@ -87,8 +86,6 @@ export function useGameState() {
           showError("¡Un nuevo día de muerte! Se ha añadido otro castigo.");
         }
       }
-
-      // 3. Reiniciar tienda
       setBoughtInRotation(prev => {
         const next = { ...prev };
         next.daily = [];
@@ -96,7 +93,6 @@ export function useGameState() {
         if (lastSeeds.month !== seeds.month) next.monthly = [];
         return next;
       });
-
       localStorage.setItem('habitquest_last_seeds', JSON.stringify(seeds));
     }
   }, [seeds, stats.hp]);
@@ -177,7 +173,16 @@ export function useGameState() {
     if (!q) return;
     const xp = q.difficulty === 'easy' ? 10 : q.difficulty === 'medium' ? 25 : 50;
     const gold = q.difficulty === 'easy' ? 5 : q.difficulty === 'medium' ? 15 : 30;
-    setStats(prev => ({ ...prev, gold: prev.gold + gold, xp: prev.xp + xp }));
+    setStats(prev => {
+      const next = { ...prev, gold: prev.gold + gold, xp: prev.xp + xp };
+      while (next.xp >= next.maxXp) {
+        next.level += 1;
+        next.xp -= next.maxXp;
+        next.maxXp = Math.floor(next.maxXp * 1.2);
+        showSuccess("¡NIVEL SUBIDO!");
+      }
+      return next;
+    });
     if (q.type === 'todo') setQuests(prev => prev.filter(x => x.id !== id));
     else setQuests(prev => prev.map(x => x.id === id ? { ...x, completed: true, streak: (x.streak || 0) + 1 } : x));
     showSuccess(`+${xp} XP | +${gold} Oro`);
@@ -187,23 +192,37 @@ export function useGameState() {
     setStats(prev => {
       const newHp = Math.max(0, prev.hp - amount);
       let penalties = prev.activePenalties;
-      
-      // Si acaba de morir, añadir primer castigo
       if (newHp === 0 && prev.hp > 0) {
         const random = ALL_PENALTIES[Math.floor(Math.random() * ALL_PENALTIES.length)];
         penalties = [random.id];
         showError("¡HAS MUERTO! Debes cumplir tu penitencia.");
       }
-      
       return { ...prev, hp: newHp, activePenalties: penalties };
     });
   };
 
+  const winCombat = (xp: number, gold: number) => {
+    setStats(prev => {
+      const next = { ...prev, gold: prev.gold + gold, xp: prev.xp + xp };
+      while (next.xp >= next.maxXp) {
+        next.level += 1;
+        next.xp -= next.maxXp;
+        next.maxXp = Math.floor(next.maxXp * 1.2);
+        showSuccess("¡NIVEL SUBIDO!");
+      }
+      return next;
+    });
+    setActiveCombat(null);
+    showSuccess(`¡Victoria! +${xp} XP | +${gold} Oro`);
+  };
+
+  const loseCombat = (damage: number) => {
+    takeDamage(damage);
+    setActiveCombat(null);
+  };
+
   const completePenalty = (id: string) => {
-    setStats(prev => ({
-      ...prev,
-      activePenalties: prev.activePenalties.filter(pId => pId !== id)
-    }));
+    setStats(prev => ({ ...prev, activePenalties: prev.activePenalties.filter(pId => pId !== id) }));
     showSuccess("Castigo cumplido.");
   };
 
@@ -234,9 +253,9 @@ export function useGameState() {
   const adminClearInventory = () => setInventory([]);
 
   return { 
-    stats, quests, inventory, shopItems, virtualTime, boughtInRotation,
+    stats, quests, inventory, shopItems, virtualTime, boughtInRotation, activeCombat,
     completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, useItem, updateProfile,
     adminReset, adminAddGold, adminLevelUp, adminClearInventory, advanceTime,
-    completePenalty, revive
+    completePenalty, revive, setActiveCombat, winCombat, loseCombat
   };
 }
