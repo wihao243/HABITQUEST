@@ -25,7 +25,8 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
   const addLog = (msg: string) => setLog(prev => [msg, ...prev].slice(0, 5));
 
   const handleAttack = () => {
-    if (!isPlayerTurn || isFinished) return;
+    // Bloqueo inmediato si no es el turno, si terminó o si ya hay una animación en curso
+    if (!isPlayerTurn || isFinished || animating) return;
     
     setAnimating("player");
     const damage = Math.floor(player.attributes.fuerza * 5 + Math.random() * 10);
@@ -46,7 +47,8 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
   };
 
   const handleSkill = () => {
-    if (!isPlayerTurn || isFinished) return;
+    // Bloqueo inmediato
+    if (!isPlayerTurn || isFinished || animating) return;
     
     setAnimating("player");
     const heal = Math.floor(player.attributes.espiritualidad * 8);
@@ -138,21 +140,21 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Button 
-                disabled={!isPlayerTurn || isFinished}
+                disabled={!isPlayerTurn || isFinished || !!animating}
                 onClick={handleAttack}
                 className="h-full bg-rose-600 hover:bg-rose-500 font-black uppercase flex flex-col gap-1"
               >
                 <Sword className="w-5 h-5" /> Atacar
               </Button>
               <Button 
-                disabled={!isPlayerTurn || isFinished}
+                disabled={!isPlayerTurn || isFinished || !!animating}
                 onClick={handleSkill}
                 className="h-full bg-indigo-600 hover:bg-indigo-500 font-black uppercase flex flex-col gap-1"
               >
                 <Zap className="w-5 h-5" /> Curar
               </Button>
               <Button 
-                disabled={!isPlayerTurn || isFinished}
+                disabled={!isPlayerTurn || isFinished || !!animating}
                 onClick={() => onEscape(playerHp)}
                 variant="outline"
                 className="col-span-2 border-2 border-slate-700 text-slate-400 font-black uppercase"
