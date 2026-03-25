@@ -14,6 +14,26 @@ const INITIAL_GAME_STATS: GameStats = {
   totalDeaths: 0,
   itemsBought: 0,
   history: [],
+  currentStreak: 0,
+  maxStreak: 0,
+  perfectDays: 0,
+  waterDrank: 0,
+  exerciseDays: 0,
+  cardioSessions: 0,
+  healthyMeals: 0,
+  stepsMax: 0,
+  exerciseHours: 0,
+  pagesRead: 0,
+  languagePractice: 0,
+  meditationHours: 0,
+  deepWorkSessions: 0,
+  journalEntries: 0,
+  noSnoozeDays: 0,
+  cosmeticsBought: 0,
+  petsOwned: 0,
+  realLifeRewardsBought: 0,
+  lowHpHeals: 0,
+  friendsInvited: 0,
 };
 
 const INITIAL_STATS: CharacterStats = {
@@ -133,7 +153,17 @@ export function useGameState() {
     const lastSeeds = lastSeedsStr ? JSON.parse(lastSeedsStr) : {};
     
     if (lastSeeds.day !== seeds.day) {
+      // Verificar si el día anterior fue perfecto
+      const allDailiesDone = quests.filter(q => q.type === 'daily').every(q => q.completed);
+      if (allDailiesDone && quests.some(q => q.type === 'daily')) {
+        setStats(prev => ({
+          ...prev,
+          gameStats: { ...prev.gameStats, perfectDays: prev.gameStats.perfectDays + 1 }
+        }));
+      }
+
       setQuests(prev => prev.map(q => (q.type === 'daily' || q.type === 'habit') ? { ...q, completed: false } : q));
+      
       if (stats.hp <= 0) {
         const available = ALL_PENALTIES.filter(p => !stats.activePenalties.includes(p.id));
         if (available.length > 0) {
@@ -151,7 +181,7 @@ export function useGameState() {
       });
       localStorage.setItem('habitquest_last_seeds', JSON.stringify(seeds));
     }
-  }, [seeds, stats.hp]);
+  }, [seeds, stats.hp, quests]);
 
   useEffect(() => {
     localStorage.setItem('habitquest_stats', JSON.stringify(stats));
@@ -168,7 +198,13 @@ export function useGameState() {
       setStats(prev => ({ 
         ...prev, 
         gold: prev.gold - item.cost,
-        gameStats: { ...prev.gameStats, itemsBought: prev.gameStats.itemsBought + 1 }
+        gameStats: { 
+          ...prev.gameStats, 
+          itemsBought: prev.gameStats.itemsBought + 1,
+          cosmeticsBought: item.category === 'armaduras' ? prev.gameStats.cosmeticsBought + 1 : prev.gameStats.cosmeticsBought,
+          petsOwned: item.category === 'mascotas' ? prev.gameStats.petsOwned + 1 : prev.gameStats.petsOwned,
+          realLifeRewardsBought: item.category === 'real' ? prev.gameStats.realLifeRewardsBought + 1 : prev.gameStats.realLifeRewardsBought,
+        }
       }));
       setInventory(prev => [...prev, item.id]);
       setBoughtInRotation(prev => ({ ...prev, [source]: [...prev[source], item.id] }));
@@ -182,7 +218,10 @@ export function useGameState() {
     setStats(prev => {
       let next = { ...prev };
       const { effect } = item;
-      if (effect.type === 'hp') next.hp = Math.min(next.maxHp, next.hp + effect.value);
+      if (effect.type === 'hp') {
+        if (prev.hp < 5) next.gameStats.lowHpHeals += 1;
+        next.hp = Math.min(next.maxHp, next.hp + effect.value);
+      }
       if (effect.type === 'gold') {
         next.gold += effect.value;
         next.gameStats.totalGoldEarned += effect.value;
@@ -211,10 +250,27 @@ export function useGameState() {
     const gold = q.difficulty === 'easy' ? 5 : q.difficulty === 'medium' ? 15 : 30;
     
     const today = virtualTime.toISOString().split('T')[0];
+    const hour = virtualTime.getHours();
 
     setStats(prev => {
       let nextGameStats = { ...prev.gameStats };
       
+      // Lógica de métricas específicas
+      const title = q.title.toLowerCase();
+      if (title.includes('agua')) nextGameStats.waterDrank += 1;
+      if (title.includes('ejercicio') || title.includes('gym')) {
+        nextGameStats.exerciseDays += 1;
+        nextGameStats.exerciseHours += 1;
+      }
+      if (title.includes('correr') || title.includes('cardio')) nextGameStats.cardioSessions += 1;
+      if (title.includes('cocinar') || title.includes('sano')) nextGameStats.healthyMeals += 1;
+      if (title.includes('leer')) nextGameStats.pagesRead += 10;
+      if (title.includes('idioma') || title.includes('duolingo')) nextGameStats.languagePractice += 1;
+      if (title.includes('meditar')) nextGameStats.meditationHours += 0.5;
+      if (title.includes('trabajo') || title.includes('estudiar')) nextGameStats.deepWorkSessions += 1;
+      if (title.includes('diario') || title.includes('escribir')) nextGameStats.journalEntries += 1;
+      if (hour < 9) nextGameStats.noSnoozeDays += 1;
+
       // Actualizar historial diario
       const historyIndex = nextGameStats.history.findIndex(h => h.date === today);
       if (historyIndex > -1) {
@@ -229,7 +285,6 @@ export function useGameState() {
           habits: q.type === 'habit' ? 1 : 0,
           dailies: q.type === 'daily' ? 1 : 0,
         });
-        // Mantener solo los últimos 30 días
         if (nextGameStats.history.length > 30) nextGameStats.history.shift();
       }
 
@@ -243,6 +298,8 @@ export function useGameState() {
           tasksCompleted: q.type === 'todo' ? prev.gameStats.tasksCompleted + 1 : prev.gameStats.tasksCompleted,
           habitsCompleted: q.type === 'habit' ? prev.gameStats.habitsCompleted + 1 : prev.gameStats.habitsCompleted,
           dailiesCompleted: q.type === 'daily' ? prev.gameStats.dailiesCompleted + 1 : prev.gameStats.dailiesCompleted,
+          currentStreak: q.type === 'habit' ? (q.streak || 0) + 1 : prev.gameStats.currentStreak,
+          maxStreak: Math.max(prev.gameStats.maxStreak, q.type === 'habit' ? (q.streak || 0) + 1 : 0)
         }
       };
       next = checkLevelUp(next);
@@ -330,7 +387,7 @@ export function useGameState() {
   };
 
   const updateProfile = (updates: Partial<CharacterStats>) => setStats(prev => ({ ...prev, ...updates }));
-  const addQuest = (q: any) => setQuests(prev => [...prev, { ...q, id: Math.random().toString(36).substr(2, 9), completed: false, streak: 0 }]);
+  const addQuest = (q: any) => setQuests(prev => [...prev, { ...q, id: Math.random().toString(36).substr(2, 9), completed: false, streak: 0, createdAt: virtualTime.toISOString() }]);
   const updateQuest = (id: string, u: any) => setQuests(prev => prev.map(q => q.id === id ? { ...q, ...u } : q));
   const deleteQuest = (id: string) => setQuests(prev => prev.filter(q => q.id !== id));
 

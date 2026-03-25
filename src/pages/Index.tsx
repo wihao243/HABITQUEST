@@ -52,7 +52,7 @@ const Index = () => {
             <h1 className="text-xl font-black italic tracking-tighter text-slate-900">HABITQUEST</h1>
           </div>
           <div className="flex gap-1">
-            <AchievementsDialog gameStats={stats.gameStats} />
+            <AchievementsDialog stats={stats} />
             <StatsDialog stats={stats} />
             <AdminPanel 
               onReset={adminReset} 

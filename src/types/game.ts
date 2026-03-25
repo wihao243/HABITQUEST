@@ -24,6 +24,27 @@ export interface GameStats {
   totalDeaths: number;
   itemsBought: number;
   history: DailyActivity[];
+  // Nuevas métricas para los 50 logros
+  currentStreak: number;
+  maxStreak: number;
+  perfectDays: number;
+  waterDrank: number;
+  exerciseDays: number;
+  cardioSessions: number;
+  healthyMeals: number;
+  stepsMax: number;
+  exerciseHours: number;
+  pagesRead: number;
+  languagePractice: number;
+  meditationHours: number;
+  deepWorkSessions: number;
+  journalEntries: number;
+  noSnoozeDays: number;
+  cosmeticsBought: number;
+  petsOwned: number;
+  realLifeRewardsBought: number;
+  lowHpHeals: number;
+  friendsInvited: number;
 }
 
 export interface Achievement {
@@ -31,8 +52,8 @@ export interface Achievement {
   title: string;
   description: string;
   icon: string;
-  requirement: (stats: GameStats) => boolean;
-  unlocked?: boolean;
+  category: 'rachas' | 'salud' | 'mente' | 'economia' | 'social';
+  requirement: (stats: GameStats, char: CharacterStats) => boolean;
 }
 
 export interface CharacterStats {
@@ -94,6 +115,7 @@ export interface Quest {
   completed: boolean;
   streak?: number;
   lastCompleted?: string;
+  createdAt?: string;
 }
 
 export interface ShopItem {
