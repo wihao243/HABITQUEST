@@ -13,7 +13,7 @@ import { ShopEditor } from "@/components/game/ShopEditor";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, Users, Calendar, Repeat, CheckSquare, ShoppingBag, Package, Globe } from "lucide-react";
+import { Trophy, Users, Calendar, Repeat, CheckSquare, ShoppingBag, Package, Globe, LogOut } from "lucide-react";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 
 const Index = () => {
@@ -22,7 +22,7 @@ const Index = () => {
     completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, useItem, updateProfile,
     adminReset, adminAddGold, adminLevelUp, adminClearInventory, advanceTime, togglePauseTimer,
     completePenalty, revive, setActiveCombat, winCombat, loseCombat, escapeCombat,
-    addShopItem, updateShopItem, deleteShopItem
+    addShopItem, updateShopItem, deleteShopItem, logout
   } = useGameState();
 
   const isDead = stats.hp <= 0;
@@ -70,6 +70,9 @@ const Index = () => {
               onAdvanceTime={advanceTime}
               currentTime={virtualTime}
             />
+            <Button variant="ghost" size="icon" onClick={logout} className="rounded-full hover:bg-rose-50 text-slate-600 hover:text-rose-600">
+              <LogOut className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       </nav>

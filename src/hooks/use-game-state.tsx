@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { CharacterStats, Quest, Monster, ShopItem } from "@/types/game";
 import { ALL_ITEMS as INITIAL_ITEMS } from "@/data/items";
 import { showSuccess, showError } from "@/utils/toast";
+import { supabase } from "@/lib/supabase";
 
 const INITIAL_GAME_STATS = {
   tasksCompleted: 0,
@@ -88,6 +89,75 @@ export const useGameState = () => {
   const [boughtItems, setBoughtItems] = useState<Record<string, number>>({});
   const [pausedTimers, setPausedTimers] = useState<Record<string, boolean>>({});
   const [allItems, setAllItems] = useState<ShopItem[]>(INITIAL_ITEMS);
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Cargar sesión inicial
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Cargar datos de Supabase
+  useEffect(() => {
+    if (!user) return;
+
+    const loadData = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (data) {
+        if (data.game_state) setStats(data.game_state);
+        if (data.quests) setQuests(data.quests);
+        if (data.inventory) setInventory(data.inventory);
+        if (data.bought_items) setBoughtItems(data.bought_items);
+        if (data.all_items) setAllItems(data.all_items);
+      } else if (error && error.code !== 'PGRST116') {
+        console.error("Error cargando datos:", error);
+      }
+    };
+
+    loadData();
+  }, [user]);
+
+  // Guardar datos en Supabase (Auto-save)
+  const saveData = useCallback(async (currentStats: any, currentQuests: any, currentInv: any, currentBought: any, currentAllItems: any) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('profiles')
+      .upsert({
+        id: user.id,
+        game_state: currentStats,
+        quests: currentQuests,
+        inventory: currentInv,
+        bought_items: currentBought,
+        all_items: currentAllItems,
+        updated_at: new Date().toISOString(),
+      });
+
+    if (error) console.error("Error guardando datos:", error);
+  }, [user]);
+
+  // Efecto para auto-guardado cuando cambian los datos clave
+  useEffect(() => {
+    if (!user || loading) return;
+    const timer = setTimeout(() => {
+      saveData(stats, quests, inventory, boughtItems, allItems);
+    }, 1000); // Debounce de 1 segundo
+    return () => clearTimeout(timer);
+  }, [stats, quests, inventory, boughtItems, allItems, user, loading, saveData]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -195,7 +265,6 @@ export const useGameState = () => {
     showSuccess(`Tiempo avanzado ${days} días.`);
   };
 
-  // Funciones del Editor de Tienda
   const addShopItem = (item: Omit<ShopItem, 'id'>) => {
     const newItem = { ...item, id: `custom-${Math.random().toString(36).substr(2, 9)}` };
     setAllItems(prev => [...prev, newItem]);
@@ -212,9 +281,14 @@ export const useGameState = () => {
     showSuccess("Objeto eliminado de la tienda.");
   };
 
+  const logout = async () => {
+    await supabase.auth.signOut();
+    showSuccess("Sesión cerrada.");
+  };
+
   return {
-    stats, quests, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, pausedTimers, allItems,
-    buyItem, advanceTime, togglePauseTimer, addShopItem, updateShopItem, deleteShopItem,
+    stats, quests, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, pausedTimers, allItems, user, loading,
+    buyItem, advanceTime, togglePauseTimer, addShopItem, updateShopItem, deleteShopItem, logout,
     completeQuest: (id: string) => {
       const quest = quests.find(q => q.id === id);
       if (!quest) return;
