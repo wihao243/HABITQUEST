@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { showError, showSuccess } from "@/utils/toast";
-import { Sword, Sparkles, Chrome } from "lucide-react";
+import { Sword, Sparkles, Chrome, Copy, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Login = () => {
@@ -14,6 +14,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
+  const currentOrigin = window.location.origin;
 
   useEffect(() => {
     const checkUser = async () => {
@@ -54,7 +55,7 @@ const Login = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: currentOrigin
         }
       });
       if (error) throw error;
@@ -63,58 +64,81 @@ const Login = () => {
     }
   };
 
+  const copyUrl = () => {
+    navigator.clipboard.writeText(currentOrigin);
+    showSuccess("URL copiada al portapapeles");
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px]" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-rose-600/20 rounded-full blur-[120px]" />
 
-      <Card className="max-w-md w-full p-8 bg-slate-900 border-4 border-slate-800 shadow-2xl relative z-10">
-        <div className="text-center space-y-4 mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-2xl text-white text-3xl shadow-lg border-2 border-indigo-400">
-            ⚔️
-          </div>
-          <h1 className="text-3xl font-black italic tracking-tighter text-white uppercase">HabitQuest</h1>
-          <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">
-            {isSignUp ? "Comienza tu aventura" : "Continúa tu leyenda"}
+      <div className="max-w-md w-full space-y-4 relative z-10">
+        {/* Ayuda para configuración */}
+        <Card className="p-4 bg-amber-900/20 border-2 border-amber-500/50 text-amber-200 text-xs">
+          <p className="font-bold mb-2 flex items-center gap-2">
+            <ExternalLink className="w-3 h-3" /> CONFIGURACIÓN DE SUPABASE REQUERIDA:
           </p>
-        </div>
+          <p className="mb-3 opacity-80">Copia esta URL y ponla en "Site URL" dentro de Supabase (Authentication {'>'} URL Configuration):</p>
+          <div className="flex gap-2">
+            <code className="flex-1 bg-black/40 p-2 rounded border border-amber-500/30 truncate font-mono">
+              {currentOrigin}
+            </code>
+            <Button size="icon" variant="outline" className="h-9 w-9 border-amber-500/50 text-amber-500" onClick={copyUrl}>
+              <Copy className="w-4 h-4" />
+            </Button>
+          </div>
+        </Card>
 
-        <div className="space-y-4">
-          <Button 
-            onClick={handleGoogleLogin}
-            variant="outline" 
-            className="w-full h-12 border-2 border-slate-700 bg-slate-800 text-white font-bold hover:bg-slate-700"
-          >
-            <Chrome className="w-5 h-5 mr-2 text-rose-500" />
-            Entrar con Google
-          </Button>
-
-          <div className="relative py-4">
-            <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-800"></span></div>
-            <div className="relative flex justify-center text-xs uppercase"><span className="bg-slate-900 px-2 text-slate-500 font-bold">O con email</span></div>
+        <Card className="p-8 bg-slate-900 border-4 border-slate-800 shadow-2xl">
+          <div className="text-center space-y-4 mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-2xl text-white text-3xl shadow-lg border-2 border-indigo-400">
+              ⚔️
+            </div>
+            <h1 className="text-3xl font-black italic tracking-tighter text-white uppercase">HabitQuest</h1>
+            <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">
+              {isSignUp ? "Comienza tu aventura" : "Continúa tu leyenda"}
+            </p>
           </div>
 
-          <form onSubmit={handleAuth} className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-xs font-black uppercase text-slate-500">Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-slate-800 border-2 border-slate-700 text-white font-bold" required />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-black uppercase text-slate-500">Contraseña</Label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-slate-800 border-2 border-slate-700 text-white font-bold" required />
-            </div>
-            <Button type="submit" disabled={loading} className="w-full h-12 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase italic">
-              {loading ? <Sparkles className="animate-spin mr-2" /> : (isSignUp ? "Registrarse" : "Entrar")}
+          <div className="space-y-4">
+            <Button 
+              onClick={handleGoogleLogin}
+              variant="outline" 
+              className="w-full h-12 border-2 border-slate-700 bg-slate-800 text-white font-bold hover:bg-slate-700"
+            >
+              <Chrome className="w-5 h-5 mr-2 text-rose-500" />
+              Entrar con Google
             </Button>
-          </form>
-        </div>
 
-        <div className="mt-8 pt-6 border-t border-slate-800 text-center">
-          <button onClick={() => setIsSignUp(!isSignUp)} className="text-slate-400 hover:text-white text-xs font-black uppercase tracking-widest">
-            {isSignUp ? "¿Ya tienes cuenta? Inicia Sesión" : "¿Eres nuevo? Regístrate aquí"}
-          </button>
-        </div>
-      </Card>
+            <div className="relative py-4">
+              <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-800"></span></div>
+              <div className="relative flex justify-center text-xs uppercase"><span className="bg-slate-900 px-2 text-slate-500 font-bold">O con email</span></div>
+            </div>
+
+            <form onSubmit={handleAuth} className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase text-slate-500">Email</Label>
+                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-slate-800 border-2 border-slate-700 text-white font-bold" required />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase text-slate-500">Contraseña</Label>
+                <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-slate-800 border-2 border-slate-700 text-white font-bold" required />
+              </div>
+              <Button type="submit" disabled={loading} className="w-full h-12 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase italic">
+                {loading ? <Sparkles className="animate-spin mr-2" /> : (isSignUp ? "Registrarse" : "Entrar")}
+              </Button>
+            </form>
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-slate-800 text-center">
+            <button onClick={() => setIsSignUp(!isSignUp)} className="text-slate-400 hover:text-white text-xs font-black uppercase tracking-widest">
+              {isSignUp ? "¿Ya tienes cuenta? Inicia Sesión" : "¿Eres nuevo? Regístrate aquí"}
+            </button>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 };
