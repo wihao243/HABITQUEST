@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { showError, showSuccess } from "@/utils/toast";
-import { Sword, Sparkles } from "lucide-react";
+import { Sword, Sparkles, Chrome } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Login = () => {
@@ -15,20 +15,15 @@ const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
 
-  // Redirigir si el usuario ya está autenticado
   useEffect(() => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        navigate("/");
-      }
+      if (session) navigate("/");
     };
     checkUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        navigate("/");
-      }
+      if (event === "SIGNED_IN" && session) navigate("/");
     });
 
     return () => subscription.unsubscribe();
@@ -37,22 +32,34 @@ const Login = () => {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        showSuccess("¡Registro con éxito! Revisa tu email para confirmar.");
+        showSuccess("¡Registro con éxito! Revisa tu email.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        showSuccess("¡Bienvenido de nuevo, Héroe!");
-        // La redirección la maneja el useEffect con onAuthStateChange
+        showSuccess("¡Bienvenido de nuevo!");
       }
     } catch (error: any) {
-      showError(error.message || "Error en la autenticación");
+      showError(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      showError(error.message);
     }
   };
 
@@ -66,52 +73,44 @@ const Login = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-2xl text-white text-3xl shadow-lg border-2 border-indigo-400">
             ⚔️
           </div>
-          <h1 className="text-3xl font-black italic tracking-tighter text-white uppercase">
-            HabitQuest
-          </h1>
+          <h1 className="text-3xl font-black italic tracking-tighter text-white uppercase">HabitQuest</h1>
           <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">
             {isSignUp ? "Comienza tu aventura" : "Continúa tu leyenda"}
           </p>
         </div>
 
-        <form onSubmit={handleAuth} className="space-y-6">
-          <div className="space-y-2">
-            <Label className="text-xs font-black uppercase text-slate-500">Correo Electrónico</Label>
-            <Input 
-              type="email" 
-              placeholder="heroe@reino.com" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="bg-slate-800 border-2 border-slate-700 text-white font-bold h-12 focus:border-indigo-500"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs font-black uppercase text-slate-500">Contraseña</Label>
-            <Input 
-              type="password" 
-              placeholder="••••••••" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="bg-slate-800 border-2 border-slate-700 text-white font-bold h-12 focus:border-indigo-500"
-              required
-            />
+        <div className="space-y-4">
+          <Button 
+            onClick={handleGoogleLogin}
+            variant="outline" 
+            className="w-full h-12 border-2 border-slate-700 bg-slate-800 text-white font-bold hover:bg-slate-700"
+          >
+            <Chrome className="w-5 h-5 mr-2 text-rose-500" />
+            Entrar con Google
+          </Button>
+
+          <div className="relative py-4">
+            <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-800"></span></div>
+            <div className="relative flex justify-center text-xs uppercase"><span className="bg-slate-900 px-2 text-slate-500 font-bold">O con email</span></div>
           </div>
 
-          <Button 
-            type="submit" 
-            disabled={loading}
-            className="w-full h-14 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase italic text-lg shadow-[0_0_20px_rgba(79,70,229,0.4)]"
-          >
-            {loading ? <Sparkles className="animate-spin mr-2" /> : (isSignUp ? "Crear Personaje" : "Entrar al Reino")}
-          </Button>
-        </form>
+          <form onSubmit={handleAuth} className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase text-slate-500">Email</Label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-slate-800 border-2 border-slate-700 text-white font-bold" required />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase text-slate-500">Contraseña</Label>
+              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-slate-800 border-2 border-slate-700 text-white font-bold" required />
+            </div>
+            <Button type="submit" disabled={loading} className="w-full h-12 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase italic">
+              {loading ? <Sparkles className="animate-spin mr-2" /> : (isSignUp ? "Registrarse" : "Entrar")}
+            </Button>
+          </form>
+        </div>
 
         <div className="mt-8 pt-6 border-t border-slate-800 text-center">
-          <button 
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-slate-400 hover:text-white text-xs font-black uppercase tracking-widest transition-colors"
-          >
+          <button onClick={() => setIsSignUp(!isSignUp)} className="text-slate-400 hover:text-white text-xs font-black uppercase tracking-widest">
             {isSignUp ? "¿Ya tienes cuenta? Inicia Sesión" : "¿Eres nuevo? Regístrate aquí"}
           </button>
         </div>
