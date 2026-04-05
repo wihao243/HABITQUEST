@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { CharacterStats, Quest, Monster, ShopItem } from "@/types/game";
 import { ALL_ITEMS as INITIAL_ITEMS } from "@/data/items";
 import { showSuccess, showError } from "@/utils/toast";
@@ -91,49 +91,67 @@ export const useGameState = () => {
   const [allItems, setAllItems] = useState<ShopItem[]>(INITIAL_ITEMS);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
+  
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Cargar sesión inicial
+  // Cargar sesión inicial de Auth
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      setLoading(false);
+      if (!session) setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (!session) {
+        setLoading(false);
+        setIsInitialLoadDone(false);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // Cargar datos de Supabase
+  // Cargar datos de la base de datos cuando el usuario está listo
   useEffect(() => {
     if (!user) return;
 
     const loadData = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
 
-      if (data) {
-        if (data.game_state) setStats(data.game_state);
-        if (data.quests) setQuests(data.quests);
-        if (data.inventory) setInventory(data.inventory);
-        if (data.bought_items) setBoughtItems(data.bought_items);
-        if (data.all_items) setAllItems(data.all_items);
-      } else if (error && error.code !== 'PGRST116') {
-        console.error("Error cargando datos:", error);
+        if (data) {
+          if (data.game_state) setStats(data.game_state);
+          if (data.quests) setQuests(data.quests);
+          if (data.inventory) setInventory(data.inventory);
+          if (data.bought_items) setBoughtItems(data.bought_items);
+          if (data.all_items) setAllItems(data.all_items);
+        }
+      } catch (err) {
+        console.error("Error cargando perfil:", err);
+      } finally {
+        setLoading(false);
+        setIsInitialLoadDone(true);
       }
     };
 
     loadData();
   }, [user]);
 
-  // Guardar datos en Supabase (Auto-save)
-  const saveData = useCallback(async (currentStats: any, currentQuests: any, currentInv: any, currentBought: any, currentAllItems: any) => {
-    if (!user) return;
+  // Función de guardado manual/automático
+  const saveData = useCallback(async (
+    currentStats: CharacterStats, 
+    currentQuests: Quest[], 
+    currentInv: string[], 
+    currentBought: Record<string, number>, 
+    currentAllItems: ShopItem[]
+  ) => {
+    if (!user || !isInitialLoadDone) return;
 
     const { error } = await supabase
       .from('profiles')
@@ -147,18 +165,25 @@ export const useGameState = () => {
         updated_at: new Date().toISOString(),
       });
 
-    if (error) console.error("Error guardando datos:", error);
-  }, [user]);
+    if (error) console.error("Error al guardar en la nube:", error);
+  }, [user, isInitialLoadDone]);
 
-  // Efecto para auto-guardado cuando cambian los datos clave
+  // Efecto de auto-guardado con debounce
   useEffect(() => {
-    if (!user || loading) return;
-    const timer = setTimeout(() => {
-      saveData(stats, quests, inventory, boughtItems, allItems);
-    }, 1000); // Debounce de 1 segundo
-    return () => clearTimeout(timer);
-  }, [stats, quests, inventory, boughtItems, allItems, user, loading, saveData]);
+    if (!isInitialLoadDone || !user) return;
 
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      saveData(stats, quests, inventory, boughtItems, allItems);
+    }, 2000); // Guardar cada 2 segundos de inactividad
+
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [stats, quests, inventory, boughtItems, allItems, user, isInitialLoadDone, saveData]);
+
+  // Lógica de temporizadores
   useEffect(() => {
     const interval = setInterval(() => {
       setStats(prev => {
