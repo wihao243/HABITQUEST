@@ -95,7 +95,6 @@ export const useGameState = () => {
   
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Cargar sesión inicial de Auth
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -113,7 +112,6 @@ export const useGameState = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Cargar datos de la base de datos cuando el usuario está listo
   useEffect(() => {
     if (!user) return;
 
@@ -131,6 +129,16 @@ export const useGameState = () => {
           if (data.inventory) setInventory(data.inventory);
           if (data.bought_items) setBoughtItems(data.bought_items);
           if (data.all_items) setAllItems(data.all_items);
+        } else if (error && error.code === 'PGRST116') {
+          // Si el perfil no existe (error single() vacío), lo creamos con los datos iniciales
+          await supabase.from('profiles').insert({
+            id: user.id,
+            game_state: INITIAL_CHARACTER,
+            quests: [],
+            inventory: [],
+            bought_items: {},
+            all_items: INITIAL_ITEMS
+          });
         }
       } catch (err) {
         console.error("Error cargando perfil:", err);
@@ -143,7 +151,6 @@ export const useGameState = () => {
     loadData();
   }, [user]);
 
-  // Función de guardado manual/automático
   const saveData = useCallback(async (
     currentStats: CharacterStats, 
     currentQuests: Quest[], 
@@ -168,7 +175,6 @@ export const useGameState = () => {
     if (error) console.error("Error al guardar en la nube:", error);
   }, [user, isInitialLoadDone]);
 
-  // Efecto de auto-guardado con debounce
   useEffect(() => {
     if (!isInitialLoadDone || !user) return;
 
@@ -176,14 +182,13 @@ export const useGameState = () => {
     
     saveTimeoutRef.current = setTimeout(() => {
       saveData(stats, quests, inventory, boughtItems, allItems);
-    }, 2000); // Guardar cada 2 segundos de inactividad
+    }, 2000);
 
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
   }, [stats, quests, inventory, boughtItems, allItems, user, isInitialLoadDone, saveData]);
 
-  // Lógica de temporizadores
   useEffect(() => {
     const interval = setInterval(() => {
       setStats(prev => {
