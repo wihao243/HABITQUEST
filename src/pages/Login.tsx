@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { showError, showSuccess } from "@/utils/toast";
-import { Sword, Sparkles, Chrome, Copy, ExternalLink } from "lucide-react";
+import { Sword, Sparkles, Chrome, Copy, ExternalLink, Smartphone, Globe } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Login = () => {
@@ -66,7 +66,7 @@ const Login = () => {
 
   const copyUrl = () => {
     navigator.clipboard.writeText(currentOrigin);
-    showSuccess("URL copiada al portapapeles");
+    showSuccess("URL copiada");
   };
 
   return (
@@ -75,20 +75,21 @@ const Login = () => {
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-rose-600/20 rounded-full blur-[120px]" />
 
       <div className="max-w-md w-full space-y-4 relative z-10">
-        {/* Ayuda para configuración */}
-        <Card className="p-4 bg-amber-900/20 border-2 border-amber-500/50 text-amber-200 text-xs">
-          <p className="font-bold mb-2 flex items-center gap-2">
-            <ExternalLink className="w-3 h-3" /> CONFIGURACIÓN DE SUPABASE REQUERIDA:
+        {/* Guía Multi-dispositivo */}
+        <Card className="p-4 bg-indigo-900/30 border-2 border-indigo-500/50 text-indigo-100 text-xs">
+          <p className="font-black mb-2 flex items-center gap-2 uppercase tracking-tighter">
+            <Globe className="w-4 h-4 text-indigo-400" /> Acceso desde cualquier dispositivo
           </p>
-          <p className="mb-3 opacity-80">Copia esta URL y ponla en "Site URL" dentro de Supabase (Authentication {'>'} URL Configuration):</p>
-          <div className="flex gap-2">
-            <code className="flex-1 bg-black/40 p-2 rounded border border-amber-500/30 truncate font-mono">
-              {currentOrigin}
+          <p className="mb-3 opacity-80">Para que funcione en tu móvil, añade esta URL en <b>Supabase > Authentication > URL Configuration > Redirect URLs</b>:</p>
+          <div className="flex gap-2 mb-2">
+            <code className="flex-1 bg-black/40 p-2 rounded border border-indigo-500/30 truncate font-mono text-[10px]">
+              {currentOrigin}/**
             </code>
-            <Button size="icon" variant="outline" className="h-9 w-9 border-amber-500/50 text-amber-500" onClick={copyUrl}>
-              <Copy className="w-4 h-4" />
+            <Button size="icon" variant="outline" className="h-8 w-8 border-indigo-500/50 text-indigo-400" onClick={copyUrl}>
+              <Copy className="w-3 h-3" />
             </Button>
           </div>
+          <p className="text-[9px] text-indigo-300 italic">Tip: Puedes añadir tantas URLs como quieras (localhost, la de Dyad, etc.) y funcionará en todas.</p>
         </Card>
 
         <Card className="p-8 bg-slate-900 border-4 border-slate-800 shadow-2xl">
