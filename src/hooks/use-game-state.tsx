@@ -128,22 +128,29 @@ export const useGameState = () => {
           .eq('id', user.id)
           .single();
 
-        if (data) {
-          if (data.game_state) setStats(data.game_state);
+        if (data && data.game_state) {
+          setStats(data.game_state);
           if (data.quests) setQuests(data.quests);
           if (data.inventory) setInventory(data.inventory);
           if (data.bought_items) setBoughtItems(data.bought_items);
           if (data.all_items) setAllItems(data.all_items);
-        } else if (error && error.code === 'PGRST116') {
-          // Crear perfil si no existe
-          await supabase.from('profiles').insert({
+        } else {
+          // Si el perfil existe pero está vacío (por el trigger) o no existe
+          const initialData = {
             id: user.id,
             game_state: INITIAL_CHARACTER,
             quests: [],
             inventory: [],
             bought_items: {},
-            all_items: INITIAL_ITEMS
-          });
+            all_items: INITIAL_ITEMS,
+            updated_at: new Date().toISOString()
+          };
+          await supabase.from('profiles').upsert(initialData);
+          setStats(INITIAL_CHARACTER);
+          setQuests([]);
+          setInventory([]);
+          setBoughtItems({});
+          setAllItems(INITIAL_ITEMS);
         }
       } catch (err) {
         console.error("Error cargando perfil:", err);
@@ -331,15 +338,37 @@ export const useGameState = () => {
       if (!quest) return;
       const rewards = { easy: { xp: 10, gold: 5, attr: 0.1 }, medium: { xp: 25, gold: 15, attr: 0.2 }, hard: { xp: 60, gold: 40, attr: 0.5 } };
       const r = rewards[quest.difficulty];
-      setStats(prev => ({
-        ...prev, xp: prev.xp + r.xp, gold: prev.gold + r.gold,
-        attributes: { ...prev.attributes, [quest.stat]: prev.attributes[quest.stat] + r.attr },
-        gameStats: { ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + r.gold,
-          tasksCompleted: quest.type === 'todo' ? prev.gameStats.tasksCompleted + 1 : prev.gameStats.tasksCompleted,
-          habitsCompleted: quest.type === 'habit' ? prev.gameStats.habitsCompleted + 1 : prev.gameStats.habitsCompleted,
-          dailiesCompleted: quest.type === 'daily' ? prev.gameStats.dailiesCompleted + 1 : prev.gameStats.dailiesCompleted,
+      setStats(prev => {
+        const newXp = prev.xp + r.xp;
+        let newLevel = prev.level;
+        let newMaxXp = prev.maxXp;
+        let newHp = prev.hp;
+        let newMaxHp = prev.maxHp;
+
+        if (newXp >= newMaxXp) {
+          newLevel += 1;
+          newMaxXp = Math.floor(newMaxXp * 1.2);
+          newMaxHp += 10;
+          newHp = newMaxHp;
+          showSuccess(`¡SUBIDA DE NIVEL! Ahora eres nivel ${newLevel}`);
         }
-      }));
+
+        return {
+          ...prev, 
+          xp: newXp >= newMaxXp ? 0 : newXp,
+          level: newLevel,
+          maxXp: newMaxXp,
+          hp: newHp,
+          maxHp: newMaxHp,
+          gold: prev.gold + r.gold,
+          attributes: { ...prev.attributes, [quest.stat]: prev.attributes[quest.stat] + r.attr },
+          gameStats: { ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + r.gold,
+            tasksCompleted: quest.type === 'todo' ? prev.gameStats.tasksCompleted + 1 : prev.gameStats.tasksCompleted,
+            habitsCompleted: quest.type === 'habit' ? prev.gameStats.habitsCompleted + 1 : prev.gameStats.habitsCompleted,
+            dailiesCompleted: quest.type === 'daily' ? prev.gameStats.dailiesCompleted + 1 : prev.gameStats.dailiesCompleted,
+          }
+        };
+      });
       if (quest.type === 'todo') setQuests(prev => prev.filter(q => q.id !== id));
       else setQuests(prev => prev.map(q => q.id === id ? { ...q, completed: true } : q));
       showSuccess(`¡Misión completada! +${r.gold} Oro`);
