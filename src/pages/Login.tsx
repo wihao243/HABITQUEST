@@ -59,8 +59,8 @@ const Login = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          // Usamos la URL actual para asegurar que vuelva aquí
-          redirectTo: window.location.origin
+          // Forzamos la redirección a la URL de producción en Vercel
+          redirectTo: 'https://habitquest-wihao243s-projects.vercel.app'
         }
       });
       if (error) throw error;
