@@ -135,7 +135,6 @@ export const useGameState = () => {
           if (data.bought_items) setBoughtItems(data.bought_items);
           if (data.all_items) setAllItems(data.all_items);
         } else {
-          // Si el perfil existe pero está vacío (por el trigger) o no existe
           const initialData = {
             id: user.id,
             game_state: INITIAL_CHARACTER,
@@ -338,24 +337,27 @@ export const useGameState = () => {
       if (!quest) return;
       const rewards = { easy: { xp: 10, gold: 5, attr: 0.1 }, medium: { xp: 25, gold: 15, attr: 0.2 }, hard: { xp: 60, gold: 40, attr: 0.5 } };
       const r = rewards[quest.difficulty];
+      
       setStats(prev => {
-        const newXp = prev.xp + r.xp;
+        let newXp = prev.xp + r.xp;
         let newLevel = prev.level;
         let newMaxXp = prev.maxXp;
-        let newHp = prev.hp;
         let newMaxHp = prev.maxHp;
+        let newHp = prev.hp;
 
-        if (newXp >= newMaxXp) {
+        // Lógica de subida de nivel robusta
+        while (newXp >= newMaxXp) {
+          newXp -= newMaxXp;
           newLevel += 1;
           newMaxXp = Math.floor(newMaxXp * 1.2);
           newMaxHp += 10;
-          newHp = newMaxHp;
+          newHp = newMaxHp; // Curar al subir de nivel
           showSuccess(`¡SUBIDA DE NIVEL! Ahora eres nivel ${newLevel}`);
         }
 
         return {
           ...prev, 
-          xp: newXp >= newMaxXp ? 0 : newXp,
+          xp: newXp,
           level: newLevel,
           maxXp: newMaxXp,
           hp: newHp,
@@ -411,8 +413,39 @@ export const useGameState = () => {
     revive: () => { setStats(prev => ({ ...prev, hp: prev.maxHp, activePenalties: [] })); showSuccess("¡Has revivido!"); },
     setActiveCombat,
     winCombat: (xp: number, gold: number, hp: number) => {
-      setStats(prev => ({ ...prev, hp, xp: prev.xp + xp, gold: prev.gold + gold, gameStats: { ...prev.gameStats, monstersDefeated: prev.gameStats.monstersDefeated + 1, totalGoldEarned: prev.gameStats.totalGoldEarned + gold } }));
-      setActiveCombat(null); showSuccess("¡Victoria!");
+      setStats(prev => {
+        let newXp = prev.xp + xp;
+        let newLevel = prev.level;
+        let newMaxXp = prev.maxXp;
+        let newMaxHp = prev.maxHp;
+        let newHp = hp;
+
+        while (newXp >= newMaxXp) {
+          newXp -= newMaxXp;
+          newLevel += 1;
+          newMaxXp = Math.floor(newMaxXp * 1.2);
+          newMaxHp += 10;
+          newHp = newMaxHp;
+          showSuccess(`¡SUBIDA DE NIVEL! Ahora eres nivel ${newLevel}`);
+        }
+
+        return {
+          ...prev,
+          hp: newHp,
+          xp: newXp,
+          level: newLevel,
+          maxXp: newMaxXp,
+          maxHp: newMaxHp,
+          gold: prev.gold + gold,
+          gameStats: { 
+            ...prev.gameStats, 
+            monstersDefeated: prev.gameStats.monstersDefeated + 1, 
+            totalGoldEarned: prev.gameStats.totalGoldEarned + gold 
+          }
+        };
+      });
+      setActiveCombat(null);
+      showSuccess("¡Victoria!");
     },
     loseCombat: (hp: number) => { setStats(prev => ({ ...prev, hp: 0 })); setActiveCombat(null); showError("Derrotado..."); },
     escapeCombat: (hp: number) => { setStats(prev => ({ ...prev, hp })); setActiveCombat(null); showSuccess("Escapaste."); },
