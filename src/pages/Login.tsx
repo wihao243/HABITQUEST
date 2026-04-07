@@ -14,17 +14,21 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
-  const currentOrigin = window.location.origin;
 
+  // Redirigir si ya hay sesión activa
   useEffect(() => {
-    const checkUser = async () => {
+    const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) navigate("/");
+      if (session) {
+        navigate("/", { replace: true });
+      }
     };
-    checkUser();
+    checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) navigate("/");
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
+        navigate("/", { replace: true });
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -55,7 +59,8 @@ const Login = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: currentOrigin
+          // Usamos la URL actual para asegurar que vuelva aquí
+          redirectTo: window.location.origin
         }
       });
       if (error) throw error;

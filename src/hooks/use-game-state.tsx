@@ -95,11 +95,14 @@ export const useGameState = () => {
   
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Manejo de sesión
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
       if (!session) setLoading(false);
-    });
+    };
+    initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
@@ -112,10 +115,12 @@ export const useGameState = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Carga de datos del perfil
   useEffect(() => {
     if (!user) return;
 
     const loadData = async () => {
+      setLoading(true);
       try {
         const { data, error } = await supabase
           .from('profiles')
@@ -130,7 +135,7 @@ export const useGameState = () => {
           if (data.bought_items) setBoughtItems(data.bought_items);
           if (data.all_items) setAllItems(data.all_items);
         } else if (error && error.code === 'PGRST116') {
-          // Si el perfil no existe (error single() vacío), lo creamos con los datos iniciales
+          // Crear perfil si no existe
           await supabase.from('profiles').insert({
             id: user.id,
             game_state: INITIAL_CHARACTER,
@@ -151,6 +156,7 @@ export const useGameState = () => {
     loadData();
   }, [user]);
 
+  // Guardado automático
   const saveData = useCallback(async (
     currentStats: CharacterStats, 
     currentQuests: Quest[], 
@@ -189,6 +195,7 @@ export const useGameState = () => {
     };
   }, [stats, quests, inventory, boughtItems, allItems, user, isInitialLoadDone, saveData]);
 
+  // Lógica de temporizadores
   useEffect(() => {
     const interval = setInterval(() => {
       setStats(prev => {
