@@ -12,6 +12,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
 
@@ -39,6 +40,9 @@ const Login = () => {
     setLoading(true);
     try {
       if (isSignUp) {
+        if (password !== confirmPassword) {
+          throw new Error("Las contraseñas no coinciden.");
+        }
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         showSuccess("¡Registro con éxito! Revisa tu email.");
@@ -56,7 +60,6 @@ const Login = () => {
 
   const handleGoogleLogin = async () => {
     try {
-      // window.location.origin detecta automáticamente la URL base (Vercel, Dyad, etc.)
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -110,6 +113,20 @@ const Login = () => {
                 <Label className="text-xs font-black uppercase text-slate-500">Contraseña</Label>
                 <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-slate-800 border-2 border-slate-700 text-white font-bold" required />
               </div>
+              
+              {isSignUp && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Label className="text-xs font-black uppercase text-slate-500">Repetir Contraseña</Label>
+                  <Input 
+                    type="password" 
+                    value={confirmPassword} 
+                    onChange={(e) => setConfirmPassword(e.target.value)} 
+                    className="bg-slate-800 border-2 border-slate-700 text-white font-bold" 
+                    required 
+                  />
+                </div>
+              )}
+
               <Button type="submit" disabled={loading} className="w-full h-12 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase italic">
                 {loading ? <Sparkles className="animate-spin mr-2" /> : (isSignUp ? "Registrarse" : "Entrar")}
               </Button>
@@ -117,7 +134,13 @@ const Login = () => {
           </div>
 
           <div className="mt-8 pt-6 border-t border-slate-800 text-center">
-            <button onClick={() => setIsSignUp(!isSignUp)} className="text-slate-400 hover:text-white text-xs font-black uppercase tracking-widest">
+            <button 
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setConfirmPassword("");
+              }} 
+              className="text-slate-400 hover:text-white text-xs font-black uppercase tracking-widest"
+            >
               {isSignUp ? "¿Ya tienes cuenta? Inicia Sesión" : "¿Eres nuevo? Regístrate aquí"}
             </button>
           </div>
