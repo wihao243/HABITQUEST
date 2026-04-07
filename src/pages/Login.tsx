@@ -56,11 +56,11 @@ const Login = () => {
 
   const handleGoogleLogin = async () => {
     try {
-      // Usamos window.location.origin para que Supabase nos devuelva a donde estamos ahora mismo
+      // Forzamos la URL de Vercel como destino final
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: 'https://habitquest-wihao243s-projects.vercel.app'
         }
       });
       if (error) throw error;
