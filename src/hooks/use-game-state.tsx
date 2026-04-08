@@ -409,6 +409,7 @@ export const useGameState = () => {
       showSuccess("¡Nivel +1!");
     },
     adminClearInventory: () => { setInventory([]); showSuccess("Inventario vacío."); },
+    resetHp: () => { setStats(prev => ({ ...prev, hp: prev.maxHp })); showSuccess("Vida restaurada al máximo."); },
     completePenalty: (id: string) => { setStats(prev => ({ ...prev, activePenalties: prev.activePenalties.filter(pId => pId !== id) })); showSuccess("Penitencia cumplida."); },
     revive: () => { setStats(prev => ({ ...prev, hp: prev.maxHp, activePenalties: [] })); showSuccess("¡Has revivido!"); },
     setActiveCombat,

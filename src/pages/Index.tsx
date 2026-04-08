@@ -22,7 +22,7 @@ const Index = () => {
     completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, useItem, updateProfile,
     adminReset, adminAddGold, adminLevelUp, adminClearInventory, advanceTime, togglePauseTimer,
     completePenalty, revive, setActiveCombat, winCombat, loseCombat, escapeCombat,
-    addShopItem, updateShopItem, deleteShopItem, logout
+    addShopItem, updateShopItem, deleteShopItem, logout, resetHp
   } = useGameState();
 
   const isDead = stats.hp <= 0;
@@ -68,6 +68,7 @@ const Index = () => {
               onLevelUp={adminLevelUp} 
               onClearInventory={adminClearInventory} 
               onAdvanceTime={advanceTime}
+              onResetHp={resetHp}
               currentTime={virtualTime}
             />
             <Button variant="ghost" size="icon" onClick={logout} className="rounded-full hover:bg-rose-50 text-slate-600 hover:text-rose-600">

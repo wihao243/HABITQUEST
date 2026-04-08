@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock } from "lucide-react";
+import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
 
 interface AdminPanelProps {
@@ -12,11 +12,12 @@ interface AdminPanelProps {
   onLevelUp: () => void;
   onClearInventory: () => void;
   onAdvanceTime: (days: number) => void;
+  onResetHp: () => void;
   currentTime: Date;
 }
 
 export const AdminPanel = ({ 
-  onReset, onAddGold, onLevelUp, onClearInventory, onAdvanceTime, currentTime
+  onReset, onAddGold, onLevelUp, onClearInventory, onAdvanceTime, onResetHp, currentTime
 }: AdminPanelProps) => {
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -101,6 +102,9 @@ export const AdminPanel = ({
                 </Button>
                 <Button onClick={onLevelUp} variant="outline" className="border-2 border-blue-500 text-blue-700 font-bold">
                   <ArrowUpCircle className="w-4 h-4 mr-2" /> Subir Nivel
+                </Button>
+                <Button onClick={onResetHp} variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold col-span-2">
+                  <Heart className="w-4 h-4 mr-2" /> Restaurar Vida
                 </Button>
               </div>
             </div>
