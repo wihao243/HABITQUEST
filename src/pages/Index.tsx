@@ -13,9 +13,10 @@ import { StatsDialog } from "@/components/game/StatsDialog";
 import { ShopEditor } from "@/components/game/ShopEditor";
 import { Leaderboard } from "@/components/game/Leaderboard";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trophy, Calendar, Repeat, CheckSquare, ShoppingBag, Package, Globe, LogOut } from "lucide-react";
 import { MadeWithDyad } from "@/components/made-with-dyad";
+import { cn } from "@/lib/utils";
 
 const Index = () => {
   const { 
@@ -29,6 +30,17 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("daily");
 
   const isDead = stats.hp <= 0;
+
+  // Definición de las pestañas para renderizarlas de forma persistente
+  const tabs = [
+    { id: "daily", component: <QuestList quests={quests} type="daily" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
+    { id: "habit", component: <QuestList quests={quests} type="habit" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
+    { id: "todo", component: <QuestList quests={quests} type="todo" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
+    { id: "world", component: <WorldMap player={stats} onFight={setActiveCombat} currentTime={virtualTime} /> },
+    { id: "ranking", component: <Leaderboard /> },
+    { id: "shop", component: <Shop items={shopItems} boughtInRotation={boughtInRotation} onBuy={buyItem} /> },
+    { id: "inventory", component: <Inventory inventoryIds={inventory} onUseItem={useItem} activeTimers={stats.activeTimers} pausedTimers={pausedTimers} onTogglePause={togglePauseTimer} allItems={allItems} /> },
+  ];
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
@@ -109,35 +121,18 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
 
-          <div className="mt-8">
-            <TabsContent value="daily">
-              <QuestList quests={quests} type="daily" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} />
-            </TabsContent>
-            <TabsContent value="habit">
-              <QuestList quests={quests} type="habit" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} />
-            </TabsContent>
-            <TabsContent value="todo">
-              <QuestList quests={quests} type="todo" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} />
-            </TabsContent>
-            <TabsContent value="world">
-              <WorldMap player={stats} onFight={setActiveCombat} currentTime={virtualTime} />
-            </TabsContent>
-            <TabsContent value="ranking">
-              <Leaderboard />
-            </TabsContent>
-            <TabsContent value="shop">
-              <Shop items={shopItems} boughtInRotation={boughtInRotation} onBuy={buyItem} />
-            </TabsContent>
-            <TabsContent value="inventory">
-              <Inventory 
-                inventoryIds={inventory} 
-                onUseItem={useItem} 
-                activeTimers={stats.activeTimers} 
-                pausedTimers={pausedTimers}
-                onTogglePause={togglePauseTimer}
-                allItems={allItems}
-              />
-            </TabsContent>
+          <div className="mt-8 relative">
+            {tabs.map((tab) => (
+              <div 
+                key={tab.id} 
+                className={cn(
+                  "transition-all duration-300",
+                  activeTab === tab.id ? "block opacity-100 translate-y-0" : "hidden opacity-0 translate-y-4"
+                )}
+              >
+                {tab.component}
+              </div>
+            ))}
           </div>
         </Tabs>
       </main>
