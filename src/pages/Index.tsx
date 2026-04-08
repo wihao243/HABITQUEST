@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useGameState } from "@/hooks/use-game-state";
 import { CharacterHeader } from "@/components/game/CharacterHeader";
 import { QuestList } from "@/components/game/QuestList";
@@ -24,6 +25,8 @@ const Index = () => {
     completePenalty, revive, setActiveCombat, winCombat, loseCombat, escapeCombat,
     addShopItem, updateShopItem, deleteShopItem, logout, resetHp
   } = useGameState();
+
+  const [activeTab, setActiveTab] = useState("daily");
 
   const isDead = stats.hp <= 0;
 
@@ -81,7 +84,7 @@ const Index = () => {
       <main className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
         <CharacterHeader stats={stats} onUpdateProfile={updateProfile} />
 
-        <Tabs defaultValue="daily" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid grid-cols-7 w-full h-14 bg-white border-2 border-slate-200 p-1 rounded-2xl shadow-sm sticky top-20 z-40">
             <TabsTrigger value="daily" className="rounded-xl data-[state=active]:bg-indigo-600 data-[state=active]:text-white font-black text-[10px] uppercase tracking-tighter">
               <Calendar className="w-4 h-4 mr-1 hidden md:block" /> Diarias

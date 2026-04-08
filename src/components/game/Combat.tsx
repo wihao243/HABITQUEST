@@ -24,8 +24,9 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
 
   const addLog = (msg: string) => setLog(prev => [msg, ...prev].slice(0, 5));
 
+  const isImageAvatar = player.avatar.startsWith('data:image');
+
   const handleAttack = () => {
-    // Bloqueo inmediato si no es el turno, si terminó o si ya hay una animación en curso
     if (!isPlayerTurn || isFinished || animating) return;
     
     setAnimating("player");
@@ -47,7 +48,6 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
   };
 
   const handleSkill = () => {
-    // Bloqueo inmediato
     if (!isPlayerTurn || isFinished || animating) return;
     
     setAnimating("player");
@@ -111,11 +111,15 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
           {/* Player Side */}
           <div className="flex flex-col items-center space-y-6">
             <div className={cn(
-              "w-48 h-48 rounded-3xl bg-indigo-600 border-4 border-yellow-500 flex items-center justify-center text-8xl shadow-lg transition-transform duration-300",
+              "w-48 h-48 rounded-3xl bg-indigo-600 border-4 border-yellow-500 flex items-center justify-center text-8xl shadow-lg transition-transform duration-300 overflow-hidden",
               animating === "player" && "scale-110 -translate-y-4",
               playerHp <= 0 && "grayscale opacity-50"
             )}>
-              {player.avatar}
+              {isImageAvatar ? (
+                <img src={player.avatar} alt={player.name} className="w-full h-full object-cover" />
+              ) : (
+                player.avatar
+              )}
             </div>
             <div className="w-full space-y-2">
               <div className="flex justify-between text-indigo-400 font-black uppercase text-xs">
