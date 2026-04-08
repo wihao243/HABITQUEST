@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useGameState } from "@/hooks/use-game-state";
 import { CharacterHeader } from "@/components/game/CharacterHeader";
 import { QuestList } from "@/components/game/QuestList";
@@ -31,8 +31,8 @@ const Index = () => {
 
   const isDead = stats.hp <= 0;
 
-  // Definición de las pestañas para renderizarlas de forma persistente
-  const tabs = [
+  // Memoizamos los componentes de las pestañas para que no se re-rendericen al cambiar de pestaña
+  const tabComponents = useMemo(() => [
     { id: "daily", component: <QuestList quests={quests} type="daily" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
     { id: "habit", component: <QuestList quests={quests} type="habit" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
     { id: "todo", component: <QuestList quests={quests} type="todo" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
@@ -40,7 +40,7 @@ const Index = () => {
     { id: "ranking", component: <Leaderboard /> },
     { id: "shop", component: <Shop items={shopItems} boughtInRotation={boughtInRotation} onBuy={buyItem} /> },
     { id: "inventory", component: <Inventory inventoryIds={inventory} onUseItem={useItem} activeTimers={stats.activeTimers} pausedTimers={pausedTimers} onTogglePause={togglePauseTimer} allItems={allItems} /> },
-  ];
+  ], [quests, stats, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, pausedTimers, allItems]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
@@ -122,7 +122,7 @@ const Index = () => {
           </TabsList>
 
           <div className="mt-8 relative">
-            {tabs.map((tab) => (
+            {tabComponents.map((tab) => (
               <div 
                 key={tab.id} 
                 className={cn(

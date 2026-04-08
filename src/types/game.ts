@@ -73,6 +73,7 @@ export interface Quest {
   stat: StatType;
   completed: boolean;
   streak?: number;
+  lastCompletedDate?: string; // Formato YYYY-MM-DD
 }
 
 export interface Monster {
