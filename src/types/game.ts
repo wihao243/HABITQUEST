@@ -51,6 +51,7 @@ export interface CharacterStats {
   name: string;
   avatar: string;
   title: string;
+  bio?: string;
   level: number;
   hp: number;
   maxHp: number;
