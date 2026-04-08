@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { useGameState } from "@/hooks/use-game-state";
 import { CharacterHeader } from "@/components/game/CharacterHeader";
 import { QuestList } from "@/components/game/QuestList";
@@ -20,18 +20,16 @@ import { cn } from "@/lib/utils";
 
 const Index = () => {
   const { 
-    stats, quests, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, pausedTimers, allItems,
+    stats, quests, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, allItems,
+    activeTab, setActiveTab,
     completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, useItem, updateProfile,
-    adminReset, adminAddGold, adminLevelUp, adminClearInventory, advanceTime, togglePauseTimer,
+    adminReset, adminAddGold, adminLevelUp, adminClearInventory, advanceTime,
     completePenalty, revive, setActiveCombat, winCombat, loseCombat, escapeCombat,
     addShopItem, updateShopItem, deleteShopItem, logout, resetHp
   } = useGameState();
 
-  const [activeTab, setActiveTab] = useState("daily");
-
   const isDead = stats.hp <= 0;
 
-  // Memoizamos los componentes de las pestañas para que no se re-rendericen al cambiar de pestaña
   const tabComponents = useMemo(() => [
     { id: "daily", component: <QuestList quests={quests} type="daily" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
     { id: "habit", component: <QuestList quests={quests} type="habit" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
@@ -39,8 +37,8 @@ const Index = () => {
     { id: "world", component: <WorldMap player={stats} onFight={setActiveCombat} currentTime={virtualTime} /> },
     { id: "ranking", component: <Leaderboard /> },
     { id: "shop", component: <Shop items={shopItems} boughtInRotation={boughtInRotation} onBuy={buyItem} /> },
-    { id: "inventory", component: <Inventory inventoryIds={inventory} onUseItem={useItem} activeTimers={stats.activeTimers} pausedTimers={pausedTimers} onTogglePause={togglePauseTimer} allItems={allItems} /> },
-  ], [quests, stats, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, pausedTimers, allItems]);
+    { id: "inventory", component: <Inventory inventoryIds={inventory} onUseItem={useItem} activeTimers={stats.activeTimers} pausedTimers={{}} onTogglePause={() => {}} allItems={allItems} /> },
+  ], [quests, stats, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, allItems]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
