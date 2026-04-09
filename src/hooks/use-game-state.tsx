@@ -104,7 +104,15 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       try {
         const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         if (data && data.game_state) {
-          setStats(data.game_state);
+          // Fusión robusta para evitar campos undefined
+          const loadedStats = {
+            ...INITIAL_CHARACTER,
+            ...data.game_state,
+            attributeDefinitions: data.game_state.attributeDefinitions || DEFAULT_ATTRIBUTES,
+            attributes: data.game_state.attributes || INITIAL_CHARACTER.attributes,
+            gameStats: { ...INITIAL_GAME_STATS, ...(data.game_state.gameStats || {}) }
+          };
+          setStats(loadedStats);
           if (data.quests) setQuests(data.quests);
           if (data.inventory) setInventory(data.inventory);
           if (data.bought_items) setBoughtItemsLog(data.bought_items);
