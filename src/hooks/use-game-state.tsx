@@ -26,6 +26,7 @@ interface GameStateContextType {
   adminAddGold: (amount: number) => void;
   adminLevelUp: () => void;
   adminClearInventory: () => void;
+  adminUnlockQuests: () => void;
   advanceTime: (days: number) => void;
   resetHp: () => void;
   completePenalty: (id: string) => void;
@@ -124,14 +125,12 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
   }, [stats, quests, inventory, boughtItemsLog, allItems, user, isInitialLoadDone, saveData]);
 
-  // Lógica de reinicio a las 00:00
   useEffect(() => {
     const todayStr = format(virtualTime, 'yyyy-MM-dd');
     const startOfToday = startOfDay(virtualTime);
     const startOfThisWeek = startOfWeek(virtualTime, { weekStartsOn: 1 });
     const startOfThisMonth = startOfMonth(virtualTime);
 
-    // Reiniciar misiones diarias y hábitos
     setQuests(prev => prev.map(q => {
       if ((q.type === 'daily' || q.type === 'habit') && q.completed && q.lastCompletedDate !== todayStr) {
         return { ...q, completed: false };
@@ -139,28 +138,22 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       return q;
     }));
 
-    // Limpiar log de compras según rotación
     setBoughtItemsLog(prev => {
       const newLog = { ...prev };
       let changed = false;
-
       Object.entries(newLog).forEach(([itemId, dateStr]) => {
         const item = allItems.find(i => i.id === itemId);
         if (!item) return;
-
         const purchaseDate = new Date(dateStr);
         let shouldReset = false;
-
         if (item.effect.daily && isAfter(startOfToday, purchaseDate)) shouldReset = true;
         if (item.effect.weekly && isAfter(startOfThisWeek, purchaseDate)) shouldReset = true;
         if (item.effect.monthly && isAfter(startOfThisMonth, purchaseDate)) shouldReset = true;
-
         if (shouldReset) {
           delete newLog[itemId];
           changed = true;
         }
       });
-
       return changed ? newLog : prev;
     });
   }, [virtualTime, allItems]);
@@ -232,6 +225,10 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     adminAddGold: (amount: number) => setStats(prev => ({ ...prev, gold: prev.gold + amount })),
     adminLevelUp: () => setStats(prev => ({ ...prev, level: prev.level + 1, hp: prev.maxHp + 10, maxHp: prev.maxHp + 10 })),
     adminClearInventory: () => setInventory([]),
+    adminUnlockQuests: () => {
+      setQuests(prev => prev.map(q => (q.type === 'daily' || q.type === 'habit') ? { ...q, completed: false } : q));
+      showSuccess("¡Misiones y hábitos desbloqueados!");
+    },
     advanceTime: (days: number) => { const n = new Date(virtualTime); n.setDate(n.getDate() + days); setVirtualTime(n); },
     resetHp: () => setStats(prev => ({ ...prev, maxHp: Math.max(prev.maxHp, 100), hp: Math.max(prev.maxHp, 100) })),
     completePenalty: (id: string) => setStats(prev => ({ ...prev, activePenalties: prev.activePenalties.filter(pId => pId !== id) })),

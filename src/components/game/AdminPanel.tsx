@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart } from "lucide-react";
+import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
 
 interface AdminPanelProps {
@@ -13,11 +13,12 @@ interface AdminPanelProps {
   onClearInventory: () => void;
   onAdvanceTime: (days: number) => void;
   onResetHp: () => void;
+  onUnlockQuests: () => void;
   currentTime: Date;
 }
 
 export const AdminPanel = ({ 
-  onReset, onAddGold, onLevelUp, onClearInventory, onAdvanceTime, onResetHp, currentTime
+  onReset, onAddGold, onLevelUp, onClearInventory, onAdvanceTime, onResetHp, onUnlockQuests, currentTime
 }: AdminPanelProps) => {
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -112,6 +113,9 @@ export const AdminPanel = ({
             <div className="space-y-2">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gestión de Datos</p>
               <div className="grid grid-cols-1 gap-2">
+                <Button onClick={onUnlockQuests} variant="outline" className="border-2 border-indigo-500 text-indigo-700 font-bold">
+                  <UnlockIcon className="w-4 h-4 mr-2" /> Desbloquear Misiones
+                </Button>
                 <Button onClick={onClearInventory} variant="outline" className="border-2 border-slate-400 text-slate-600 font-bold">
                   <PackageX className="w-4 h-4 mr-2" /> Vaciar Inventario
                 </Button>
