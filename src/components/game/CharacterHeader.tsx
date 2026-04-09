@@ -66,7 +66,8 @@ export const CharacterHeader = ({ stats, onUpdateProfile }: CharacterHeaderProps
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-6 pt-6 border-t border-slate-800">
+      {/* Sección de atributos flexible y simétrica */}
+      <div className="flex flex-wrap gap-3 mt-6 pt-6 border-t border-slate-800">
         {stats.attributeDefinitions.map(def => (
           <AttributeItem 
             key={def.id} 
@@ -81,11 +82,13 @@ export const CharacterHeader = ({ stats, onUpdateProfile }: CharacterHeaderProps
 };
 
 const AttributeItem = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: number }) => (
-  <div className="flex items-center gap-2 bg-slate-800/50 p-2 rounded-lg border border-slate-700">
-    {icon}
-    <div className="flex flex-col">
-      <span className="text-[10px] uppercase font-bold text-slate-400 truncate max-w-[80px]">{label}</span>
-      <span className="text-sm font-black">{value.toFixed(1)}</span>
+  <div className="flex-1 min-w-[120px] sm:min-w-[140px] flex items-center gap-3 bg-slate-800/50 p-3 rounded-xl border border-slate-700 hover:bg-slate-800 transition-colors">
+    <div className="flex-shrink-0">
+      {icon}
+    </div>
+    <div className="flex flex-col min-w-0">
+      <span className="text-[10px] uppercase font-black text-slate-500 truncate tracking-wider">{label}</span>
+      <span className="text-base font-black text-white leading-none mt-0.5">{value.toFixed(1)}</span>
     </div>
   </div>
 );
