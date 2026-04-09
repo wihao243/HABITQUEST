@@ -1,6 +1,6 @@
 import { CharacterStats } from "@/types/game";
 import { StatBar } from "./StatBar";
-import { Heart, Star, Coins, Shield, Brain, Zap, Users } from "lucide-react";
+import { Heart, Star, Coins } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ProfileEdit } from "./ProfileEdit";
 
@@ -66,11 +66,15 @@ export const CharacterHeader = ({ stats, onUpdateProfile }: CharacterHeaderProps
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-800">
-        <AttributeItem icon={<Shield className="text-orange-400" />} label="Fuerza" value={stats.attributes.fuerza} />
-        <AttributeItem icon={<Brain className="text-blue-400" />} label="Inteligencia" value={stats.attributes.inteligencia} />
-        <AttributeItem icon={<Zap className="text-yellow-400" />} label="Espíritu" value={stats.attributes.espiritualidad} />
-        <AttributeItem icon={<Users className="text-pink-400" />} label="Carisma" value={stats.attributes.carisma} />
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-6 pt-6 border-t border-slate-800">
+        {stats.attributeDefinitions.map(def => (
+          <AttributeItem 
+            key={def.id} 
+            icon={<span className="text-lg">{def.icon}</span>} 
+            label={def.name} 
+            value={stats.attributes[def.id] || 1} 
+          />
+        ))}
       </div>
     </Card>
   );
@@ -80,7 +84,7 @@ const AttributeItem = ({ icon, label, value }: { icon: React.ReactNode, label: s
   <div className="flex items-center gap-2 bg-slate-800/50 p-2 rounded-lg border border-slate-700">
     {icon}
     <div className="flex flex-col">
-      <span className="text-[10px] uppercase font-bold text-slate-400">{label}</span>
+      <span className="text-[10px] uppercase font-bold text-slate-400 truncate max-w-[80px]">{label}</span>
       <span className="text-sm font-black">{value.toFixed(1)}</span>
     </div>
   </div>

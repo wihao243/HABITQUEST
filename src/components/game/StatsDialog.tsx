@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { User, CheckSquare, Repeat, Calendar, Sword, Skull, Coins, ShoppingCart, BarChart3, Activity } from "lucide-react";
-import { CharacterStats, GameStats } from "@/types/game";
+import { User, CheckSquare, Repeat, Calendar, Sword, Skull, Coins, BarChart3, Activity } from "lucide-react";
+import { CharacterStats } from "@/types/game";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend } from 'recharts';
 
 interface StatsDialogProps {
@@ -11,15 +11,12 @@ interface StatsDialogProps {
 export const StatsDialog = ({ stats }: StatsDialogProps) => {
   const gameStats = stats.gameStats;
 
-  // Datos para el gráfico de radar (Atributos)
-  const attributeData = [
-    { subject: 'Fuerza', A: stats.attributes.fuerza, fullMark: 100 },
-    { subject: 'Inteligencia', A: stats.attributes.inteligencia, fullMark: 100 },
-    { subject: 'Espíritu', A: stats.attributes.espiritualidad, fullMark: 100 },
-    { subject: 'Carisma', A: stats.attributes.carisma, fullMark: 100 },
-  ];
+  const attributeData = stats.attributeDefinitions.map(def => ({
+    subject: def.name,
+    A: stats.attributes[def.id] || 1,
+    fullMark: 100
+  }));
 
-  // Datos para el gráfico de barras (Historial de los últimos 7 días)
   const historyData = gameStats.history.slice(-7).map(day => ({
     name: day.date.split('-').slice(1).join('/'),
     Tareas: day.tasks,
@@ -42,7 +39,6 @@ export const StatsDialog = ({ stats }: StatsDialogProps) => {
         </DialogHeader>
         
         <div className="space-y-8 pt-4">
-          {/* Resumen Numérico */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <StatCard icon={<CheckSquare className="text-emerald-500" />} label="Tareas" value={gameStats.tasksCompleted} />
             <StatCard icon={<Repeat className="text-purple-500" />} label="Hábitos" value={gameStats.habitsCompleted} />
@@ -50,7 +46,6 @@ export const StatsDialog = ({ stats }: StatsDialogProps) => {
             <StatCard icon={<Sword className="text-rose-500" />} label="Enemigos" value={gameStats.monstersDefeated} />
           </div>
 
-          {/* Gráfico de Atributos (Radar) */}
           <div className="bg-slate-50 p-6 rounded-2xl border-2 border-slate-100">
             <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
               <Activity className="w-4 h-4" /> Distribución de Atributos
@@ -73,7 +68,6 @@ export const StatsDialog = ({ stats }: StatsDialogProps) => {
             </div>
           </div>
 
-          {/* Gráfico de Actividad (Barras) */}
           <div className="bg-slate-50 p-6 rounded-2xl border-2 border-slate-100">
             <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
               <BarChart3 className="w-4 h-4" /> Actividad de los últimos 7 días
@@ -98,7 +92,7 @@ export const StatsDialog = ({ stats }: StatsDialogProps) => {
               </div>
             ) : (
               <div className="h-[200px] flex items-center justify-center text-slate-400 font-bold italic text-sm">
-                No hay datos de actividad todavía. ¡Empieza a completar misiones!
+                No hay datos de actividad todavía.
               </div>
             )}
           </div>

@@ -1,5 +1,11 @@
-export type StatType = 'fuerza' | 'inteligencia' | 'espiritualidad' | 'carisma';
 export type ItemCategory = 'dopamina' | 'gastronomia' | 'relax' | 'hobbies' | 'social';
+
+export interface AttributeDefinition {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+}
 
 export interface ItemEffect {
   timer?: number;
@@ -58,7 +64,8 @@ export interface CharacterStats {
   xp: number;
   maxXp: number;
   gold: number;
-  attributes: Record<StatType, number>;
+  attributes: Record<string, number>;
+  attributeDefinitions: AttributeDefinition[];
   gameStats: GameStats;
   activePenalties: string[];
   activeTimers: Record<string, number>;
@@ -70,10 +77,10 @@ export interface Quest {
   title: string;
   type: 'daily' | 'habit' | 'todo';
   difficulty: 'easy' | 'medium' | 'hard';
-  stat: StatType;
+  stat: string;
   completed: boolean;
   streak?: number;
-  lastCompletedDate?: string; // Formato YYYY-MM-DD
+  lastCompletedDate?: string;
 }
 
 export interface Monster {

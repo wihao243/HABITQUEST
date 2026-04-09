@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Quest, StatType } from "@/types/game";
+import { Quest } from "@/types/game";
 import { cn } from "@/lib/utils";
+import { useGameState } from "@/hooks/use-game-state";
 
 interface QuestDialogProps {
   open: boolean;
@@ -16,9 +17,10 @@ interface QuestDialogProps {
 }
 
 export const QuestDialog = ({ open, onOpenChange, onSubmit, initialData, type }: QuestDialogProps) => {
+  const { stats } = useGameState();
   const [title, setTitle] = useState("");
   const [difficulty, setDifficulty] = useState<Quest['difficulty']>("medium");
-  const [stat, setStat] = useState<StatType>("fuerza");
+  const [stat, setStat] = useState<string>("");
 
   useEffect(() => {
     if (initialData) {
@@ -28,13 +30,13 @@ export const QuestDialog = ({ open, onOpenChange, onSubmit, initialData, type }:
     } else {
       setTitle("");
       setDifficulty("medium");
-      setStat("fuerza");
+      setStat(stats.attributeDefinitions[0]?.id || "");
     }
-  }, [initialData, open]);
+  }, [initialData, open, stats.attributeDefinitions]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || !stat) return;
     onSubmit({ title, difficulty, stat, type });
     onOpenChange(false);
   };
@@ -88,10 +90,11 @@ export const QuestDialog = ({ open, onOpenChange, onSubmit, initialData, type }:
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="fuerza" className="font-bold">Fuerza</SelectItem>
-                  <SelectItem value="inteligencia" className="font-bold">Inteligencia</SelectItem>
-                  <SelectItem value="espiritualidad" className="font-bold">Espíritu</SelectItem>
-                  <SelectItem value="carisma" className="font-bold">Carisma</SelectItem>
+                  {stats.attributeDefinitions.map(def => (
+                    <SelectItem key={def.id} value={def.id} className="font-bold">
+                      {def.icon} {def.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

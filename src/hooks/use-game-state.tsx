@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
-import { CharacterStats, Quest, Monster, ShopItem } from "@/types/game";
+import { CharacterStats, Quest, Monster, ShopItem, AttributeDefinition } from "@/types/game";
 import { ALL_ITEMS as INITIAL_ITEMS } from "@/data/items";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/lib/supabase";
@@ -22,6 +22,7 @@ interface GameStateContextType {
   updateQuest: (id: string, data: any) => void;
   deleteQuest: (id: string) => void;
   updateProfile: (updates: Partial<CharacterStats>) => void;
+  updateAttributeDefinitions: (definitions: AttributeDefinition[]) => void;
   adminReset: () => void;
   adminAddGold: (amount: number) => void;
   adminLevelUp: () => void;
@@ -41,6 +42,13 @@ interface GameStateContextType {
 
 const GameStateContext = createContext<GameStateContextType | undefined>(undefined);
 
+const DEFAULT_ATTRIBUTES: AttributeDefinition[] = [
+  { id: 'fuerza', name: 'Fuerza', icon: '💪', color: 'text-orange-400' },
+  { id: 'inteligencia', name: 'Inteligencia', icon: '🧠', color: 'text-blue-400' },
+  { id: 'espiritualidad', name: 'Espíritu', icon: '✨', color: 'text-yellow-400' },
+  { id: 'carisma', name: 'Carisma', icon: '🎭', color: 'text-pink-400' },
+];
+
 const INITIAL_GAME_STATS = {
   tasksCompleted: 0, habitsCompleted: 0, dailiesCompleted: 0, monstersDefeated: 0, bossesDefeated: 0,
   totalGoldEarned: 0, totalDeaths: 0, itemsBought: 0, history: [], currentStreak: 0, maxStreak: 0,
@@ -53,6 +61,7 @@ const INITIAL_GAME_STATS = {
 const INITIAL_CHARACTER: CharacterStats = {
   name: "Héroe", avatar: "🧙‍♂️", title: "Héroe de la Rutina", level: 1, hp: 100, maxHp: 100, xp: 0, maxXp: 100, gold: 0,
   attributes: { fuerza: 1, inteligencia: 1, espiritualidad: 1, carisma: 1 },
+  attributeDefinitions: DEFAULT_ATTRIBUTES,
   gameStats: INITIAL_GAME_STATS, activePenalties: [], activeTimers: {}, monsterCooldowns: {},
 };
 
@@ -196,9 +205,11 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         showSuccess(`¡SUBIDA DE NIVEL! Ahora eres nivel ${newLevel}`);
       }
 
+      const currentAttrValue = prev.attributes[quest.stat] || 1;
+
       return {
         ...prev, xp: newXp, level: newLevel, maxXp: newMaxXp, hp: newHp, maxHp: newMaxHp, gold: prev.gold + r.gold,
-        attributes: { ...prev.attributes, [quest.stat]: prev.attributes[quest.stat] + r.attr },
+        attributes: { ...prev.attributes, [quest.stat]: currentAttrValue + r.attr },
         gameStats: { ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + r.gold,
           tasksCompleted: quest.type === 'todo' ? prev.gameStats.tasksCompleted + 1 : prev.gameStats.tasksCompleted,
           habitsCompleted: quest.type === 'habit' ? prev.gameStats.habitsCompleted + 1 : prev.gameStats.habitsCompleted,
@@ -221,6 +232,15 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     updateQuest: (id: string, data: any) => setQuests(prev => prev.map(q => q.id === id ? { ...q, ...data } : q)),
     deleteQuest: (id: string) => setQuests(prev => prev.filter(q => q.id !== id)),
     updateProfile: (updates: Partial<CharacterStats>) => setStats(prev => ({ ...prev, ...updates })),
+    updateAttributeDefinitions: (definitions: AttributeDefinition[]) => {
+      setStats(prev => {
+        const newAttributes = { ...prev.attributes };
+        definitions.forEach(d => {
+          if (newAttributes[d.id] === undefined) newAttributes[d.id] = 1;
+        });
+        return { ...prev, attributeDefinitions: definitions, attributes: newAttributes };
+      });
+    },
     adminReset: () => { setStats(INITIAL_CHARACTER); setQuests([]); setInventory([]); setVirtualTime(new Date()); setBoughtItemsLog({}); },
     adminAddGold: (amount: number) => setStats(prev => ({ ...prev, gold: prev.gold + amount })),
     adminLevelUp: () => setStats(prev => ({ ...prev, level: prev.level + 1, hp: prev.maxHp + 10, maxHp: prev.maxHp + 10 })),
