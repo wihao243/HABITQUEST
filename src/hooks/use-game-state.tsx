@@ -3,6 +3,7 @@ import { CharacterStats, Quest, Monster, ShopItem } from "@/types/game";
 import { ALL_ITEMS as INITIAL_ITEMS } from "@/data/items";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/lib/supabase";
+import { startOfDay, startOfWeek, startOfMonth, isAfter, format } from "date-fns";
 
 interface GameStateContextType {
   stats: CharacterStats;
@@ -31,7 +32,7 @@ interface GameStateContextType {
   revive: () => void;
   setActiveCombat: (monster: Monster | null) => void;
   activeCombat: Monster | null;
-  buyItem: (item: ShopItem) => void;
+  buyItem: (item: ShopItem, source: string) => void;
   logout: () => void;
   shopItems: { daily: ShopItem[]; weekly: ShopItem[]; monthly: ShopItem[] };
   boughtInRotation: Record<string, boolean>;
@@ -60,7 +61,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const [inventory, setInventory] = useState<string[]>([]);
   const [virtualTime, setVirtualTime] = useState(new Date());
   const [activeCombat, setActiveCombat] = useState<Monster | null>(null);
-  const [boughtItems, setBoughtItems] = useState<Record<string, number>>({});
+  const [boughtItemsLog, setBoughtItemsLog] = useState<Record<string, string>>({});
   const [allItems, setAllItems] = useState<ShopItem[]>(INITIAL_ITEMS);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -96,6 +97,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
           setStats(data.game_state);
           if (data.quests) setQuests(data.quests);
           if (data.inventory) setInventory(data.inventory);
+          if (data.bought_items) setBoughtItemsLog(data.bought_items);
           if (data.all_items) setAllItems(data.all_items);
         }
       } catch (err) {
@@ -108,35 +110,66 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     loadData();
   }, [user]);
 
-  const saveData = useCallback(async (s: any, q: any, i: any, a: any) => {
+  const saveData = useCallback(async (s: any, q: any, i: any, b: any, a: any) => {
     if (!user || !isInitialLoadDone) return;
     await supabase.from('profiles').upsert({
-      id: user.id, game_state: s, quests: q, inventory: i, all_items: a, updated_at: new Date().toISOString(),
+      id: user.id, game_state: s, quests: q, inventory: i, bought_items: b, all_items: a, updated_at: new Date().toISOString(),
     });
   }, [user, isInitialLoadDone]);
 
   useEffect(() => {
     if (!isInitialLoadDone || !user) return;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => saveData(stats, quests, inventory, allItems), 2000);
+    saveTimeoutRef.current = setTimeout(() => saveData(stats, quests, inventory, boughtItemsLog, allItems), 2000);
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
-  }, [stats, quests, inventory, allItems, user, isInitialLoadDone, saveData]);
+  }, [stats, quests, inventory, boughtItemsLog, allItems, user, isInitialLoadDone, saveData]);
 
+  // Lógica de reinicio a las 00:00
   useEffect(() => {
-    const today = virtualTime.toISOString().split('T')[0];
+    const todayStr = format(virtualTime, 'yyyy-MM-dd');
+    const startOfToday = startOfDay(virtualTime);
+    const startOfThisWeek = startOfWeek(virtualTime, { weekStartsOn: 1 });
+    const startOfThisMonth = startOfMonth(virtualTime);
+
+    // Reiniciar misiones diarias y hábitos
     setQuests(prev => prev.map(q => {
-      if ((q.type === 'daily' || q.type === 'habit') && q.completed && q.lastCompletedDate !== today) {
+      if ((q.type === 'daily' || q.type === 'habit') && q.completed && q.lastCompletedDate !== todayStr) {
         return { ...q, completed: false };
       }
       return q;
     }));
-  }, [virtualTime]);
+
+    // Limpiar log de compras según rotación
+    setBoughtItemsLog(prev => {
+      const newLog = { ...prev };
+      let changed = false;
+
+      Object.entries(newLog).forEach(([itemId, dateStr]) => {
+        const item = allItems.find(i => i.id === itemId);
+        if (!item) return;
+
+        const purchaseDate = new Date(dateStr);
+        let shouldReset = false;
+
+        if (item.effect.daily && isAfter(startOfToday, purchaseDate)) shouldReset = true;
+        if (item.effect.weekly && isAfter(startOfThisWeek, purchaseDate)) shouldReset = true;
+        if (item.effect.monthly && isAfter(startOfThisMonth, purchaseDate)) shouldReset = true;
+
+        if (shouldReset) {
+          delete newLog[itemId];
+          changed = true;
+        }
+      });
+
+      return changed ? newLog : prev;
+    });
+  }, [virtualTime, allItems]);
 
   const completeQuest = (id: string) => {
-    const today = virtualTime.toISOString().split('T')[0];
+    const todayStr = format(virtualTime, 'yyyy-MM-dd');
     const yesterdayDate = new Date(virtualTime);
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterday = yesterdayDate.toISOString().split('T')[0];
+    const yesterdayStr = format(yesterdayDate, 'yyyy-MM-dd');
 
     const quest = quests.find(q => q.id === id);
     if (!quest || quest.completed) return;
@@ -147,9 +180,9 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     setQuests(prev => prev.map(q => {
       if (q.id === id) {
         let newStreak = q.streak || 0;
-        if (q.lastCompletedDate === yesterday) newStreak += 1;
-        else if (q.lastCompletedDate !== today) newStreak = 1;
-        return { ...q, completed: true, lastCompletedDate: today, streak: newStreak };
+        if (q.lastCompletedDate === yesterdayStr) newStreak += 1;
+        else if (q.lastCompletedDate !== todayStr) newStreak = 1;
+        return { ...q, completed: true, lastCompletedDate: todayStr, streak: newStreak };
       }
       return q;
     }));
@@ -195,7 +228,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     updateQuest: (id: string, data: any) => setQuests(prev => prev.map(q => q.id === id ? { ...q, ...data } : q)),
     deleteQuest: (id: string) => setQuests(prev => prev.filter(q => q.id !== id)),
     updateProfile: (updates: Partial<CharacterStats>) => setStats(prev => ({ ...prev, ...updates })),
-    adminReset: () => { setStats(INITIAL_CHARACTER); setQuests([]); setInventory([]); setVirtualTime(new Date()); },
+    adminReset: () => { setStats(INITIAL_CHARACTER); setQuests([]); setInventory([]); setVirtualTime(new Date()); setBoughtItemsLog({}); },
     adminAddGold: (amount: number) => setStats(prev => ({ ...prev, gold: prev.gold + amount })),
     adminLevelUp: () => setStats(prev => ({ ...prev, level: prev.level + 1, hp: prev.maxHp + 10, maxHp: prev.maxHp + 10 })),
     adminClearInventory: () => setInventory([]),
@@ -208,12 +241,17 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       if (stats.gold >= item.cost) {
         setStats(prev => ({ ...prev, gold: prev.gold - item.cost }));
         setInventory(prev => [...prev, item.id]);
+        setBoughtItemsLog(prev => ({ ...prev, [item.id]: virtualTime.toISOString() }));
         showSuccess(`Comprado: ${item.title}`);
       } else showError("Oro insuficiente");
     },
     logout: () => supabase.auth.signOut(),
-    shopItems: { daily: allItems.filter(i => i.effect.daily).slice(0, 5), weekly: allItems.filter(i => i.effect.weekly).slice(0, 5), monthly: allItems.filter(i => i.effect.monthly).slice(0, 5) },
-    boughtInRotation: {},
+    shopItems: { 
+      daily: allItems.filter(i => i.effect.daily), 
+      weekly: allItems.filter(i => i.effect.weekly), 
+      monthly: allItems.filter(i => i.effect.monthly) 
+    },
+    boughtInRotation: Object.keys(boughtItemsLog).reduce((acc, id) => ({ ...acc, [id]: true }), {}),
   };
 
   return <GameStateContext.Provider value={value}>{children}</GameStateContext.Provider>;
