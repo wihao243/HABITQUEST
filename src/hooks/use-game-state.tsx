@@ -34,6 +34,9 @@ interface GameStateContextType {
   revive: () => void;
   setActiveCombat: (monster: Monster | null) => void;
   activeCombat: Monster | null;
+  winCombat: (xp: number, gold: number, remainingHp: number) => void;
+  loseCombat: (remainingHp: number) => void;
+  escapeCombat: (remainingHp: number) => void;
   buyItem: (item: ShopItem, source: string) => void;
   logout: () => void;
   shopItems: { daily: ShopItem[]; weekly: ShopItem[]; monthly: ShopItem[] };
@@ -104,13 +107,13 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       try {
         const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         if (data && data.game_state) {
-          // Fusión robusta para evitar campos undefined
           const loadedStats = {
             ...INITIAL_CHARACTER,
             ...data.game_state,
             attributeDefinitions: data.game_state.attributeDefinitions || DEFAULT_ATTRIBUTES,
             attributes: data.game_state.attributes || INITIAL_CHARACTER.attributes,
-            gameStats: { ...INITIAL_GAME_STATS, ...(data.game_state.gameStats || {}) }
+            gameStats: { ...INITIAL_GAME_STATS, ...(data.game_state.gameStats || {}) },
+            monsterCooldowns: data.game_state.monsterCooldowns || {}
           };
           setStats(loadedStats);
           if (data.quests) setQuests(data.quests);
@@ -142,38 +145,13 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
   }, [stats, quests, inventory, boughtItemsLog, allItems, user, isInitialLoadDone, saveData]);
 
+  // Reloj interno para actualizar cooldowns visualmente
   useEffect(() => {
-    const todayStr = format(virtualTime, 'yyyy-MM-dd');
-    const startOfToday = startOfDay(virtualTime);
-    const startOfThisWeek = startOfWeek(virtualTime, { weekStartsOn: 1 });
-    const startOfThisMonth = startOfMonth(virtualTime);
-
-    setQuests(prev => prev.map(q => {
-      if ((q.type === 'daily' || q.type === 'habit') && q.completed && q.lastCompletedDate !== todayStr) {
-        return { ...q, completed: false };
-      }
-      return q;
-    }));
-
-    setBoughtItemsLog(prev => {
-      const newLog = { ...prev };
-      let changed = false;
-      Object.entries(newLog).forEach(([itemId, dateStr]) => {
-        const item = allItems.find(i => i.id === itemId);
-        if (!item) return;
-        const purchaseDate = new Date(dateStr);
-        let shouldReset = false;
-        if (item.effect.daily && isAfter(startOfToday, purchaseDate)) shouldReset = true;
-        if (item.effect.weekly && isAfter(startOfThisWeek, purchaseDate)) shouldReset = true;
-        if (item.effect.monthly && isAfter(startOfThisMonth, purchaseDate)) shouldReset = true;
-        if (shouldReset) {
-          delete newLog[itemId];
-          changed = true;
-        }
-      });
-      return changed ? newLog : prev;
-    });
-  }, [virtualTime, allItems]);
+    const timer = setInterval(() => {
+      setVirtualTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const completeQuest = (id: string) => {
     const todayStr = format(virtualTime, 'yyyy-MM-dd');
@@ -228,6 +206,70 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     showSuccess(`¡Misión completada! +${r.gold} Oro`);
   };
 
+  const winCombat = (xp: number, gold: number, remainingHp: number) => {
+    if (!activeCombat) return;
+    
+    const isBoss = activeCombat.id.startsWith('b');
+    const cooldownMinutes = isBoss ? 60 : 30;
+    const respawnTime = new Date();
+    respawnTime.setMinutes(respawnTime.getMinutes() + cooldownMinutes);
+
+    setStats(prev => {
+      let newXp = prev.xp + xp;
+      let newLevel = prev.level;
+      let newMaxXp = prev.maxXp;
+      let newMaxHp = prev.maxHp;
+      let newHp = remainingHp;
+
+      while (newXp >= newMaxXp) {
+        newXp -= newMaxXp;
+        newLevel += 1;
+        newMaxXp = Math.floor(newMaxXp * 1.2);
+        newMaxHp += 10;
+        newHp = newMaxHp;
+      }
+
+      return {
+        ...prev,
+        xp: newXp,
+        level: newLevel,
+        maxXp: newMaxXp,
+        hp: newHp,
+        maxHp: newMaxHp,
+        gold: prev.gold + gold,
+        monsterCooldowns: {
+          ...prev.monsterCooldowns,
+          [activeCombat.id]: respawnTime.toISOString()
+        },
+        gameStats: {
+          ...prev.gameStats,
+          totalGoldEarned: prev.gameStats.totalGoldEarned + gold,
+          monstersDefeated: prev.gameStats.monstersDefeated + 1,
+          bossesDefeated: isBoss ? prev.gameStats.bossesDefeated + 1 : prev.gameStats.bossesDefeated
+        }
+      };
+    });
+    
+    showSuccess(`¡Victoria! +${gold} Oro y ${xp} XP`);
+    setActiveCombat(null);
+  };
+
+  const loseCombat = (remainingHp: number) => {
+    setStats(prev => ({ 
+      ...prev, 
+      hp: remainingHp,
+      gameStats: { ...prev.gameStats, totalDeaths: prev.gameStats.totalDeaths + 1 }
+    }));
+    setActiveCombat(null);
+    showError("Has sido derrotado...");
+  };
+
+  const escapeCombat = (remainingHp: number) => {
+    setStats(prev => ({ ...prev, hp: remainingHp }));
+    setActiveCombat(null);
+    showSuccess("Has escapado del combate.");
+  };
+
   const value = {
     stats, quests, inventory, virtualTime, allItems, user, loading, activeTab, setActiveTab,
     completeQuest, useItem: (id: string) => {
@@ -262,6 +304,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     completePenalty: (id: string) => setStats(prev => ({ ...prev, activePenalties: prev.activePenalties.filter(pId => pId !== id) })),
     revive: () => setStats(prev => ({ ...prev, hp: prev.maxHp, activePenalties: [] })),
     setActiveCombat, activeCombat,
+    winCombat, loseCombat, escapeCombat,
     buyItem: (item: ShopItem) => {
       if (stats.gold >= item.cost) {
         setStats(prev => ({ ...prev, gold: prev.gold - item.cost }));
