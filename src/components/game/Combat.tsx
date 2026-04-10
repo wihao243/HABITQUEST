@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Monster, CharacterStats } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,16 +26,12 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
   const [animating, setAnimating] = useState<"player" | "monster" | null>(null);
   const [showDodge, setShowDodge] = useState(false);
 
-  // El modo esquiva se activa para monstruos de nivel 5 o superior (Mundo 2+)
   const isDodgeMode = monster.level >= 5;
-
   const addLog = (msg: string) => setLog(prev => [msg, ...prev].slice(0, 5));
-
   const isImageAvatar = player.avatar.startsWith('data:image');
 
   const handleAttack = () => {
     if (!isPlayerTurn || isFinished || animating) return;
-    
     setAnimating("player");
     const damage = Math.floor(player.attributes.fuerza * 5 + Math.random() * 10);
     const newMonsterHp = Math.max(0, monsterHp - damage);
@@ -47,19 +43,16 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
       if (newMonsterHp <= 0) {
         setIsFinished(true);
         addLog(`¡Has derrotado a ${monster.name}!`);
-        setTimeout(() => onWin(monster.xpReward, monster.goldReward, playerHp), 1500);
+        setTimeout(() => onWin(monster.xpReward, monster.goldReward, playerHp), 1000);
       } else {
         setIsPlayerTurn(false);
-        if (isDodgeMode) {
-          setTimeout(() => setShowDodge(true), 500);
-        }
+        if (isDodgeMode) setTimeout(() => setShowDodge(true), 500);
       }
     }, 500);
   };
 
   const handleSkill = () => {
     if (!isPlayerTurn || isFinished || animating) return;
-    
     setAnimating("player");
     const heal = Math.floor(player.attributes.espiritualidad * 8);
     const newPlayerHp = Math.min(player.maxHp, playerHp + heal);
@@ -69,13 +62,10 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
     setTimeout(() => {
       setAnimating(null);
       setIsPlayerTurn(false);
-      if (isDodgeMode) {
-        setTimeout(() => setShowDodge(true), 500);
-      }
+      if (isDodgeMode) setTimeout(() => setShowDodge(true), 500);
     }, 500);
   };
 
-  // Lógica de ataque automático para Mundo 1
   useEffect(() => {
     if (!isPlayerTurn && !isFinished && !isDodgeMode) {
       const timer = setTimeout(() => {
@@ -90,7 +80,7 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
           if (newPlayerHp <= 0) {
             setIsFinished(true);
             addLog("¡Has caído en combate!");
-            setTimeout(() => onLose(0), 1500);
+            setTimeout(() => onLose(0), 1000);
           } else {
             setIsPlayerTurn(true);
           }
@@ -98,32 +88,31 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [isPlayerTurn, isFinished, isDodgeMode]);
+  }, [isPlayerTurn, isFinished, isDodgeMode, monster.damage, monster.name, player.attributes.fuerza, playerHp, onLose]);
 
-  const handleDodgeHit = (damage: number) => {
+  const handleDodgeHit = useCallback((damage: number) => {
     setPlayerHp(prev => {
       const next = Math.max(0, prev - damage);
       if (next <= 0 && !isFinished) {
         setIsFinished(true);
         setShowDodge(false);
         addLog("¡Has caído en combate!");
-        setTimeout(() => onLose(0), 1500);
+        setTimeout(() => onLose(0), 1000);
       }
       return next;
     });
-  };
+  }, [isFinished, onLose]);
 
-  const handleDodgeComplete = () => {
+  const handleDodgeComplete = useCallback(() => {
     setShowDodge(false);
     setIsPlayerTurn(true);
     addLog(`${monster.name} termina su ataque.`);
-  };
+  }, [monster.name]);
 
   return (
     <div className="fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
       <Card className="max-w-4xl w-full bg-slate-900 border-4 border-slate-800 overflow-hidden shadow-2xl">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8">
-          {/* Monster Side */}
           <div className="flex flex-col items-center space-y-6">
             <div className={cn(
               "w-48 h-48 rounded-3xl bg-slate-800 border-4 border-rose-500 flex items-center justify-center text-8xl shadow-lg transition-transform duration-300",
@@ -141,7 +130,6 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
             </div>
           </div>
 
-          {/* Player Side */}
           <div className="flex flex-col items-center space-y-6">
             <div className={cn(
               "w-48 h-48 rounded-3xl bg-indigo-600 border-4 border-yellow-500 flex items-center justify-center text-8xl shadow-lg transition-transform duration-300 overflow-hidden",
@@ -164,7 +152,6 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
           </div>
         </div>
 
-        {/* Combat Log & Actions */}
         <div className="bg-slate-950 p-6 border-t-4 border-slate-800">
           {showDodge ? (
             <div className="space-y-4">
@@ -182,33 +169,17 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2 space-y-2 h-32 overflow-y-auto bg-slate-900/50 p-4 rounded-xl border border-slate-800">
                 {log.map((m, i) => (
-                  <p key={i} className={cn(
-                    "text-sm font-bold",
-                    i === 0 ? "text-white" : "text-slate-500"
-                  )}>{m}</p>
+                  <p key={i} className={cn("text-sm font-bold", i === 0 ? "text-white" : "text-slate-500")}>{m}</p>
                 ))}
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Button 
-                  disabled={!isPlayerTurn || isFinished || !!animating}
-                  onClick={handleAttack}
-                  className="h-full bg-rose-600 hover:bg-rose-500 font-black uppercase flex flex-col gap-1"
-                >
+                <Button disabled={!isPlayerTurn || isFinished || !!animating} onClick={handleAttack} className="h-full bg-rose-600 hover:bg-rose-500 font-black uppercase flex flex-col gap-1">
                   <Sword className="w-5 h-5" /> Atacar
                 </Button>
-                <Button 
-                  disabled={!isPlayerTurn || isFinished || !!animating}
-                  onClick={handleSkill}
-                  className="h-full bg-indigo-600 hover:bg-indigo-500 font-black uppercase flex flex-col gap-1"
-                >
+                <Button disabled={!isPlayerTurn || isFinished || !!animating} onClick={handleSkill} className="h-full bg-indigo-600 hover:bg-indigo-500 font-black uppercase flex flex-col gap-1">
                   <Zap className="w-5 h-5" /> Curar
                 </Button>
-                <Button 
-                  disabled={!isPlayerTurn || isFinished || !!animating}
-                  onClick={() => onEscape(playerHp)}
-                  variant="outline"
-                  className="col-span-2 border-2 border-slate-700 text-slate-400 font-black uppercase"
-                >
+                <Button disabled={!isPlayerTurn || isFinished || !!animating} onClick={() => onEscape(playerHp)} variant="outline" className="col-span-2 border-2 border-slate-700 text-slate-400 font-black uppercase">
                   Escapar
                 </Button>
               </div>

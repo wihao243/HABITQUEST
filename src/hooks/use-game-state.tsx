@@ -3,7 +3,7 @@ import { CharacterStats, Quest, Monster, ShopItem, AttributeDefinition } from "@
 import { ALL_ITEMS as INITIAL_ITEMS } from "@/data/items";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/lib/supabase";
-import { startOfDay, startOfWeek, startOfMonth, isAfter, format } from "date-fns";
+import { format, isAfter, startOfDay } from "date-fns";
 
 interface GameStateContextType {
   stats: CharacterStats;
@@ -73,6 +73,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const [quests, setQuests] = useState<Quest[]>([]);
   const [inventory, setInventory] = useState<string[]>([]);
   const [virtualTime, setVirtualTime] = useState(new Date());
+  const [lastResetDate, setLastResetDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [activeCombat, setActiveCombat] = useState<Monster | null>(null);
   const [boughtItemsLog, setBoughtItemsLog] = useState<Record<string, string>>({});
   const [allItems, setAllItems] = useState<ShopItem[]>(INITIAL_ITEMS);
@@ -82,6 +83,17 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Lógica de reseteo diario
+  const checkDayReset = useCallback((currentTime: Date) => {
+    const todayStr = format(currentTime, 'yyyy-MM-dd');
+    if (todayStr !== lastResetDate) {
+      setQuests(prev => prev.map(q => (q.type === 'daily' || q.type === 'habit') ? { ...q, completed: false } : q));
+      setLastResetDate(todayStr);
+      setBoughtItemsLog({}); // Resetear compras diarias
+      showSuccess("¡Nuevo día! Misiones y hábitos reseteados.");
+    }
+  }, [lastResetDate]);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -120,6 +132,16 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
           if (data.inventory) setInventory(data.inventory);
           if (data.bought_items) setBoughtItemsLog(data.bought_items);
           if (data.all_items) setAllItems(data.all_items);
+          
+          // Al cargar, comprobar si ha pasado un día desde el último guardado
+          if (data.updated_at) {
+            const lastUpdate = new Date(data.updated_at);
+            const today = startOfDay(new Date());
+            if (isAfter(today, startOfDay(lastUpdate))) {
+              setQuests(prev => prev.map(q => (q.type === 'daily' || q.type === 'habit') ? { ...q, completed: false } : q));
+              setBoughtItemsLog({});
+            }
+          }
         }
       } catch (err) {
         console.error("Error cargando perfil:", err);
@@ -145,13 +167,14 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
   }, [stats, quests, inventory, boughtItemsLog, allItems, user, isInitialLoadDone, saveData]);
 
-  // Reloj interno para actualizar cooldowns visualmente
   useEffect(() => {
     const timer = setInterval(() => {
-      setVirtualTime(new Date());
-    }, 1000);
+      const now = new Date();
+      setVirtualTime(now);
+      checkDayReset(now);
+    }, 10000); // Comprobar cada 10 segundos
     return () => clearInterval(timer);
-  }, []);
+  }, [checkDayReset]);
 
   const completeQuest = (id: string) => {
     const todayStr = format(virtualTime, 'yyyy-MM-dd');
@@ -208,7 +231,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
 
   const winCombat = (xp: number, gold: number, remainingHp: number) => {
     if (!activeCombat) return;
-    
     const isBoss = activeCombat.id.startsWith('b');
     const cooldownMinutes = isBoss ? 60 : 30;
     const respawnTime = new Date();
@@ -220,7 +242,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       let newMaxXp = prev.maxXp;
       let newMaxHp = prev.maxHp;
       let newHp = remainingHp;
-
       while (newXp >= newMaxXp) {
         newXp -= newMaxXp;
         newLevel += 1;
@@ -228,46 +249,14 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         newMaxHp += 10;
         newHp = newMaxHp;
       }
-
       return {
-        ...prev,
-        xp: newXp,
-        level: newLevel,
-        maxXp: newMaxXp,
-        hp: newHp,
-        maxHp: newMaxHp,
-        gold: prev.gold + gold,
-        monsterCooldowns: {
-          ...prev.monsterCooldowns,
-          [activeCombat.id]: respawnTime.toISOString()
-        },
-        gameStats: {
-          ...prev.gameStats,
-          totalGoldEarned: prev.gameStats.totalGoldEarned + gold,
-          monstersDefeated: prev.gameStats.monstersDefeated + 1,
-          bossesDefeated: isBoss ? prev.gameStats.bossesDefeated + 1 : prev.gameStats.bossesDefeated
-        }
+        ...prev, xp: newXp, level: newLevel, maxXp: newMaxXp, hp: newHp, maxHp: newMaxHp, gold: prev.gold + gold,
+        monsterCooldowns: { ...prev.monsterCooldowns, [activeCombat.id]: respawnTime.toISOString() },
+        gameStats: { ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + gold, monstersDefeated: prev.gameStats.monstersDefeated + 1, bossesDefeated: isBoss ? prev.gameStats.bossesDefeated + 1 : prev.gameStats.bossesDefeated }
       };
     });
-    
     showSuccess(`¡Victoria! +${gold} Oro y ${xp} XP`);
     setActiveCombat(null);
-  };
-
-  const loseCombat = (remainingHp: number) => {
-    setStats(prev => ({ 
-      ...prev, 
-      hp: remainingHp,
-      gameStats: { ...prev.gameStats, totalDeaths: prev.gameStats.totalDeaths + 1 }
-    }));
-    setActiveCombat(null);
-    showError("Has sido derrotado...");
-  };
-
-  const escapeCombat = (remainingHp: number) => {
-    setStats(prev => ({ ...prev, hp: remainingHp }));
-    setActiveCombat(null);
-    showSuccess("Has escapado del combate.");
   };
 
   const value = {
@@ -285,9 +274,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     updateAttributeDefinitions: (definitions: AttributeDefinition[]) => {
       setStats(prev => {
         const newAttributes = { ...prev.attributes };
-        definitions.forEach(d => {
-          if (newAttributes[d.id] === undefined) newAttributes[d.id] = 1;
-        });
+        definitions.forEach(d => { if (newAttributes[d.id] === undefined) newAttributes[d.id] = 1; });
         return { ...prev, attributeDefinitions: definitions, attributes: newAttributes };
       });
     },
@@ -299,12 +286,18 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       setQuests(prev => prev.map(q => (q.type === 'daily' || q.type === 'habit') ? { ...q, completed: false } : q));
       showSuccess("¡Misiones y hábitos desbloqueados!");
     },
-    advanceTime: (days: number) => { const n = new Date(virtualTime); n.setDate(n.getDate() + days); setVirtualTime(n); },
+    advanceTime: (days: number) => { 
+      const n = new Date(virtualTime); 
+      n.setDate(n.getDate() + days); 
+      setVirtualTime(n);
+      checkDayReset(n);
+    },
     resetHp: () => setStats(prev => ({ ...prev, maxHp: Math.max(prev.maxHp, 100), hp: Math.max(prev.maxHp, 100) })),
     completePenalty: (id: string) => setStats(prev => ({ ...prev, activePenalties: prev.activePenalties.filter(pId => pId !== id) })),
     revive: () => setStats(prev => ({ ...prev, hp: prev.maxHp, activePenalties: [] })),
     setActiveCombat, activeCombat,
-    winCombat, loseCombat, escapeCombat,
+    winCombat, loseCombat: (remainingHp: number) => { setStats(prev => ({ ...prev, hp: remainingHp, gameStats: { ...prev.gameStats, totalDeaths: prev.gameStats.totalDeaths + 1 } })); setActiveCombat(null); showError("Has sido derrotado..."); },
+    escapeCombat: (remainingHp: number) => { setStats(prev => ({ ...prev, hp: remainingHp })); setActiveCombat(null); showSuccess("Has escapado del combate."); },
     buyItem: (item: ShopItem) => {
       if (stats.gold >= item.cost) {
         setStats(prev => ({ ...prev, gold: prev.gold - item.cost }));
@@ -314,11 +307,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       } else showError("Oro insuficiente");
     },
     logout: () => supabase.auth.signOut(),
-    shopItems: { 
-      daily: allItems.filter(i => i.effect.daily), 
-      weekly: allItems.filter(i => i.effect.weekly), 
-      monthly: allItems.filter(i => i.effect.monthly) 
-    },
+    shopItems: { daily: allItems.filter(i => i.effect.daily), weekly: allItems.filter(i => i.effect.weekly), monthly: allItems.filter(i => i.effect.monthly) },
     boughtInRotation: Object.keys(boughtItemsLog).reduce((acc, id) => ({ ...acc, [id]: true }), {}),
   };
 
