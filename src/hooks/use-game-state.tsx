@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { CharacterStats, Quest, Monster, ShopItem, AttributeDefinition } from "@/types/game";
 import { ALL_ITEMS as INITIAL_ITEMS } from "@/data/items";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/lib/supabase";
-import { format, isAfter, startOfDay, addDays } from "date-fns";
+import { format, isAfter, startOfDay, addDays, isSameDay, isSameWeek, isSameMonth } from "date-fns";
 
 interface GameStateContextType {
   stats: CharacterStats;
@@ -72,7 +72,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const [stats, setStats] = useState<CharacterStats>(INITIAL_CHARACTER);
   const [quests, setQuests] = useState<Quest[]>([]);
   const [inventory, setInventory] = useState<string[]>([]);
-  const [timeOffset, setTimeOffset] = useState(0); // Offset en milisegundos
+  const [timeOffset, setTimeOffset] = useState(0);
   const [lastResetDate, setLastResetDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [activeCombat, setActiveCombat] = useState<Monster | null>(null);
   const [boughtItemsLog, setBoughtItemsLog] = useState<Record<string, string>>({});
@@ -82,19 +82,33 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const [activeTab, setActiveTab] = useState("daily");
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   
-  const virtualTime = new Date(Date.now() + timeOffset);
+  const virtualTime = useMemo(() => new Date(Date.now() + timeOffset), [timeOffset]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Lógica de reseteo diario mejorada
+  // Lógica de reseteo diario (solo para misiones)
   const checkDayReset = useCallback((currentTime: Date) => {
     const todayStr = format(currentTime, 'yyyy-MM-dd');
     if (todayStr !== lastResetDate) {
       setQuests(prev => prev.map(q => (q.type === 'daily' || q.type === 'habit') ? { ...q, completed: false } : q));
       setLastResetDate(todayStr);
-      setBoughtItemsLog({});
       showSuccess(`¡Nuevo día detectado (${todayStr})! Misiones reseteadas.`);
     }
   }, [lastResetDate]);
+
+  // Cálculo de qué objetos están "Agotados" según el tiempo virtual
+  const boughtInRotation = useMemo(() => {
+    const result: Record<string, boolean> = {};
+    Object.entries(boughtItemsLog).forEach(([id, dateStr]) => {
+      const item = allItems.find(i => i.id === id);
+      if (!item) return;
+      const purchaseDate = new Date(dateStr);
+      
+      if (item.effect.daily && isSameDay(purchaseDate, virtualTime)) result[id] = true;
+      else if (item.effect.weekly && isSameWeek(purchaseDate, virtualTime)) result[id] = true;
+      else if (item.effect.monthly && isSameMonth(purchaseDate, virtualTime)) result[id] = true;
+    });
+    return result;
+  }, [boughtItemsLog, allItems, virtualTime]);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -134,7 +148,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
           if (data.bought_items) setBoughtItemsLog(data.bought_items);
           if (data.all_items) setAllItems(data.all_items);
           
-          // Sincronizar fecha de último reseteo
           if (data.updated_at) {
             const lastUpdate = new Date(data.updated_at);
             setLastResetDate(format(lastUpdate, 'yyyy-MM-dd'));
@@ -164,7 +177,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
   }, [stats, quests, inventory, boughtItemsLog, allItems, user, isInitialLoadDone, saveData]);
 
-  // El timer ahora solo comprueba el cambio de día, no sobreescribe el tiempo
   useEffect(() => {
     const timer = setInterval(() => {
       checkDayReset(new Date(Date.now() + timeOffset));
@@ -284,7 +296,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     advanceTime: (days: number) => { 
       const msToAdd = days * 24 * 60 * 60 * 1000;
       setTimeOffset(prev => prev + msToAdd);
-      // Comprobar reseteo inmediatamente después de avanzar
       const newVirtualTime = new Date(Date.now() + timeOffset + msToAdd);
       checkDayReset(newVirtualTime);
     },
@@ -304,7 +315,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     },
     logout: () => supabase.auth.signOut(),
     shopItems: { daily: allItems.filter(i => i.effect.daily), weekly: allItems.filter(i => i.effect.weekly), monthly: allItems.filter(i => i.effect.monthly) },
-    boughtInRotation: Object.keys(boughtItemsLog).reduce((acc, id) => ({ ...acc, [id]: true }), {}),
+    boughtInRotation,
   };
 
   return <GameStateContext.Provider value={value}>{children}</GameStateContext.Provider>;
