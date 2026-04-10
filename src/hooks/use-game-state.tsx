@@ -108,14 +108,36 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const virtualTime = useMemo(() => new Date(Date.now() + timeOffset), [timeOffset]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const saveData = useCallback(async (s: any, q: any, i: any, b: any, a: any) => {
+    if (!user || !isInitialLoadDone) return;
+    try {
+      await supabase.from('profiles').upsert({
+        id: user.id, 
+        game_state: s, 
+        quests: q, 
+        inventory: i, 
+        bought_items: b, 
+        all_items: a, 
+        updated_at: new Date(Date.now() + timeOffset).toISOString(),
+      });
+    } catch (err) {
+      console.error("Error guardando datos:", err);
+    }
+  }, [user, isInitialLoadDone, timeOffset]);
+
   const checkDayReset = useCallback((currentTime: Date) => {
     const todayStr = format(currentTime, 'yyyy-MM-dd');
-    if (todayStr !== lastResetDate) {
-      setQuests(prev => prev.map(q => (q.type === 'daily' || q.type === 'habit') ? { ...q, completed: false } : q));
+    if (todayStr !== lastResetDate && isInitialLoadDone) {
+      setQuests(prev => {
+        const updated = prev.map(q => (q.type === 'daily' || q.type === 'habit') ? { ...q, completed: false } : q);
+        // Guardar inmediatamente tras el reseteo
+        saveData(stats, updated, inventory, boughtItemsLog, allItems);
+        return updated;
+      });
       setLastResetDate(todayStr);
       showSuccess(`¡Nuevo día detectado (${todayStr})! Misiones reseteadas.`);
     }
-  }, [lastResetDate]);
+  }, [lastResetDate, isInitialLoadDone, stats, inventory, boughtItemsLog, allItems, saveData]);
 
   const shopItems = useMemo(() => {
     const dailySeed = format(virtualTime, 'yyyy-MM-dd');
@@ -170,16 +192,18 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const loadData = async () => {
       try {
         const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-        if (data && data.game_state) {
-          const loadedStats = {
-            ...INITIAL_CHARACTER,
-            ...data.game_state,
-            attributeDefinitions: data.game_state.attributeDefinitions || DEFAULT_ATTRIBUTES,
-            attributes: data.game_state.attributes || INITIAL_CHARACTER.attributes,
-            gameStats: { ...INITIAL_GAME_STATS, ...(data.game_state.gameStats || {}) },
-            monsterCooldowns: data.game_state.monsterCooldowns || {}
-          };
-          setStats(loadedStats);
+        if (data) {
+          if (data.game_state) {
+            const loadedStats = {
+              ...INITIAL_CHARACTER,
+              ...data.game_state,
+              attributeDefinitions: data.game_state.attributeDefinitions || DEFAULT_ATTRIBUTES,
+              attributes: data.game_state.attributes || INITIAL_CHARACTER.attributes,
+              gameStats: { ...INITIAL_GAME_STATS, ...(data.game_state.gameStats || {}) },
+              monsterCooldowns: data.game_state.monsterCooldowns || {}
+            };
+            setStats(loadedStats);
+          }
           if (data.quests) setQuests(data.quests);
           if (data.inventory) setInventory(data.inventory);
           if (data.bought_items) setBoughtItemsLog(data.bought_items);
@@ -199,13 +223,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     };
     loadData();
   }, [user]);
-
-  const saveData = useCallback(async (s: any, q: any, i: any, b: any, a: any) => {
-    if (!user || !isInitialLoadDone) return;
-    await supabase.from('profiles').upsert({
-      id: user.id, game_state: s, quests: q, inventory: i, bought_items: b, all_items: a, updated_at: virtualTime.toISOString(),
-    });
-  }, [user, isInitialLoadDone, virtualTime]);
 
   useEffect(() => {
     if (!isInitialLoadDone || !user) return;
@@ -232,7 +249,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const rewards = { easy: { xp: 10, gold: 5, attr: 0.1 }, medium: { xp: 25, gold: 15, attr: 0.2 }, hard: { xp: 60, gold: 40, attr: 0.5 } };
     const r = rewards[quest.difficulty];
     
-    setQuests(prev => prev.map(q => {
+    const updatedQuests = quests.map(q => {
       if (q.id === id) {
         let newStreak = q.streak || 0;
         if (q.lastCompletedDate === yesterdayStr) newStreak += 1;
@@ -240,7 +257,9 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         return { ...q, completed: true, lastCompletedDate: todayStr, streak: newStreak };
       }
       return q;
-    }));
+    });
+
+    setQuests(updatedQuests);
 
     setStats(prev => {
       let newXp = prev.xp + r.xp;
@@ -259,8 +278,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       }
 
       const currentAttrValue = prev.attributes[quest.stat] || 1;
-
-      return {
+      const newStats = {
         ...prev, xp: newXp, level: newLevel, maxXp: newMaxXp, hp: newHp, maxHp: newMaxHp, gold: prev.gold + r.gold,
         attributes: { ...prev.attributes, [quest.stat]: currentAttrValue + r.attr },
         gameStats: { ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + r.gold,
@@ -269,6 +287,10 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
           dailiesCompleted: quest.type === 'daily' ? prev.gameStats.dailiesCompleted + 1 : prev.gameStats.dailiesCompleted,
         }
       };
+
+      // Guardado inmediato para acciones críticas
+      saveData(newStats, updatedQuests, inventory, boughtItemsLog, allItems);
+      return newStats;
     });
     showSuccess(`¡Misión completada! +${r.gold} Oro`);
   };
@@ -293,11 +315,13 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         newMaxHp += 10;
         newHp = newMaxHp;
       }
-      return {
+      const newStats = {
         ...prev, xp: newXp, level: newLevel, maxXp: newMaxXp, hp: newHp, maxHp: newMaxHp, gold: prev.gold + gold,
         monsterCooldowns: { ...prev.monsterCooldowns, [activeCombat.id]: respawnTime.toISOString() },
         gameStats: { ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + gold, monstersDefeated: prev.gameStats.monstersDefeated + 1, bossesDefeated: isBoss ? prev.gameStats.bossesDefeated + 1 : prev.gameStats.bossesDefeated }
       };
+      saveData(newStats, quests, inventory, boughtItemsLog, allItems);
+      return newStats;
     });
     showSuccess(`¡Victoria! +${gold} Oro y ${xp} XP`);
     setActiveCombat(null);
