@@ -3,7 +3,7 @@ import { CharacterStats, Quest, Monster, ShopItem, AttributeDefinition } from "@
 import { ALL_ITEMS as INITIAL_ITEMS } from "@/data/items";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/lib/supabase";
-import { format, isAfter, startOfDay, addDays, isSameDay, isSameWeek, isSameMonth } from "date-fns";
+import { format, isAfter, startOfDay, addDays, isSameDay, isSameWeek, isSameMonth, getWeek } from "date-fns";
 
 interface GameStateContextType {
   stats: CharacterStats;
@@ -41,6 +41,9 @@ interface GameStateContextType {
   logout: () => void;
   shopItems: { daily: ShopItem[]; weekly: ShopItem[]; monthly: ShopItem[] };
   boughtInRotation: Record<string, boolean>;
+  addShopItem: (item: Omit<ShopItem, 'id'>) => void;
+  updateShopItem: (id: string, updates: Partial<ShopItem>) => void;
+  deleteShopItem: (id: string) => void;
 }
 
 const GameStateContext = createContext<GameStateContextType | undefined>(undefined);
@@ -68,6 +71,26 @@ const INITIAL_CHARACTER: CharacterStats = {
   gameStats: INITIAL_GAME_STATS, activePenalties: [], activeTimers: {}, monsterCooldowns: {},
 };
 
+// Función simple de hash para aleatoriedad determinista
+const seededRandom = (seed: string) => {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  const x = Math.sin(hash) * 10000;
+  return x - Math.floor(x);
+};
+
+const shuffleWithSeed = <T,>(array: T[], seed: string): T[] => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(seededRandom(seed + i) * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 export const GameStateProvider = ({ children }: { children: React.ReactNode }) => {
   const [stats, setStats] = useState<CharacterStats>(INITIAL_CHARACTER);
   const [quests, setQuests] = useState<Quest[]>([]);
@@ -85,7 +108,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const virtualTime = useMemo(() => new Date(Date.now() + timeOffset), [timeOffset]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Lógica de reseteo diario (solo para misiones)
+  // Lógica de reseteo diario
   const checkDayReset = useCallback((currentTime: Date) => {
     const todayStr = format(currentTime, 'yyyy-MM-dd');
     if (todayStr !== lastResetDate) {
@@ -95,7 +118,23 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     }
   }, [lastResetDate]);
 
-  // Cálculo de qué objetos están "Agotados" según el tiempo virtual
+  // Rotación de la tienda (5 objetos por categoría)
+  const shopItems = useMemo(() => {
+    const dailySeed = format(virtualTime, 'yyyy-MM-dd');
+    const weeklySeed = format(virtualTime, 'yyyy-') + getWeek(virtualTime);
+    const monthlySeed = format(virtualTime, 'yyyy-MM');
+
+    const dailyPool = allItems.filter(i => i.effect.daily);
+    const weeklyPool = allItems.filter(i => i.effect.weekly);
+    const monthlyPool = allItems.filter(i => i.effect.monthly);
+
+    return {
+      daily: shuffleWithSeed(dailyPool, dailySeed).slice(0, 5),
+      weekly: shuffleWithSeed(weeklyPool, weeklySeed).slice(0, 5),
+      monthly: shuffleWithSeed(monthlyPool, monthlySeed).slice(0, 5),
+    };
+  }, [allItems, virtualTime]);
+
   const boughtInRotation = useMemo(() => {
     const result: Record<string, boolean> = {};
     Object.entries(boughtItemsLog).forEach(([id, dateStr]) => {
@@ -314,8 +353,11 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       } else showError("Oro insuficiente");
     },
     logout: () => supabase.auth.signOut(),
-    shopItems: { daily: allItems.filter(i => i.effect.daily), weekly: allItems.filter(i => i.effect.weekly), monthly: allItems.filter(i => i.effect.monthly) },
+    shopItems,
     boughtInRotation,
+    addShopItem: (item: Omit<ShopItem, 'id'>) => setAllItems(prev => [...prev, { ...item, id: Math.random().toString(36).substr(2, 9) }]),
+    updateShopItem: (id: string, updates: Partial<ShopItem>) => setAllItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i)),
+    deleteShopItem: (id: string) => setAllItems(prev => prev.filter(i => i.id !== id)),
   };
 
   return <GameStateContext.Provider value={value}>{children}</GameStateContext.Provider>;
