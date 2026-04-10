@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon } from "lucide-react";
+import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon, RefreshCw } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
 
 interface AdminPanelProps {
@@ -12,13 +12,14 @@ interface AdminPanelProps {
   onLevelUp: () => void;
   onClearInventory: () => void;
   onAdvanceTime: (days: number) => void;
+  onResetToToday: () => void;
   onResetHp: () => void;
   onUnlockQuests: () => void;
   currentTime: Date;
 }
 
 export const AdminPanel = ({ 
-  onReset, onAddGold, onLevelUp, onClearInventory, onAdvanceTime, onResetHp, onUnlockQuests, currentTime
+  onReset, onAddGold, onLevelUp, onClearInventory, onAdvanceTime, onResetToToday, onResetHp, onUnlockQuests, currentTime
 }: AdminPanelProps) => {
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -93,6 +94,9 @@ export const AdminPanel = ({
                   +1 Mes
                 </Button>
               </div>
+              <Button onClick={onResetToToday} variant="secondary" className="w-full font-black uppercase mt-2 bg-indigo-100 text-indigo-700 hover:bg-indigo-200">
+                <RefreshCw className="w-4 h-4 mr-2" /> Resetear a Hoy
+              </Button>
             </div>
 
             <div className="space-y-2">

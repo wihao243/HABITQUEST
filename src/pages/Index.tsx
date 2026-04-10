@@ -23,7 +23,7 @@ const Index = () => {
     stats, quests, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, allItems,
     activeTab, setActiveTab,
     completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, useItem, updateProfile,
-    adminReset, adminAddGold, adminLevelUp, adminClearInventory, adminUnlockQuests, advanceTime,
+    adminReset, adminAddGold, adminLevelUp, adminClearInventory, adminUnlockQuests, advanceTime, resetToToday,
     completePenalty, revive, setActiveCombat, winCombat, loseCombat, escapeCombat,
     addShopItem, updateShopItem, deleteShopItem, logout, resetHp
   } = useGameState();
@@ -81,6 +81,7 @@ const Index = () => {
               onLevelUp={adminLevelUp} 
               onClearInventory={adminClearInventory} 
               onAdvanceTime={advanceTime}
+              onResetToToday={resetToToday}
               onResetHp={resetHp}
               onUnlockQuests={adminUnlockQuests}
               currentTime={virtualTime}

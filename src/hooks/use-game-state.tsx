@@ -29,6 +29,7 @@ interface GameStateContextType {
   adminClearInventory: () => void;
   adminUnlockQuests: () => void;
   advanceTime: (days: number) => void;
+  resetToToday: () => void;
   resetHp: () => void;
   completePenalty: (id: string) => void;
   revive: () => void;
@@ -71,7 +72,6 @@ const INITIAL_CHARACTER: CharacterStats = {
   gameStats: INITIAL_GAME_STATS, activePenalties: [], activeTimers: {}, monsterCooldowns: {},
 };
 
-// Función simple de hash para aleatoriedad determinista
 const seededRandom = (seed: string) => {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
@@ -108,7 +108,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const virtualTime = useMemo(() => new Date(Date.now() + timeOffset), [timeOffset]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Lógica de reseteo diario
   const checkDayReset = useCallback((currentTime: Date) => {
     const todayStr = format(currentTime, 'yyyy-MM-dd');
     if (todayStr !== lastResetDate) {
@@ -118,7 +117,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     }
   }, [lastResetDate]);
 
-  // Rotación de la tienda (5 objetos por categoría)
   const shopItems = useMemo(() => {
     const dailySeed = format(virtualTime, 'yyyy-MM-dd');
     const weeklySeed = format(virtualTime, 'yyyy-') + getWeek(virtualTime);
@@ -337,6 +335,12 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       setTimeOffset(prev => prev + msToAdd);
       const newVirtualTime = new Date(Date.now() + timeOffset + msToAdd);
       checkDayReset(newVirtualTime);
+    },
+    resetToToday: () => {
+      setTimeOffset(0);
+      const realTime = new Date();
+      checkDayReset(realTime);
+      showSuccess("Tiempo sincronizado con el mundo real.");
     },
     resetHp: () => setStats(prev => ({ ...prev, maxHp: Math.max(prev.maxHp, 100), hp: Math.max(prev.maxHp, 100) })),
     completePenalty: (id: string) => setStats(prev => ({ ...prev, activePenalties: prev.activePenalties.filter(pId => pId !== id) })),
