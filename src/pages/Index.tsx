@@ -54,9 +54,12 @@ const Index = () => {
         <Combat 
           monster={activeCombat} 
           player={stats} 
+          inventory={inventory}
+          allItems={allItems}
           onWin={winCombat} 
           onLose={loseCombat} 
           onEscape={escapeCombat} 
+          onUseItem={useItem}
         />
       )}
 

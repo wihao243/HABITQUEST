@@ -1,23 +1,27 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Monster, CharacterStats } from "@/types/game";
+import { Monster, CharacterStats, ShopItem } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Sword, Zap, ShieldAlert } from "lucide-react";
+import { Sword, Package, ShieldAlert, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DodgeArena } from "./DodgeArena";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface CombatProps {
   monster: Monster;
   player: CharacterStats;
+  inventory: string[];
+  allItems: ShopItem[];
   onWin: (xp: number, gold: number, remainingHp: number) => void;
   onLose: (remainingHp: number) => void;
   onEscape: (remainingHp: number) => void;
+  onUseItem: (id: string) => void;
 }
 
-export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps) => {
+export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, onEscape, onUseItem }: CombatProps) => {
   const [monsterHp, setMonsterHp] = useState(monster.hp);
   const [playerHp, setPlayerHp] = useState(player.hp);
   const [log, setLog] = useState<string[]>(["¡Comienza el combate!"]);
@@ -25,10 +29,16 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
   const [isFinished, setIsFinished] = useState(false);
   const [animating, setAnimating] = useState<"player" | "monster" | null>(null);
   const [showDodge, setShowDodge] = useState(false);
+  const [showInventory, setShowInventory] = useState(false);
 
   const isDodgeMode = monster.level >= 5;
   const addLog = (msg: string) => setLog(prev => [msg, ...prev].slice(0, 5));
   const isImageAvatar = player.avatar.startsWith('data:image');
+
+  // Filtrar solo consumibles de vida para el combate
+  const usableItems = inventory
+    .map(id => allItems.find(i => i.id === id))
+    .filter(i => i && i.category === 'consumible' && i.effect.hp) as ShopItem[];
 
   const handleAttack = () => {
     if (!isPlayerTurn || isFinished || animating) return;
@@ -51,16 +61,18 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
     }, 500);
   };
 
-  const handleSkill = () => {
+  const handleUseItem = (item: ShopItem) => {
     if (!isPlayerTurn || isFinished || animating) return;
-    setAnimating("player");
-    const heal = Math.floor(player.attributes.espiritualidad * 8);
-    const newPlayerHp = Math.min(player.maxHp, playerHp + heal);
-    setPlayerHp(newPlayerHp);
-    addLog(`Usas meditación y recuperas ${heal} HP.`);
+    
+    const healAmount = item.effect.hp || 0;
+    const newHp = Math.min(player.maxHp, playerHp + healAmount);
+    setPlayerHp(newHp);
+    addLog(`Usas ${item.title} y recuperas ${healAmount} HP.`);
+    
+    onUseItem(item.id);
+    setShowInventory(false);
 
     setTimeout(() => {
-      setAnimating(null);
       setIsPlayerTurn(false);
       if (isDodgeMode) setTimeout(() => setShowDodge(true), 500);
     }, 500);
@@ -111,7 +123,34 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
 
   return (
     <div className="fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
-      <Card className="max-w-4xl w-full bg-slate-900 border-4 border-slate-800 overflow-hidden shadow-2xl">
+      <Card className="max-w-4xl w-full bg-slate-900 border-4 border-slate-800 overflow-hidden shadow-2xl relative">
+        {showInventory && (
+          <div className="absolute inset-0 z-20 bg-slate-900/95 p-8 flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-black text-white uppercase italic">Objetos Usables</h3>
+              <Button variant="ghost" onClick={() => setShowInventory(false)} className="text-white"><X /></Button>
+            </div>
+            <ScrollArea className="flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {usableItems.length > 0 ? usableItems.map((item, idx) => (
+                  <Card key={`${item.id}-${idx}`} className="p-4 bg-slate-800 border-2 border-slate-700 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{item.icon}</span>
+                      <div>
+                        <p className="text-white font-bold text-sm">{item.title}</p>
+                        <p className="text-emerald-400 text-[10px] font-black uppercase">+{item.effect.hp} HP</p>
+                      </div>
+                    </div>
+                    <Button size="sm" onClick={() => handleUseItem(item)} className="bg-indigo-600 font-black uppercase text-[10px]">Usar</Button>
+                  </Card>
+                )) : (
+                  <div className="col-span-2 text-center py-10 text-slate-500 font-bold italic">No tienes pociones en el inventario.</div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8">
           <div className="flex flex-col items-center space-y-6">
             <div className={cn(
@@ -176,8 +215,8 @@ export const Combat = ({ monster, player, onWin, onLose, onEscape }: CombatProps
                 <Button disabled={!isPlayerTurn || isFinished || !!animating} onClick={handleAttack} className="h-full bg-rose-600 hover:bg-rose-500 font-black uppercase flex flex-col gap-1">
                   <Sword className="w-5 h-5" /> Atacar
                 </Button>
-                <Button disabled={!isPlayerTurn || isFinished || !!animating} onClick={handleSkill} className="h-full bg-indigo-600 hover:bg-indigo-500 font-black uppercase flex flex-col gap-1">
-                  <Zap className="w-5 h-5" /> Curar
+                <Button disabled={!isPlayerTurn || isFinished || !!animating} onClick={() => setShowInventory(true)} className="h-full bg-indigo-600 hover:bg-indigo-500 font-black uppercase flex flex-col gap-1">
+                  <Package className="w-5 h-5" /> Objetos
                 </Button>
                 <Button disabled={!isPlayerTurn || isFinished || !!animating} onClick={() => onEscape(playerHp)} variant="outline" className="col-span-2 border-2 border-slate-700 text-slate-400 font-black uppercase">
                   Escapar

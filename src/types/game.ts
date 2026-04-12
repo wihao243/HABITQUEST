@@ -1,4 +1,4 @@
-export type ItemCategory = 'dopamina' | 'gastronomia' | 'relax' | 'hobbies' | 'social';
+export type ItemCategory = 'dopamina' | 'gastronomia' | 'relax' | 'hobbies' | 'social' | 'consumible';
 
 export interface AttributeDefinition {
   id: string;
@@ -12,6 +12,9 @@ export interface ItemEffect {
   daily?: boolean;
   weekly?: boolean;
   monthly?: boolean;
+  hp?: number;
+  xpMultiplier?: number;
+  xpFlat?: number;
 }
 
 export interface DailyActivity {
