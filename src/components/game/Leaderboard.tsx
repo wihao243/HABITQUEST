@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
-import { Trophy, Medal, User, Star, Crown } from "lucide-react";
+import { Trophy, Medal, User, Star, Crown, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface LeaderboardEntry {
   id: string;
@@ -16,35 +15,44 @@ interface LeaderboardEntry {
 export const Leaderboard = () => {
   const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    const fetchLeaders = async () => {
-      // Obtenemos los perfiles que tengan estado de juego
+  const fetchLeaders = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      // Obtenemos todos los perfiles que tengan datos de juego
       const { data, error } = await supabase
         .from('profiles')
         .select('id, game_state')
-        .not('game_state', 'is', null)
-        .limit(200); // Traemos un margen para filtrar y ordenar
+        .not('game_state', 'is', null);
+
+      if (error) throw error;
 
       if (data) {
         const formatted = data
           .map(d => ({
             id: d.id,
-            name: d.game_state.name || "Héroe Anónimo",
-            level: d.game_state.level || 1,
-            avatar: d.game_state.avatar || "🧙‍♂️",
-            title: d.game_state.title || "Aventurero"
+            name: d.game_state?.name || "Héroe Anónimo",
+            level: d.game_state?.level || 1,
+            avatar: d.game_state?.avatar || "🧙‍♂️",
+            title: d.game_state?.title || "Aventurero"
           }))
-          .sort((a, b) => b.level - a.level) // Ordenamos por nivel descendente
-          .slice(0, 100); // Nos quedamos con los 100 mejores
+          .sort((a, b) => b.level - a.level)
+          .slice(0, 100);
         
         setLeaders(formatted);
       }
+    } catch (err) {
+      console.error("Error cargando ranking:", err);
+    } finally {
       setLoading(false);
-    };
-
-    fetchLeaders();
+      setIsRefreshing(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchLeaders();
+  }, [fetchLeaders]);
 
   if (loading) {
     return (
@@ -62,9 +70,14 @@ export const Leaderboard = () => {
           <Trophy className="w-6 h-6 text-yellow-500" />
           <h3 className="text-xl font-black uppercase italic">Top 100 Leyendas</h3>
         </div>
-        <div className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">
-          {leaders.length} Héroes Registrados
-        </div>
+        <button 
+          onClick={fetchLeaders}
+          disabled={isRefreshing}
+          className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition-all active:scale-95"
+        >
+          <RefreshCw className={cn("w-3 h-3", isRefreshing && "animate-spin")} />
+          {isRefreshing ? "Actualizando..." : "Refrescar"}
+        </button>
       </div>
 
       <div className="grid gap-3">
