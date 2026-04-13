@@ -108,6 +108,27 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const virtualTime = useMemo(() => new Date(Date.now() + timeOffset), [timeOffset]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Lógica de cuenta atrás para temporizadores
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStats(prev => {
+        const newTimers = { ...prev.activeTimers };
+        let changed = false;
+        Object.keys(newTimers).forEach(id => {
+          if (newTimers[id] > 0) {
+            newTimers[id] -= 1;
+            changed = true;
+          } else {
+            delete newTimers[id];
+            changed = true;
+          }
+        });
+        return changed ? { ...prev, activeTimers: newTimers } : prev;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const saveData = useCallback(async (s: any, q: any, i: any, b: any, a: any) => {
     if (!user || !isInitialLoadDone) return;
     try {
@@ -214,6 +235,17 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
   }, [stats, quests, inventory, boughtItemsLog, allItems, user, isInitialLoadDone, saveData]);
 
+  const getActiveMultiplier = useCallback(() => {
+    let multiplier = 1;
+    Object.keys(stats.activeTimers).forEach(itemId => {
+      const item = allItems.find(i => i.id === itemId);
+      if (item?.effect.xpMultiplier) {
+        multiplier *= item.effect.xpMultiplier;
+      }
+    });
+    return multiplier;
+  }, [stats.activeTimers, allItems]);
+
   const useItem = (id: string) => {
     const item = allItems.find(i => i.id === id);
     if (!item) return;
@@ -243,7 +275,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         }
       }
 
-      // Efecto de temporizador (Dopamina/Relax)
+      // Efecto de temporizador (Dopamina/Relax/Multiplicador)
       const newTimers = { ...prev.activeTimers };
       if (item.effect.timer) {
         newTimers[id] = (newTimers[id] || 0) + (item.effect.timer * 60);
@@ -276,6 +308,10 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       const rewards = { easy: { xp: 10, gold: 5, attr: 0.1 }, medium: { xp: 25, gold: 15, attr: 0.2 }, hard: { xp: 60, gold: 40, attr: 0.5 } };
       const r = rewards[quest.difficulty];
       
+      // Aplicar multiplicador de XP activo
+      const multiplier = getActiveMultiplier();
+      const finalXp = Math.floor(r.xp * multiplier);
+      
       setQuests(prev => prev.map(q => {
         if (q.id === id) {
           let newStreak = q.streak || 0;
@@ -287,7 +323,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       }));
 
       setStats(prev => {
-        let newXp = prev.xp + r.xp;
+        let newXp = prev.xp + finalXp;
         let newLevel = prev.level;
         let newMaxXp = prev.maxXp;
         let newMaxHp = prev.maxHp;
@@ -305,7 +341,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
           gameStats: { ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + r.gold }
         };
       });
-      showSuccess(`¡Misión completada! +${r.gold} Oro`);
+      showSuccess(`¡Misión completada! +${r.gold} Oro ${multiplier > 1 ? `(XP x${multiplier})` : ''}`);
     },
     useItem,
     takeDamage: (amount: number) => setStats(prev => ({ ...prev, hp: Math.max(0, prev.hp - amount) })),
@@ -326,8 +362,11 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     revive: () => setStats(prev => ({ ...prev, hp: prev.maxHp, activePenalties: [] })),
     setActiveCombat, activeCombat,
     winCombat: (xp: number, gold: number, remainingHp: number) => {
+      const multiplier = getActiveMultiplier();
+      const finalXp = Math.floor(xp * multiplier);
+
       setStats(prev => {
-        let newXp = prev.xp + xp;
+        let newXp = prev.xp + finalXp;
         let newLevel = prev.level;
         let newMaxXp = prev.maxXp;
         let newMaxHp = prev.maxHp;
@@ -342,6 +381,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         return { ...prev, xp: newXp, level: newLevel, maxXp: newMaxXp, hp: newHp, maxHp: newMaxHp, gold: prev.gold + gold, gameStats: { ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + gold, monstersDefeated: prev.gameStats.monstersDefeated + 1 } };
       });
       setActiveCombat(null);
+      if (multiplier > 1) showSuccess(`¡Victoria! XP x${multiplier} aplicada.`);
     },
     loseCombat: (remainingHp: number) => { setStats(prev => ({ ...prev, hp: remainingHp, gameStats: { ...prev.gameStats, totalDeaths: prev.gameStats.totalDeaths + 1 } })); setActiveCombat(null); },
     escapeCombat: (remainingHp: number) => { setStats(prev => ({ ...prev, hp: remainingHp })); setActiveCombat(null); },

@@ -7,6 +7,10 @@ export const ALL_ITEMS: ShopItem[] = [
   { id: 'c3', title: 'Elixir de Vitalidad', cost: 150, category: 'consumible', icon: '🍶', rarity: 'epico', description: 'Restaura toda tu vida.', effect: { hp: 999 } },
   { id: 'c4', title: 'Pergamino de Sabiduría', cost: 100, category: 'consumible', icon: '📜', rarity: 'raro', description: 'Gana 50 XP instantáneamente.', effect: { xpFlat: 50 } },
   { id: 'c5', title: 'Tomo del Maestro', cost: 400, category: 'consumible', icon: '📕', rarity: 'epico', description: 'Gana 250 XP instantáneamente.', effect: { xpFlat: 250 } },
+  
+  // ✨ Potenciadores de XP (Nuevos)
+  { id: 'xp1', title: 'Pergamino de Enfoque', cost: 120, category: 'consumible', icon: '✨', rarity: 'raro', description: 'Multiplica la XP ganada x1.5 durante 30 minutos.', effect: { xpMultiplier: 1.5, timer: 30 } },
+  { id: 'xp2', title: 'Incienso de Sabiduría', cost: 250, category: 'consumible', icon: '🕯️', rarity: 'epico', description: 'Multiplica la XP ganada x2.0 durante 1 hora.', effect: { xpMultiplier: 2.0, timer: 60 } },
 
   // 📱 Pantallas y Dopamina
   { id: 'd1', title: 'El Scroll Permitido', cost: 30, category: 'dopamina', icon: '📱', rarity: 'comun', description: '30 minutos de TikTok, Instagram o Twitter sin sentir culpa.', effect: { timer: 30, daily: true } },
