@@ -35,7 +35,6 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
   const addLog = (msg: string) => setLog(prev => [msg, ...prev].slice(0, 5));
   const isImageAvatar = player.avatar.startsWith('data:image');
 
-  // Filtrar solo consumibles de vida para el combate
   const usableItems = inventory
     .map(id => allItems.find(i => i.id === id))
     .filter(i => i && i.category === 'consumible' && i.effect.hp) as ShopItem[];
@@ -53,12 +52,12 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
       if (newMonsterHp <= 0) {
         setIsFinished(true);
         addLog(`¡Has derrotado a ${monster.name}!`);
-        setTimeout(() => onWin(monster.xpReward, monster.goldReward, playerHp), 1000);
+        setTimeout(() => onWin(monster.xpReward, monster.goldReward, playerHp), 800);
       } else {
         setIsPlayerTurn(false);
-        if (isDodgeMode) setTimeout(() => setShowDodge(true), 500);
+        if (isDodgeMode) setTimeout(() => setShowDodge(true), 300);
       }
-    }, 500);
+    }, 400);
   };
 
   const handleUseItem = (item: ShopItem) => {
@@ -74,12 +73,12 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
 
     setTimeout(() => {
       setIsPlayerTurn(false);
-      if (isDodgeMode) setTimeout(() => setShowDodge(true), 500);
-    }, 500);
+      if (isDodgeMode) setTimeout(() => setShowDodge(true), 300);
+    }, 400);
   };
 
   useEffect(() => {
-    if (!isPlayerTurn && !isFinished && !isDodgeMode) {
+    if (!isPlayerTurn && !isFinished && !isDodgeMode && !showDodge) {
       const timer = setTimeout(() => {
         setAnimating("monster");
         const damage = Math.max(1, Math.floor(monster.damage - (player.attributes.fuerza * 0.5)));
@@ -92,15 +91,15 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
           if (newPlayerHp <= 0) {
             setIsFinished(true);
             addLog("¡Has caído en combate!");
-            setTimeout(() => onLose(0), 1000);
+            setTimeout(() => onLose(0), 800);
           } else {
             setIsPlayerTurn(true);
           }
-        }, 500);
-      }, 1000);
+        }, 400);
+      }, 600);
       return () => clearTimeout(timer);
     }
-  }, [isPlayerTurn, isFinished, isDodgeMode, monster.damage, monster.name, player.attributes.fuerza, playerHp, onLose]);
+  }, [isPlayerTurn, isFinished, isDodgeMode, showDodge, monster.damage, monster.name, player.attributes.fuerza, playerHp, onLose]);
 
   const handleDodgeHit = useCallback((damage: number) => {
     setPlayerHp(prev => {
@@ -109,7 +108,7 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
         setIsFinished(true);
         setShowDodge(false);
         addLog("¡Has caído en combate!");
-        setTimeout(() => onLose(0), 1000);
+        setTimeout(() => onLose(0), 800);
       }
       return next;
     });
