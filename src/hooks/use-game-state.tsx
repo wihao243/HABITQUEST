@@ -105,7 +105,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const [activeTab, setActiveTab] = useState("daily");
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   
-  const virtualTime = useMemo(() => newDate.now() + timeOffset), [timeOffset]);
+  const virtualTime = useMemo(() => new Date(Date.now() + timeOffset), [timeOffset]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Lógica de cuenta atrás para temporizadores
@@ -365,7 +365,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       const multiplier = getActiveMultiplier();
       const finalXp = Math.floor(xp * multiplier);
       const monsterId = activeCombat?.id;
-      const isBoss = activeCombat?.id.startsWith('b'); // Los IDs de jefes empiezan por 'b'
+      const isBoss = activeCombat?.id.startsWith('b');
 
       setStats(prev => {
         let newXp = prev.xp + finalXp;
@@ -381,7 +381,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
           newHp = newMaxHp;
         }
 
-        // Registrar cooldown
         const newCooldowns = { ...prev.monsterCooldowns };
         if (monsterId) {
           const cooldownMinutes = isBoss ? 60 : 30;
