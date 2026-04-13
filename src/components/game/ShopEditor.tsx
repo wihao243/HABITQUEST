@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ShopItem, ItemCategory } from "@/types/game";
-import { ShoppingBag, Plus, Edit3, Trash2, Save, X } from "lucide-react";
+import { ShoppingBag, Plus, Edit3, Trash2, Save, X, Heart, Zap, TrendingUp } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -23,16 +23,24 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
   const [formData, setFormData] = useState<Omit<ShopItem, 'id'>>({
     title: "",
     cost: 50,
-    category: "dopamina",
+    category: "consumible",
     icon: "🎁",
     rarity: "comun",
     description: "",
-    effect: { daily: true }
+    effect: { daily: true, hp: 0, xpFlat: 0, xpMultiplier: 1 }
   });
 
   const handleEdit = (item: ShopItem) => {
     setEditingId(item.id);
-    setFormData({ ...item });
+    setFormData({ 
+      ...item, 
+      effect: { 
+        ...item.effect,
+        hp: item.effect.hp || 0,
+        xpFlat: item.effect.xpFlat || 0,
+        xpMultiplier: item.effect.xpMultiplier || 1
+      } 
+    });
     setIsAdding(false);
   };
 
@@ -51,11 +59,11 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
     setFormData({
       title: "",
       cost: 50,
-      category: "dopamina",
+      category: "consumible",
       icon: "🎁",
       rarity: "comun",
       description: "",
-      effect: { daily: true }
+      effect: { daily: true, hp: 0, xpFlat: 0, xpMultiplier: 1 }
     });
   };
 
@@ -69,7 +77,7 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
       <DialogContent className="sm:max-w-[700px] bg-white rounded-2xl border-4 border-slate-900 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter text-slate-900">
-            Gestión de Inventario Global
+            Gestión de Objetos Globales
           </DialogTitle>
         </DialogHeader>
 
@@ -110,6 +118,7 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
                   <Select value={formData.category} onValueChange={(v: any) => setFormData({...formData, category: v})}>
                     <SelectTrigger className="border-2 font-bold"><SelectValue /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="consumible">Consumible (Pociones/XP)</SelectItem>
                       <SelectItem value="dopamina">Dopamina</SelectItem>
                       <SelectItem value="gastronomia">Gastronomía</SelectItem>
                       <SelectItem value="relax">Relax</SelectItem>
@@ -122,7 +131,7 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
                   <Label className="text-[10px] font-black uppercase">Rotación</Label>
                   <Select 
                     value={formData.effect.daily ? "daily" : formData.effect.weekly ? "weekly" : "monthly"} 
-                    onValueChange={(v: any) => setFormData({...formData, effect: { [v]: true, timer: formData.effect.timer }})}
+                    onValueChange={(v: any) => setFormData({...formData, effect: { ...formData.effect, daily: v === 'daily', weekly: v === 'weekly', monthly: v === 'monthly' }})}
                   >
                     <SelectTrigger className="border-2 font-bold"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -132,6 +141,22 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
                     </SelectContent>
                   </Select>
                 </div>
+                
+                <div className="col-span-2 grid grid-cols-3 gap-3 p-3 bg-white rounded-xl border-2 border-indigo-100">
+                  <div className="space-y-1">
+                    <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-rose-500"><Heart className="w-3 h-3" /> Curación HP</Label>
+                    <Input type="number" value={formData.effect.hp || 0} onChange={e => setFormData({...formData, effect: { ...formData.effect, hp: parseInt(e.target.value) || 0 }})} className="h-8 text-xs font-bold" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-blue-500"><Zap className="w-3 h-3" /> XP Plana</Label>
+                    <Input type="number" value={formData.effect.xpFlat || 0} onChange={e => setFormData({...formData, effect: { ...formData.effect, xpFlat: parseInt(e.target.value) || 0 }})} className="h-8 text-xs font-bold" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-amber-500"><TrendingUp className="w-3 h-3" /> Multiplicador</Label>
+                    <Input type="number" step="0.1" value={formData.effect.xpMultiplier || 1} onChange={e => setFormData({...formData, effect: { ...formData.effect, xpMultiplier: parseFloat(e.target.value) || 1 }})} className="h-8 text-xs font-bold" />
+                  </div>
+                </div>
+
                 <div className="col-span-2 space-y-2">
                   <Label className="text-[10px] font-black uppercase">Descripción</Label>
                   <Input value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="border-2 font-bold" />
@@ -158,7 +183,7 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
                     <div>
                       <p className="font-black text-sm leading-tight">{item.title}</p>
                       <p className="text-[10px] font-bold text-slate-400 uppercase">
-                        {item.cost} Oro • {item.rarity} • {item.effect.daily ? 'Diario' : item.effect.weekly ? 'Semanal' : 'Mensual'}
+                        {item.cost} Oro • {item.rarity} • {item.effect.hp ? `+${item.effect.hp}HP ` : ''}{item.effect.xpFlat ? `+${item.effect.xpFlat}XP ` : ''}
                       </p>
                     </div>
                   </div>
