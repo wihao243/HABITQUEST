@@ -1,9 +1,10 @@
 import { ShopItem } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Package, Smartphone, Utensils, Coffee, ShoppingCart, Users, Info, Clock, Pause, Play } from "lucide-react";
+import { Package, Smartphone, Utensils, Coffee, ShoppingCart, Users, Clock, Pause, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { useGameState } from "@/hooks/use-game-state";
 
 interface InventoryProps {
   inventoryIds: string[];
@@ -14,7 +15,9 @@ interface InventoryProps {
   allItems: ShopItem[];
 }
 
-export const Inventory = ({ inventoryIds, onUseItem, activeTimers, pausedTimers, onTogglePause, allItems }: InventoryProps) => {
+export const Inventory = ({ inventoryIds, onUseItem, activeTimers, allItems }: InventoryProps) => {
+  const { virtualTime } = useGameState();
+  
   const itemCounts = inventoryIds.reduce((acc, id) => {
     acc[id] = (acc[id] || 0) + 1;
     return acc;
@@ -23,12 +26,14 @@ export const Inventory = ({ inventoryIds, onUseItem, activeTimers, pausedTimers,
   const uniqueItemIds = Object.keys(itemCounts);
   const ownedItems = allItems.filter(item => uniqueItemIds.includes(item.id));
   
-  const activeTimerIds = Object.keys(activeTimers);
+  // Mostrar también items que tienen un timer activo aunque no queden unidades
+  const activeTimerIds = Object.keys(activeTimers).filter(id => activeTimers[id] > virtualTime.getTime());
   const itemsWithTimers = allItems.filter(item => activeTimerIds.includes(item.id) && !uniqueItemIds.includes(item.id));
   
   const allDisplayItems = [...ownedItems, ...itemsWithTimers];
 
   const categories = [
+    { id: 'consumible', label: 'Consumibles', icon: <Package className="w-4 h-4" /> },
     { id: 'dopamina', label: 'Dopamina', icon: <Smartphone className="w-4 h-4" /> },
     { id: 'gastronomia', label: 'Comida', icon: <Utensils className="w-4 h-4" /> },
     { id: 'relax', label: 'Relax', icon: <Coffee className="w-4 h-4" /> },
@@ -36,7 +41,8 @@ export const Inventory = ({ inventoryIds, onUseItem, activeTimers, pausedTimers,
     { id: 'social', label: 'Social', icon: <Users className="w-4 h-4" /> },
   ];
 
-  const formatTime = (seconds: number) => {
+  const formatTime = (ms: number) => {
+    const seconds = Math.max(0, Math.floor(ms / 1000));
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
@@ -63,14 +69,15 @@ export const Inventory = ({ inventoryIds, onUseItem, activeTimers, pausedTimers,
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {items.map(item => {
-                  const timeLeft = activeTimers[item.id];
-                  const isPaused = pausedTimers[item.id];
+                  const expiration = activeTimers[item.id];
+                  const timeLeftMs = expiration ? expiration - virtualTime.getTime() : 0;
+                  const isActive = timeLeftMs > 0;
                   const count = itemCounts[item.id] || 0;
 
                   return (
                     <Card key={item.id} className={cn(
                       "p-4 border-2 border-slate-200 bg-white flex flex-col gap-3 shadow-sm hover:border-indigo-300 transition-colors",
-                      timeLeft && "border-indigo-500 bg-indigo-50/30"
+                      isActive && "border-indigo-500 bg-indigo-50/30"
                     )}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -99,24 +106,13 @@ export const Inventory = ({ inventoryIds, onUseItem, activeTimers, pausedTimers,
                           {item.description}
                         </p>
 
-                        {timeLeft ? (
+                        {isActive ? (
                           <div className="space-y-2">
-                            <div className={cn(
-                              "flex items-center justify-between p-2 rounded-lg border-2 font-black text-sm",
-                              isPaused ? "bg-amber-100 border-amber-200 text-amber-700" : "bg-indigo-100 border-indigo-200 text-indigo-700"
-                            )}>
+                            <div className="flex items-center justify-between p-2 rounded-lg border-2 font-black text-sm bg-indigo-100 border-indigo-200 text-indigo-700">
                               <div className="flex items-center gap-2">
-                                <Clock className={cn("w-4 h-4", !isPaused && "animate-pulse")} />
-                                <span>{formatTime(timeLeft)}</span>
+                                <Clock className="w-4 h-4 animate-pulse" />
+                                <span>{formatTime(timeLeftMs)}</span>
                               </div>
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                onClick={() => onTogglePause(item.id)}
-                                className="h-8 w-8 p-0 hover:bg-white/50"
-                              >
-                                {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                              </Button>
                             </div>
                             {count > 0 && (
                               <Button 

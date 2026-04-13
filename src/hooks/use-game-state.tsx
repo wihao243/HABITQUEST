@@ -3,7 +3,7 @@ import { CharacterStats, Quest, Monster, ShopItem, AttributeDefinition } from "@
 import { ALL_ITEMS as INITIAL_ITEMS } from "@/data/items";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/lib/supabase";
-import { format, isAfter, startOfDay, addDays, isSameDay, isSameWeek, isSameMonth, getWeek } from "date-fns";
+import { format, addDays, isSameDay, isSameWeek, isSameMonth, getWeek } from "date-fns";
 
 interface GameStateContextType {
   stats: CharacterStats;
@@ -96,6 +96,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const [quests, setQuests] = useState<Quest[]>([]);
   const [inventory, setInventory] = useState<string[]>([]);
   const [timeOffset, setTimeOffset] = useState(0);
+  const [tick, setTick] = useState(Date.now());
   const [lastResetDate, setLastResetDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [activeCombat, setActiveCombat] = useState<Monster | null>(null);
   const [boughtItemsLog, setBoughtItemsLog] = useState<Record<string, string>>({});
@@ -105,26 +106,13 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const [activeTab, setActiveTab] = useState("daily");
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   
-  const virtualTime = useMemo(() => new Date(Date.now() + timeOffset), [timeOffset]);
+  const virtualTime = useMemo(() => new Date(tick + timeOffset), [tick, timeOffset]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Lógica de cuenta atrás para temporizadores
+  // Reloj interno que actualiza el tiempo virtual cada segundo
   useEffect(() => {
     const interval = setInterval(() => {
-      setStats(prev => {
-        const newTimers = { ...prev.activeTimers };
-        let changed = false;
-        Object.keys(newTimers).forEach(id => {
-          if (newTimers[id] > 0) {
-            newTimers[id] -= 1;
-            changed = true;
-          } else {
-            delete newTimers[id];
-            changed = true;
-          }
-        });
-        return changed ? { ...prev, activeTimers: newTimers } : prev;
-      });
+      setTick(Date.now());
     }, 1000);
     return () => clearInterval(interval);
   }, []);
@@ -139,24 +127,27 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         inventory: i, 
         bought_items: b, 
         all_items: a, 
-        updated_at: new Date(Date.now() + timeOffset).toISOString(),
+        updated_at: new Date().toISOString(),
       });
     } catch (err) {
       console.error("Error guardando datos:", err);
     }
-  }, [user, isInitialLoadDone, timeOffset]);
+  }, [user, isInitialLoadDone]);
 
   const checkDayReset = useCallback((currentTime: Date) => {
     const todayStr = format(currentTime, 'yyyy-MM-dd');
     if (todayStr !== lastResetDate && isInitialLoadDone) {
       setQuests(prev => {
         const updated = prev.map(q => (q.type === 'daily' || q.type === 'habit') ? { ...q, completed: false } : q);
-        saveData(stats, updated, inventory, boughtItemsLog, allItems);
         return updated;
       });
       setLastResetDate(todayStr);
     }
-  }, [lastResetDate, isInitialLoadDone, stats, inventory, boughtItemsLog, allItems, saveData]);
+  }, [lastResetDate, isInitialLoadDone]);
+
+  useEffect(() => {
+    checkDayReset(virtualTime);
+  }, [virtualTime, checkDayReset]);
 
   const shopItems = useMemo(() => {
     const dailySeed = format(virtualTime, 'yyyy-MM-dd');
@@ -178,7 +169,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const result: Record<string, boolean> = {};
     Object.entries(boughtItemsLog).forEach(([id, dateStr]) => {
       const item = allItems.find(i => i.id === id);
-      if (!item || item.category === 'consumible') return; // Consumibles no se agotan
+      if (!item || item.category === 'consumible') return;
       const purchaseDate = new Date(dateStr);
       
       if (item.effect.daily && isSameDay(purchaseDate, virtualTime)) result[id] = true;
@@ -237,14 +228,17 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
 
   const getActiveMultiplier = useCallback(() => {
     let multiplier = 1;
-    Object.keys(stats.activeTimers).forEach(itemId => {
-      const item = allItems.find(i => i.id === itemId);
-      if (item?.effect.xpMultiplier) {
-        multiplier *= item.effect.xpMultiplier;
+    const now = virtualTime.getTime();
+    Object.entries(stats.activeTimers).forEach(([itemId, expiration]) => {
+      if (expiration > now) {
+        const item = allItems.find(i => i.id === itemId);
+        if (item?.effect.xpMultiplier) {
+          multiplier *= item.effect.xpMultiplier;
+        }
       }
     });
     return multiplier;
-  }, [stats.activeTimers, allItems]);
+  }, [stats.activeTimers, allItems, virtualTime]);
 
   const useItem = (id: string) => {
     const item = allItems.find(i => i.id === id);
@@ -257,12 +251,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       let newMaxXp = prev.maxXp;
       let newMaxHp = prev.maxHp;
 
-      // Efecto de curación
-      if (item.effect.hp) {
-        newHp = Math.min(prev.maxHp, prev.hp + item.effect.hp);
-      }
-
-      // Efecto de XP instantánea
+      if (item.effect.hp) newHp = Math.min(prev.maxHp, prev.hp + item.effect.hp);
       if (item.effect.xpFlat) {
         newXp += item.effect.xpFlat;
         while (newXp >= newMaxXp) {
@@ -275,10 +264,11 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         }
       }
 
-      // Efecto de temporizador (Dopamina/Relax/Multiplicador)
       const newTimers = { ...prev.activeTimers };
       if (item.effect.timer) {
-        newTimers[id] = (newTimers[id] || 0) + (item.effect.timer * 60);
+        const now = virtualTime.getTime();
+        const currentExpiration = newTimers[id] || now;
+        newTimers[id] = Math.max(now, currentExpiration) + (item.effect.timer * 60 * 1000);
       }
 
       return { ...prev, hp: newHp, xp: newXp, level: newLevel, maxXp: newMaxXp, maxHp: newMaxHp, activeTimers: newTimers };
@@ -307,8 +297,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
 
       const rewards = { easy: { xp: 10, gold: 5, attr: 0.1 }, medium: { xp: 25, gold: 15, attr: 0.2 }, hard: { xp: 60, gold: 40, attr: 0.5 } };
       const r = rewards[quest.difficulty];
-      
-      // Aplicar multiplicador de XP activo
       const multiplier = getActiveMultiplier();
       const finalXp = Math.floor(r.xp * multiplier);
       
