@@ -105,7 +105,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const [activeTab, setActiveTab] = useState("daily");
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   
-  const virtualTime = useMemo(() => new Date(Date.now() + timeOffset), [timeOffset]);
+  const virtualTime = useMemo(() => newDate.now() + timeOffset), [timeOffset]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Lógica de cuenta atrás para temporizadores
@@ -364,6 +364,8 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     winCombat: (xp: number, gold: number, remainingHp: number) => {
       const multiplier = getActiveMultiplier();
       const finalXp = Math.floor(xp * multiplier);
+      const monsterId = activeCombat?.id;
+      const isBoss = activeCombat?.id.startsWith('b'); // Los IDs de jefes empiezan por 'b'
 
       setStats(prev => {
         let newXp = prev.xp + finalXp;
@@ -378,7 +380,31 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
           newMaxHp += 10;
           newHp = newMaxHp;
         }
-        return { ...prev, xp: newXp, level: newLevel, maxXp: newMaxXp, hp: newHp, maxHp: newMaxHp, gold: prev.gold + gold, gameStats: { ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + gold, monstersDefeated: prev.gameStats.monstersDefeated + 1 } };
+
+        // Registrar cooldown
+        const newCooldowns = { ...prev.monsterCooldowns };
+        if (monsterId) {
+          const cooldownMinutes = isBoss ? 60 : 30;
+          const respawnTime = new Date(virtualTime.getTime() + cooldownMinutes * 60000);
+          newCooldowns[monsterId] = respawnTime.toISOString();
+        }
+
+        return { 
+          ...prev, 
+          xp: newXp, 
+          level: newLevel, 
+          maxXp: newMaxXp, 
+          hp: newHp, 
+          maxHp: newMaxHp, 
+          gold: prev.gold + gold, 
+          monsterCooldowns: newCooldowns,
+          gameStats: { 
+            ...prev.gameStats, 
+            totalGoldEarned: prev.gameStats.totalGoldEarned + gold, 
+            monstersDefeated: prev.gameStats.monstersDefeated + 1,
+            bossesDefeated: isBoss ? prev.gameStats.bossesDefeated + 1 : prev.gameStats.bossesDefeated
+          } 
+        };
       });
       setActiveCombat(null);
       if (multiplier > 1) showSuccess(`¡Victoria! XP x${multiplier} aplicada.`);
