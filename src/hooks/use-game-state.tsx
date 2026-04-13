@@ -109,7 +109,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const virtualTime = useMemo(() => new Date(tick + timeOffset), [tick, timeOffset]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Reloj interno que actualiza el tiempo virtual cada segundo
   useEffect(() => {
     const interval = setInterval(() => {
       setTick(Date.now());
@@ -137,10 +136,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const checkDayReset = useCallback((currentTime: Date) => {
     const todayStr = format(currentTime, 'yyyy-MM-dd');
     if (todayStr !== lastResetDate && isInitialLoadDone) {
-      setQuests(prev => {
-        const updated = prev.map(q => (q.type === 'daily' || q.type === 'habit') ? { ...q, completed: false } : q);
-        return updated;
-      });
+      setQuests(prev => prev.map(q => (q.type === 'daily' || q.type === 'habit') ? { ...q, completed: false } : q));
       setLastResetDate(todayStr);
     }
   }, [lastResetDate, isInitialLoadDone]);
@@ -153,11 +149,9 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const dailySeed = format(virtualTime, 'yyyy-MM-dd');
     const weeklySeed = format(virtualTime, 'yyyy-') + getWeek(virtualTime);
     const monthlySeed = format(virtualTime, 'yyyy-MM');
-
     const dailyPool = allItems.filter(i => i.effect.daily || i.category === 'consumible');
     const weeklyPool = allItems.filter(i => i.effect.weekly);
     const monthlyPool = allItems.filter(i => i.effect.monthly);
-
     return {
       daily: shuffleWithSeed(dailyPool, dailySeed).slice(0, 6),
       weekly: shuffleWithSeed(weeklyPool, weeklySeed).slice(0, 5),
@@ -171,7 +165,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       const item = allItems.find(i => i.id === id);
       if (!item || item.category === 'consumible') return;
       const purchaseDate = new Date(dateStr);
-      
       if (item.effect.daily && isSameDay(purchaseDate, virtualTime)) result[id] = true;
       else if (item.effect.weekly && isSameWeek(purchaseDate, virtualTime)) result[id] = true;
       else if (item.effect.monthly && isSameMonth(purchaseDate, virtualTime)) result[id] = true;
@@ -186,13 +179,9 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       if (!session) setLoading(false);
     };
     initAuth();
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (!session) {
-        setLoading(false);
-        setIsInitialLoadDone(false);
-      }
+      if (!session) { setLoading(false); setIsInitialLoadDone(false); }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -209,12 +198,8 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
           if (data.bought_items) setBoughtItemsLog(data.bought_items);
           if (data.all_items) setAllItems(data.all_items);
         }
-      } catch (err) {
-        console.error("Error cargando perfil:", err);
-      } finally {
-        setLoading(false);
-        setIsInitialLoadDone(true);
-      }
+      } catch (err) { console.error("Error cargando perfil:", err); }
+      finally { setLoading(false); setIsInitialLoadDone(true); }
     };
     loadData();
   }, [user]);
@@ -232,186 +217,160 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     Object.entries(stats.activeTimers).forEach(([itemId, expiration]) => {
       if (expiration > now) {
         const item = allItems.find(i => i.id === itemId);
-        if (item?.effect.xpMultiplier) {
-          multiplier *= item.effect.xpMultiplier;
-        }
+        if (item?.effect.xpMultiplier) multiplier *= item.effect.xpMultiplier;
       }
     });
     return multiplier;
   }, [stats.activeTimers, allItems, virtualTime]);
 
-  const useItem = (id: string) => {
+  const useItem = useCallback((id: string) => {
     const item = allItems.find(i => i.id === id);
     if (!item) return;
-
     setStats(prev => {
       let newHp = prev.hp;
       let newXp = prev.xp;
       let newLevel = prev.level;
       let newMaxXp = prev.maxXp;
       let newMaxHp = prev.maxHp;
-
       if (item.effect.hp) newHp = Math.min(prev.maxHp, prev.hp + item.effect.hp);
       if (item.effect.xpFlat) {
         newXp += item.effect.xpFlat;
         while (newXp >= newMaxXp) {
-          newXp -= newMaxXp;
-          newLevel += 1;
-          newMaxXp = Math.floor(newMaxXp * 1.2);
-          newMaxHp += 10;
-          newHp = newMaxHp;
+          newXp -= newMaxXp; newLevel += 1; newMaxXp = Math.floor(newMaxXp * 1.2); newMaxHp += 10; newHp = newMaxHp;
           showSuccess(`¡SUBIDA DE NIVEL! Ahora eres nivel ${newLevel}`);
         }
       }
-
       const newTimers = { ...prev.activeTimers };
       if (item.effect.timer) {
         const now = virtualTime.getTime();
         const currentExpiration = newTimers[id] || now;
         newTimers[id] = Math.max(now, currentExpiration) + (item.effect.timer * 60 * 1000);
       }
-
       return { ...prev, hp: newHp, xp: newXp, level: newLevel, maxXp: newMaxXp, maxHp: newMaxHp, activeTimers: newTimers };
     });
-
     setInventory(prev => {
       const idx = prev.indexOf(id);
-      if (idx > -1) {
-        const n = [...prev];
-        n.splice(idx, 1);
-        return n;
-      }
+      if (idx > -1) { const n = [...prev]; n.splice(idx, 1); return n; }
       return prev;
     });
-    
     if (item.category === 'consumible') showSuccess(`Usado: ${item.title}`);
-  };
+  }, [allItems, virtualTime]);
+
+  const completeQuest = useCallback((id: string) => {
+    const todayStr = format(virtualTime, 'yyyy-MM-dd');
+    const yesterdayStr = format(addDays(virtualTime, -1), 'yyyy-MM-dd');
+    const quest = quests.find(q => q.id === id);
+    if (!quest || quest.completed) return;
+    const rewards = { easy: { xp: 10, gold: 5, attr: 0.1 }, medium: { xp: 25, gold: 15, attr: 0.2 }, hard: { xp: 60, gold: 40, attr: 0.5 } };
+    const r = rewards[quest.difficulty];
+    const multiplier = getActiveMultiplier();
+    const finalXp = Math.floor(r.xp * multiplier);
+    setQuests(prev => prev.map(q => {
+      if (q.id === id) {
+        let newStreak = q.streak || 0;
+        if (q.lastCompletedDate === yesterdayStr) newStreak += 1;
+        else if (q.lastCompletedDate !== todayStr) newStreak = 1;
+        return { ...q, completed: true, lastCompletedDate: todayStr, streak: newStreak };
+      }
+      return q;
+    }));
+    setStats(prev => {
+      let newXp = prev.xp + finalXp;
+      let newLevel = prev.level;
+      let newMaxXp = prev.maxXp;
+      let newMaxHp = prev.maxHp;
+      let newHp = prev.hp;
+      while (newXp >= newMaxXp) {
+        newXp -= newMaxXp; newLevel += 1; newMaxXp = Math.floor(newMaxXp * 1.2); newMaxHp += 10; newHp = newMaxHp;
+      }
+      return {
+        ...prev, xp: newXp, level: newLevel, maxXp: newMaxXp, hp: newHp, maxHp: newMaxHp, gold: prev.gold + r.gold,
+        attributes: { ...prev.attributes, [quest.stat]: (prev.attributes[quest.stat] || 1) + r.attr },
+        gameStats: { ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + r.gold }
+      };
+    });
+    showSuccess(`¡Misión completada! +${r.gold} Oro ${multiplier > 1 ? `(XP x${multiplier})` : ''}`);
+  }, [quests, virtualTime, getActiveMultiplier]);
+
+  const winCombat = useCallback((xp: number, gold: number, remainingHp: number) => {
+    const multiplier = getActiveMultiplier();
+    const finalXp = Math.floor(xp * multiplier);
+    const monsterId = activeCombat?.id;
+    const isBoss = activeCombat?.id.startsWith('b');
+    setStats(prev => {
+      let newXp = prev.xp + finalXp;
+      let newLevel = prev.level;
+      let newMaxXp = prev.maxXp;
+      let newMaxHp = prev.maxHp;
+      let newHp = remainingHp;
+      while (newXp >= newMaxXp) {
+        newXp -= newMaxXp; newLevel += 1; newMaxXp = Math.floor(newMaxXp * 1.2); newMaxHp += 10; newHp = newMaxHp;
+      }
+      const newCooldowns = { ...prev.monsterCooldowns };
+      if (monsterId) {
+        const cooldownMinutes = isBoss ? 60 : 30;
+        const respawnTime = new Date(virtualTime.getTime() + cooldownMinutes * 60000);
+        newCooldowns[monsterId] = respawnTime.toISOString();
+      }
+      return { 
+        ...prev, xp: newXp, level: newLevel, maxXp: newMaxXp, hp: newHp, maxHp: newMaxHp, gold: prev.gold + gold, 
+        monsterCooldowns: newCooldowns,
+        gameStats: { 
+          ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + gold, 
+          monstersDefeated: prev.gameStats.monstersDefeated + 1,
+          bossesDefeated: isBoss ? prev.gameStats.bossesDefeated + 1 : prev.gameStats.bossesDefeated
+        } 
+      };
+    });
+    setActiveCombat(null);
+    if (multiplier > 1) showSuccess(`¡Victoria! XP x${multiplier} aplicada.`);
+  }, [activeCombat, virtualTime, getActiveMultiplier]);
+
+  const loseCombat = useCallback((remainingHp: number) => {
+    setStats(prev => ({ ...prev, hp: remainingHp, gameStats: { ...prev.gameStats, totalDeaths: prev.gameStats.totalDeaths + 1 } }));
+    setActiveCombat(null);
+  }, []);
+
+  const escapeCombat = useCallback((remainingHp: number) => {
+    setStats(prev => ({ ...prev, hp: remainingHp }));
+    setActiveCombat(null);
+  }, []);
+
+  const buyItem = useCallback((item: ShopItem) => {
+    if (stats.gold >= item.cost) {
+      setStats(prev => ({ ...prev, gold: prev.gold - item.cost }));
+      setInventory(prev => [...prev, item.id]);
+      setBoughtItemsLog(prev => ({ ...prev, [item.id]: virtualTime.toISOString() }));
+      showSuccess(`Comprado: ${item.title}`);
+    } else showError("Oro insuficiente");
+  }, [stats.gold, virtualTime]);
 
   const value = {
     stats, quests, inventory, virtualTime, allItems, user, loading, activeTab, setActiveTab,
-    completeQuest: (id: string) => {
-      const todayStr = format(virtualTime, 'yyyy-MM-dd');
-      const yesterdayStr = format(addDays(virtualTime, -1), 'yyyy-MM-dd');
-      const quest = quests.find(q => q.id === id);
-      if (!quest || quest.completed) return;
-
-      const rewards = { easy: { xp: 10, gold: 5, attr: 0.1 }, medium: { xp: 25, gold: 15, attr: 0.2 }, hard: { xp: 60, gold: 40, attr: 0.5 } };
-      const r = rewards[quest.difficulty];
-      const multiplier = getActiveMultiplier();
-      const finalXp = Math.floor(r.xp * multiplier);
-      
-      setQuests(prev => prev.map(q => {
-        if (q.id === id) {
-          let newStreak = q.streak || 0;
-          if (q.lastCompletedDate === yesterdayStr) newStreak += 1;
-          else if (q.lastCompletedDate !== todayStr) newStreak = 1;
-          return { ...q, completed: true, lastCompletedDate: todayStr, streak: newStreak };
-        }
-        return q;
-      }));
-
-      setStats(prev => {
-        let newXp = prev.xp + finalXp;
-        let newLevel = prev.level;
-        let newMaxXp = prev.maxXp;
-        let newMaxHp = prev.maxHp;
-        let newHp = prev.hp;
-        while (newXp >= newMaxXp) {
-          newXp -= newMaxXp;
-          newLevel += 1;
-          newMaxXp = Math.floor(newMaxXp * 1.2);
-          newMaxHp += 10;
-          newHp = newMaxHp;
-        }
-        return {
-          ...prev, xp: newXp, level: newLevel, maxXp: newMaxXp, hp: newHp, maxHp: newMaxHp, gold: prev.gold + r.gold,
-          attributes: { ...prev.attributes, [quest.stat]: (prev.attributes[quest.stat] || 1) + r.attr },
-          gameStats: { ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + r.gold }
-        };
-      });
-      showSuccess(`¡Misión completada! +${r.gold} Oro ${multiplier > 1 ? `(XP x${multiplier})` : ''}`);
-    },
-    useItem,
-    takeDamage: (amount: number) => setStats(prev => ({ ...prev, hp: Math.max(0, prev.hp - amount) })),
-    addQuest: (data: any) => setQuests(prev => [...prev, { ...data, id: Math.random().toString(36).substr(2, 9), completed: false, streak: 0 }]),
-    updateQuest: (id: string, data: any) => setQuests(prev => prev.map(q => q.id === id ? { ...q, ...data } : q)),
-    deleteQuest: (id: string) => setQuests(prev => prev.filter(q => q.id !== id)),
-    updateProfile: (updates: Partial<CharacterStats>) => setStats(prev => ({ ...prev, ...updates })),
-    updateAttributeDefinitions: (definitions: AttributeDefinition[]) => setStats(prev => ({ ...prev, attributeDefinitions: definitions })),
-    adminReset: () => { setStats(INITIAL_CHARACTER); setQuests([]); setInventory([]); setTimeOffset(0); setBoughtItemsLog({}); },
-    adminAddGold: (amount: number) => setStats(prev => ({ ...prev, gold: prev.gold + amount })),
-    adminLevelUp: () => setStats(prev => ({ ...prev, level: prev.level + 1, hp: prev.maxHp + 10, maxHp: prev.maxHp + 10 })),
-    adminClearInventory: () => setInventory([]),
-    adminUnlockQuests: () => setQuests(prev => prev.map(q => ({ ...q, completed: false }))),
-    advanceTime: (days: number) => setTimeOffset(prev => prev + days * 24 * 60 * 60 * 1000),
-    resetToToday: () => setTimeOffset(0),
-    resetHp: () => setStats(prev => ({ ...prev, hp: prev.maxHp })),
-    completePenalty: (id: string) => setStats(prev => ({ ...prev, activePenalties: prev.activePenalties.filter(pId => pId !== id) })),
-    revive: () => setStats(prev => ({ ...prev, hp: prev.maxHp, activePenalties: [] })),
+    completeQuest, useItem,
+    takeDamage: useCallback((amount: number) => setStats(prev => ({ ...prev, hp: Math.max(0, prev.hp - amount) })), []),
+    addQuest: useCallback((data: any) => setQuests(prev => [...prev, { ...data, id: Math.random().toString(36).substr(2, 9), completed: false, streak: 0 }]), []),
+    updateQuest: useCallback((id: string, data: any) => setQuests(prev => prev.map(q => q.id === id ? { ...q, ...data } : q)), []),
+    deleteQuest: useCallback((id: string) => setQuests(prev => prev.filter(q => q.id !== id)), []),
+    updateProfile: useCallback((updates: Partial<CharacterStats>) => setStats(prev => ({ ...prev, ...updates })), []),
+    updateAttributeDefinitions: useCallback((definitions: AttributeDefinition[]) => setStats(prev => ({ ...prev, attributeDefinitions: definitions })), []),
+    adminReset: useCallback(() => { setStats(INITIAL_CHARACTER); setQuests([]); setInventory([]); setTimeOffset(0); setBoughtItemsLog({}); }, []),
+    adminAddGold: useCallback((amount: number) => setStats(prev => ({ ...prev, gold: prev.gold + amount })), []),
+    adminLevelUp: useCallback(() => setStats(prev => ({ ...prev, level: prev.level + 1, hp: prev.maxHp + 10, maxHp: prev.maxHp + 10 })), []),
+    adminClearInventory: useCallback(() => setInventory([]), []),
+    adminUnlockQuests: useCallback(() => setQuests(prev => prev.map(q => ({ ...q, completed: false }))), []),
+    advanceTime: useCallback((days: number) => setTimeOffset(prev => prev + days * 24 * 60 * 60 * 1000), []),
+    resetToToday: useCallback(() => setTimeOffset(0), []),
+    resetHp: useCallback(() => setStats(prev => ({ ...prev, hp: prev.maxHp })), []),
+    completePenalty: useCallback((id: string) => setStats(prev => ({ ...prev, activePenalties: prev.activePenalties.filter(pId => pId !== id) })), []),
+    revive: useCallback(() => setStats(prev => ({ ...prev, hp: prev.maxHp, activePenalties: [] })), []),
     setActiveCombat, activeCombat,
-    winCombat: (xp: number, gold: number, remainingHp: number) => {
-      const multiplier = getActiveMultiplier();
-      const finalXp = Math.floor(xp * multiplier);
-      const monsterId = activeCombat?.id;
-      const isBoss = activeCombat?.id.startsWith('b');
-
-      setStats(prev => {
-        let newXp = prev.xp + finalXp;
-        let newLevel = prev.level;
-        let newMaxXp = prev.maxXp;
-        let newMaxHp = prev.maxHp;
-        let newHp = remainingHp;
-        while (newXp >= newMaxXp) {
-          newXp -= newMaxXp;
-          newLevel += 1;
-          newMaxXp = Math.floor(newMaxXp * 1.2);
-          newMaxHp += 10;
-          newHp = newMaxHp;
-        }
-
-        const newCooldowns = { ...prev.monsterCooldowns };
-        if (monsterId) {
-          const cooldownMinutes = isBoss ? 60 : 30;
-          const respawnTime = new Date(virtualTime.getTime() + cooldownMinutes * 60000);
-          newCooldowns[monsterId] = respawnTime.toISOString();
-        }
-
-        return { 
-          ...prev, 
-          xp: newXp, 
-          level: newLevel, 
-          maxXp: newMaxXp, 
-          hp: newHp, 
-          maxHp: newMaxHp, 
-          gold: prev.gold + gold, 
-          monsterCooldowns: newCooldowns,
-          gameStats: { 
-            ...prev.gameStats, 
-            totalGoldEarned: prev.gameStats.totalGoldEarned + gold, 
-            monstersDefeated: prev.gameStats.monstersDefeated + 1,
-            bossesDefeated: isBoss ? prev.gameStats.bossesDefeated + 1 : prev.gameStats.bossesDefeated
-          } 
-        };
-      });
-      setActiveCombat(null);
-      if (multiplier > 1) showSuccess(`¡Victoria! XP x${multiplier} aplicada.`);
-    },
-    loseCombat: (remainingHp: number) => { setStats(prev => ({ ...prev, hp: remainingHp, gameStats: { ...prev.gameStats, totalDeaths: prev.gameStats.totalDeaths + 1 } })); setActiveCombat(null); },
-    escapeCombat: (remainingHp: number) => { setStats(prev => ({ ...prev, hp: remainingHp })); setActiveCombat(null); },
-    buyItem: (item: ShopItem) => {
-      if (stats.gold >= item.cost) {
-        setStats(prev => ({ ...prev, gold: prev.gold - item.cost }));
-        setInventory(prev => [...prev, item.id]);
-        setBoughtItemsLog(prev => ({ ...prev, [item.id]: virtualTime.toISOString() }));
-        showSuccess(`Comprado: ${item.title}`);
-      } else showError("Oro insuficiente");
-    },
-    logout: () => supabase.auth.signOut(),
-    shopItems,
-    boughtInRotation,
-    addShopItem: (item: Omit<ShopItem, 'id'>) => setAllItems(prev => [...prev, { ...item, id: Math.random().toString(36).substr(2, 9) }]),
-    updateShopItem: (id: string, updates: Partial<ShopItem>) => setAllItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i)),
-    deleteShopItem: (id: string) => setAllItems(prev => prev.filter(i => i.id !== id)),
+    winCombat, loseCombat, escapeCombat, buyItem,
+    logout: useCallback(() => supabase.auth.signOut(), []),
+    shopItems, boughtInRotation,
+    addShopItem: useCallback((item: Omit<ShopItem, 'id'>) => setAllItems(prev => [...prev, { ...item, id: Math.random().toString(36).substr(2, 9) }]), []),
+    updateShopItem: useCallback((id: string, updates: Partial<ShopItem>) => setAllItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i)), []),
+    deleteShopItem: useCallback((id: string) => setAllItems(prev => prev.filter(i => i.id !== id)), []),
   };
 
   return <GameStateContext.Provider value={value}>{children}</GameStateContext.Provider>;
