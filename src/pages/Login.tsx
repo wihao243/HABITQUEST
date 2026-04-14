@@ -61,14 +61,10 @@ const Login = () => {
     try {
       setLoading(true);
       
-      // Forzamos una URL absoluta limpia para evitar que Supabase la confunda con una ruta interna
-      const origin = window.location.origin;
-      const redirectTo = origin.startsWith('http') ? origin : `https://${origin}`;
-
+      // Eliminamos redirectTo para que Supabase use la "Site URL" configurada en su panel
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectTo,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -78,7 +74,7 @@ const Login = () => {
       if (error) throw error;
     } catch (error: any) {
       console.error("Error en Google Login:", error);
-      showError("Error al conectar con Google. Revisa la consola (F12).");
+      showError("Error al conectar con Google.");
     } finally {
       setLoading(false);
     }
@@ -161,7 +157,7 @@ const Login = () => {
         
         <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[10px] text-amber-200/70 font-bold uppercase">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>Si Google falla, asegúrate de que la URL de redirección en Google Cloud sea exactamente la de Supabase.</span>
+          <span>IMPORTANTE: Asegúrate de que la "Site URL" en Supabase sea la URL de esta web (ej: https://tu-app.dyad.sh).</span>
         </div>
       </div>
     </div>
