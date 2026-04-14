@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { showError, showSuccess } from "@/utils/toast";
-import { Sword, Sparkles, Chrome } from "lucide-react";
+import { Sword, Sparkles, Chrome, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Login = () => {
@@ -16,7 +16,6 @@ const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
 
-  // Redirigir si ya hay sesión activa
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -60,15 +59,23 @@ const Login = () => {
 
   const handleGoogleLogin = async () => {
     try {
+      setLoading(true);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         }
       });
       if (error) throw error;
     } catch (error: any) {
-      showError(error.message);
+      console.error("Error en Google Login:", error);
+      showError("Error al conectar con Google. Revisa la consola (F12).");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -92,10 +99,11 @@ const Login = () => {
           <div className="space-y-4">
             <Button 
               onClick={handleGoogleLogin}
+              disabled={loading}
               variant="outline" 
               className="w-full h-12 border-2 border-slate-700 bg-slate-800 text-white font-bold hover:bg-slate-700"
             >
-              <Chrome className="w-5 h-5 mr-2 text-rose-500" />
+              {loading ? <Sparkles className="animate-spin mr-2" /> : <Chrome className="w-5 h-5 mr-2 text-rose-500" />}
               Entrar con Google
             </Button>
 
@@ -145,6 +153,11 @@ const Login = () => {
             </button>
           </div>
         </Card>
+        
+        <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[10px] text-amber-200/70 font-bold uppercase">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>Si Google falla, asegúrate de haber añadido la URL de esta app en Google Cloud y Supabase.</span>
+        </div>
       </div>
     </div>
   );
