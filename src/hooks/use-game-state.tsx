@@ -127,7 +127,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         bought_items: b, 
         all_items: a, 
         updated_at: new Date().toISOString(),
-      });
+      }, { onConflict: 'id' });
     } catch (err) {
       console.error("Error guardando datos:", err);
     }
@@ -190,16 +190,25 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     if (!user) return;
     const loadData = async () => {
       try {
-        const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+        if (error) throw error;
+        
         if (data) {
           if (data.game_state) setStats(data.game_state);
           if (data.quests) setQuests(data.quests);
           if (data.inventory) setInventory(data.inventory);
           if (data.bought_items) setBoughtItemsLog(data.bought_items);
           if (data.all_items) setAllItems(data.all_items);
+        } else {
+          // Si no hay datos, es un usuario nuevo. Forzamos un guardado inicial.
+          console.log("Nuevo usuario detectado, inicializando perfil...");
         }
-      } catch (err) { console.error("Error cargando perfil:", err); }
-      finally { setLoading(false); setIsInitialLoadDone(true); }
+      } catch (err) { 
+        console.error("Error cargando perfil:", err); 
+      } finally { 
+        setLoading(false); 
+        setIsInitialLoadDone(true); 
+      }
     };
     loadData();
   }, [user]);
