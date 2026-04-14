@@ -60,10 +60,15 @@ const Login = () => {
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
+      
+      // Forzamos una URL absoluta limpia para evitar que Supabase la confunda con una ruta interna
+      const origin = window.location.origin;
+      const redirectTo = origin.startsWith('http') ? origin : `https://${origin}`;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: redirectTo,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -156,7 +161,7 @@ const Login = () => {
         
         <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[10px] text-amber-200/70 font-bold uppercase">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>Si Google falla, asegúrate de haber añadido la URL de esta app en Google Cloud y Supabase.</span>
+          <span>Si Google falla, asegúrate de que la URL de redirección en Google Cloud sea exactamente la de Supabase.</span>
         </div>
       </div>
     </div>
