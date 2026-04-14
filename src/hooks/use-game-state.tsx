@@ -4,6 +4,7 @@ import { ALL_ITEMS as INITIAL_ITEMS } from "@/data/items";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/lib/supabase";
 import { format, addDays, isSameDay, isSameWeek, isSameMonth, getWeek } from "date-fns";
+import { toast } from "sonner";
 
 interface GameStateContextType {
   stats: CharacterStats;
@@ -106,6 +107,10 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const [activeTab, setActiveTab] = useState("daily");
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   
+  // Sistema Anti-Farmeo
+  const [actionHistory, setActionHistory] = useState<{type: string, time: number}[]>([]);
+  const [hasWarned, setHasWarned] = useState(false);
+
   const virtualTime = useMemo(() => new Date(tick + timeOffset), [tick, timeOffset]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -197,12 +202,10 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         if (error) throw error;
         
         if (data) {
-          // Aseguramos que si existen datos pero faltan campos, usamos los iniciales
           if (data.game_state) {
             setStats({
               ...INITIAL_CHARACTER,
               ...data.game_state,
-              // Aseguramos que los objetos anidados existan
               attributes: { ...INITIAL_CHARACTER.attributes, ...(data.game_state.attributes || {}) },
               gameStats: { ...INITIAL_CHARACTER.gameStats, ...(data.game_state.gameStats || {}) },
               attributeDefinitions: data.game_state.attributeDefinitions || INITIAL_CHARACTER.attributeDefinitions
@@ -229,6 +232,31 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     saveTimeoutRef.current = setTimeout(() => saveData(stats, quests, inventory, boughtItemsLog, allItems), 2000);
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
   }, [stats, quests, inventory, boughtItemsLog, allItems, user, isInitialLoadDone, saveData]);
+
+  // Lógica de detección de farmeo
+  const checkFarming = useCallback((type: string) => {
+    const now = Date.now();
+    const newHistory = [...actionHistory, { type, time: now }].filter(a => now - a.time < 60000); // Último minuto
+    setActionHistory(newHistory);
+
+    const adds = newHistory.filter(a => a.type === 'add').length;
+    const completes = newHistory.filter(a => a.type === 'complete').length;
+
+    // Si hay más de 4 creaciones y 4 completados en 1 minuto
+    if (adds >= 4 && completes >= 4) {
+      if (!hasWarned) {
+        toast.error("¡ADVERTENCIA!", {
+          description: "Se ha detectado un patrón de farmeo sospechoso. Si continúas, tu cuenta será bloqueada temporalmente.",
+          duration: 10000,
+        });
+        setHasWarned(true);
+      } else {
+        const blockedUntil = new Date(now + 3600000).toISOString(); // 1 hora
+        setStats(prev => ({ ...prev, blockedUntil }));
+        showError("Cuenta bloqueada por 1 hora debido a farmeo excesivo.");
+      }
+    }
+  }, [actionHistory, hasWarned]);
 
   const getActiveMultiplier = useCallback(() => {
     let multiplier = 1;
@@ -280,6 +308,9 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const yesterdayStr = format(addDays(virtualTime, -1), 'yyyy-MM-dd');
     const quest = quests.find(q => q.id === id);
     if (!quest || quest.completed) return;
+    
+    checkFarming('complete');
+
     const rewards = { easy: { xp: 10, gold: 5, attr: 0.1 }, medium: { xp: 25, gold: 15, attr: 0.2 }, hard: { xp: 60, gold: 40, attr: 0.5 } };
     const r = rewards[quest.difficulty];
     const multiplier = getActiveMultiplier();
@@ -309,7 +340,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       };
     });
     showSuccess(`¡Misión completada! +${r.gold} Oro ${multiplier > 1 ? `(XP x${multiplier})` : ''}`);
-  }, [quests, virtualTime, getActiveMultiplier]);
+  }, [quests, virtualTime, getActiveMultiplier, checkFarming]);
 
   const winCombat = useCallback((xp: number, gold: number, remainingHp: number) => {
     const multiplier = getActiveMultiplier();
@@ -368,7 +399,10 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     stats, quests, inventory, virtualTime, allItems, user, loading, activeTab, setActiveTab,
     completeQuest, useItem,
     takeDamage: useCallback((amount: number) => setStats(prev => ({ ...prev, hp: Math.max(0, prev.hp - amount) })), []),
-    addQuest: useCallback((data: any) => setQuests(prev => [...prev, { ...data, id: Math.random().toString(36).substr(2, 9), completed: false, streak: 0 }]), []),
+    addQuest: useCallback((data: any) => {
+      checkFarming('add');
+      setQuests(prev => [...prev, { ...data, id: Math.random().toString(36).substr(2, 9), completed: false, streak: 0 }]);
+    }, [checkFarming]),
     updateQuest: useCallback((id: string, data: any) => setQuests(prev => prev.map(q => q.id === id ? { ...q, ...data } : q)), []),
     deleteQuest: useCallback((id: string) => setQuests(prev => prev.filter(q => q.id !== id)), []),
     updateProfile: useCallback((updates: Partial<CharacterStats>) => setStats(prev => ({ ...prev, ...updates })), []),

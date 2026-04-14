@@ -12,6 +12,7 @@ import { AchievementsDialog } from "@/components/game/AchievementsDialog";
 import { StatsDialog } from "@/components/game/StatsDialog";
 import { ShopEditor } from "@/components/game/ShopEditor";
 import { Leaderboard } from "@/components/game/Leaderboard";
+import { AntiFarmOverlay } from "@/components/game/AntiFarmOverlay";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trophy, Calendar, Repeat, CheckSquare, ShoppingBag, Package, Globe, LogOut } from "lucide-react";
@@ -29,6 +30,9 @@ const Index = () => {
   } = useGameState();
 
   const isDead = stats.hp <= 0;
+  
+  // Verificar si el usuario está bloqueado por farmeo
+  const isBlocked = stats.blockedUntil && new Date(stats.blockedUntil).getTime() > new Date().getTime();
 
   const tabComponents = useMemo(() => [
     { id: "daily", component: <QuestList quests={quests} type="daily" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
@@ -42,7 +46,9 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
-      {isDead && (
+      {isBlocked && <AntiFarmOverlay blockedUntil={stats.blockedUntil!} />}
+      
+      {isDead && !isBlocked && (
         <DeathOverlay 
           penaltyIds={stats.activePenalties} 
           onComplete={completePenalty} 
@@ -50,7 +56,7 @@ const Index = () => {
         />
       )}
 
-      {activeCombat && (
+      {activeCombat && !isBlocked && (
         <Combat 
           monster={activeCombat} 
           player={stats} 

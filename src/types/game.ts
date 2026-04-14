@@ -73,6 +73,7 @@ export interface CharacterStats {
   activePenalties: string[];
   activeTimers: Record<string, number>;
   monsterCooldowns: Record<string, string>;
+  blockedUntil?: string; // Nueva propiedad para el bloqueo anti-farmeo
 }
 
 export interface Quest {
