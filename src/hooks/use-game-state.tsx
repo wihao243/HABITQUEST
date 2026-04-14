@@ -197,15 +197,21 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         if (error) throw error;
         
         if (data) {
-          if (data.game_state) setStats(data.game_state);
+          // Aseguramos que si existen datos pero faltan campos, usamos los iniciales
+          if (data.game_state) {
+            setStats({
+              ...INITIAL_CHARACTER,
+              ...data.game_state,
+              // Aseguramos que los objetos anidados existan
+              attributes: { ...INITIAL_CHARACTER.attributes, ...(data.game_state.attributes || {}) },
+              gameStats: { ...INITIAL_CHARACTER.gameStats, ...(data.game_state.gameStats || {}) },
+              attributeDefinitions: data.game_state.attributeDefinitions || INITIAL_CHARACTER.attributeDefinitions
+            });
+          }
           if (data.quests) setQuests(data.quests);
           if (data.inventory) setInventory(data.inventory);
           if (data.bought_items) setBoughtItemsLog(data.bought_items);
           if (data.all_items) setAllItems(data.all_items);
-        } else {
-          // Si no hay datos, es un usuario nuevo. El trigger de Supabase debería crear el perfil.
-          // Si por alguna razón no existe, usamos los valores iniciales.
-          console.log("Perfil no encontrado, usando valores iniciales.");
         }
       } catch (err) { 
         console.error("Error cargando perfil:", err); 
@@ -227,7 +233,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const getActiveMultiplier = useCallback(() => {
     let multiplier = 1;
     const now = virtualTime.getTime();
-    Object.entries(stats.activeTimers).forEach(([itemId, expiration]) => {
+    Object.entries(stats.activeTimers || {}).forEach(([itemId, expiration]) => {
       if (expiration > now) {
         const item = allItems.find(i => i.id === itemId);
         if (item?.effect.xpMultiplier) multiplier *= item.effect.xpMultiplier;
@@ -253,7 +259,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
           showSuccess(`¡SUBIDA DE NIVEL! Ahora eres nivel ${newLevel}`);
         }
       }
-      const newTimers = { ...prev.activeTimers };
+      const newTimers = { ...(prev.activeTimers || {}) };
       if (item.effect.timer) {
         const now = virtualTime.getTime();
         const currentExpiration = newTimers[id] || now;
@@ -319,7 +325,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       while (newXp >= newMaxXp) {
         newXp -= newMaxXp; newLevel += 1; newMaxXp = Math.floor(newMaxXp * 1.2); newMaxHp += 10; newHp = newMaxHp;
       }
-      const newCooldowns = { ...prev.monsterCooldowns };
+      const newCooldowns = { ...(prev.monsterCooldowns || {}) };
       if (monsterId) {
         const cooldownMinutes = isBoss ? 60 : 30;
         const respawnTime = new Date(virtualTime.getTime() + cooldownMinutes * 60000);
@@ -375,7 +381,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     advanceTime: useCallback((days: number) => setTimeOffset(prev => prev + days * 24 * 60 * 60 * 1000), []),
     resetToToday: useCallback(() => setTimeOffset(0), []),
     resetHp: useCallback(() => setStats(prev => ({ ...prev, hp: prev.maxHp })), []),
-    completePenalty: useCallback((id: string) => setStats(prev => ({ ...prev, activePenalties: prev.activePenalties.filter(pId => pId !== id) })), []),
+    completePenalty: useCallback((id: string) => setStats(prev => ({ ...prev, activePenalties: (prev.activePenalties || []).filter(pId => pId !== id) })), []),
     revive: useCallback(() => setStats(prev => ({ ...prev, hp: prev.maxHp, activePenalties: [] })), []),
     setActiveCombat, activeCombat,
     winCombat, loseCombat, escapeCombat, buyItem,
