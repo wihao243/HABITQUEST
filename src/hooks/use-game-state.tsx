@@ -181,7 +181,10 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     initAuth();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (!session) { setLoading(false); setIsInitialLoadDone(false); }
+      if (!session) { 
+        setLoading(false); 
+        setIsInitialLoadDone(false); 
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -200,8 +203,9 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
           if (data.bought_items) setBoughtItemsLog(data.bought_items);
           if (data.all_items) setAllItems(data.all_items);
         } else {
-          // Si no hay datos, es un usuario nuevo. Forzamos un guardado inicial.
-          console.log("Nuevo usuario detectado, inicializando perfil...");
+          // Si no hay datos, es un usuario nuevo. El trigger de Supabase debería crear el perfil.
+          // Si por alguna razón no existe, usamos los valores iniciales.
+          console.log("Perfil no encontrado, usando valores iniciales.");
         }
       } catch (err) { 
         console.error("Error cargando perfil:", err); 
