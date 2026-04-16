@@ -157,7 +157,7 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
           <h3 className={cn("text-xl font-black uppercase italic tracking-tight", config[type].color)}>
             {config[type].label}
           </h3>
-          {type === 'habit' && <GlobalHabitHistory stats={stats} />}
+          {type === 'habit' && <GlobalHabitHistory stats={stats} quests={quests} />}
         </div>
         <Button onClick={handleOpenCreate} size="sm" className="bg-slate-900 hover:bg-indigo-600 font-bold">
           <Plus className="w-4 h-4 mr-2" /> Añadir
