@@ -39,9 +39,8 @@ export const AntiFarmOverlay = ({ blockedUntil, isPermanent, banCount }: AntiFar
   }, [blockedUntil, isPermanent]);
 
   const getNextPenalty = () => {
-    if (banCount === 1) return "1 hora";
-    if (banCount === 2) return "24 horas";
-    if (banCount === 3) return "Permanente";
+    if (banCount === 1) return "24 horas";
+    if (banCount === 2) return "Permanente";
     return "Ninguna (Ya es permanente)";
   };
 
