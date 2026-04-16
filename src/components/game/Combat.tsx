@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Sword, Package, ShieldAlert, X, Zap, MousePointer2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DodgeArena } from "./DodgeArena";
+import { LightningDodge } from "./LightningDodge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface CombatProps {
@@ -277,12 +278,21 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
               <div className="flex items-center justify-center gap-2 text-rose-500 font-black uppercase italic animate-pulse">
                 <ShieldAlert className="w-5 h-5" /> ¡ESQUIVA EL ATAQUE!
               </div>
-              <DodgeArena 
-                duration={8} 
-                onHit={handleDodgeHit} 
-                onComplete={handleDodgeComplete} 
-                difficulty={monster.level} 
-              />
+              {isClickerMode ? (
+                <LightningDodge 
+                  duration={8} 
+                  onHit={handleDodgeHit} 
+                  onComplete={handleDodgeComplete} 
+                  difficulty={monster.level} 
+                />
+              ) : (
+                <DodgeArena 
+                  duration={8} 
+                  onHit={handleDodgeHit} 
+                  onComplete={handleDodgeComplete} 
+                  difficulty={monster.level} 
+                />
+              )}
             </div>
           ) : clickerPhase === 'countdown' ? (
             <div className="flex flex-col items-center justify-center py-8 space-y-4 animate-in zoom-in duration-300">
