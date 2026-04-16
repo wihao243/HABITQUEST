@@ -13,6 +13,7 @@ import { StatsDialog } from "@/components/game/StatsDialog";
 import { ShopEditor } from "@/components/game/ShopEditor";
 import { Leaderboard } from "@/components/game/Leaderboard";
 import { AntiFarmOverlay } from "@/components/game/AntiFarmOverlay";
+import { AntiFarmWarning } from "@/components/game/AntiFarmWarning";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trophy, Calendar, Repeat, CheckSquare, ShoppingBag, Package, Globe, LogOut } from "lucide-react";
@@ -26,7 +27,8 @@ const Index = () => {
     completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, useItem, updateProfile,
     adminReset, adminAddGold, adminLevelUp, adminClearInventory, adminUnlockQuests, advanceTime, resetToToday,
     completePenalty, revive, setActiveCombat, winCombat, loseCombat, escapeCombat,
-    addShopItem, updateShopItem, deleteShopItem, logout, resetHp
+    addShopItem, updateShopItem, deleteShopItem, logout, resetHp,
+    showFarmWarning, closeFarmWarning
   } = useGameState();
 
   const isDead = stats.hp <= 0;
@@ -48,6 +50,8 @@ const Index = () => {
     <div className="min-h-screen bg-[#f8fafc] pb-20">
       {isBlocked && <AntiFarmOverlay blockedUntil={stats.blockedUntil!} />}
       
+      <AntiFarmWarning open={showFarmWarning} onAccept={closeFarmWarning} />
+
       {isDead && !isBlocked && (
         <DeathOverlay 
           penaltyIds={stats.activePenalties} 

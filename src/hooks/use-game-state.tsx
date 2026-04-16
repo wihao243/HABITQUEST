@@ -4,7 +4,6 @@ import { ALL_ITEMS as INITIAL_ITEMS } from "@/data/items";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/lib/supabase";
 import { format, addDays, isSameDay, isSameWeek, isSameMonth, getWeek } from "date-fns";
-import { toast } from "sonner";
 
 interface GameStateContextType {
   stats: CharacterStats;
@@ -46,6 +45,8 @@ interface GameStateContextType {
   addShopItem: (item: Omit<ShopItem, 'id'>) => void;
   updateShopItem: (id: string, updates: Partial<ShopItem>) => void;
   deleteShopItem: (id: string) => void;
+  showFarmWarning: boolean;
+  closeFarmWarning: () => void;
 }
 
 const GameStateContext = createContext<GameStateContextType | undefined>(undefined);
@@ -110,6 +111,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   // Sistema Anti-Farmeo
   const [actionHistory, setActionHistory] = useState<{type: string, time: number}[]>([]);
   const [hasWarned, setHasWarned] = useState(false);
+  const [showFarmWarning, setShowFarmWarning] = useState(false);
 
   const virtualTime = useMemo(() => new Date(tick + timeOffset), [tick, timeOffset]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -245,11 +247,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     // Si hay más de 4 creaciones y 4 completados en 1 minuto
     if (adds >= 4 && completes >= 4) {
       if (!hasWarned) {
-        toast.error("¡ADVERTENCIA!", {
-          description: "Se ha detectado un patrón de farmeo sospechoso. Si continúas, tu cuenta será bloqueada temporalmente.",
-          duration: 10000,
-        });
-        setHasWarned(true);
+        setShowFarmWarning(true);
       } else {
         const blockedUntil = new Date(now + 3600000).toISOString(); // 1 hora
         setStats(prev => ({ ...prev, blockedUntil }));
@@ -424,6 +422,8 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     addShopItem: useCallback((item: Omit<ShopItem, 'id'>) => setAllItems(prev => [...prev, { ...item, id: Math.random().toString(36).substr(2, 9) }]), []),
     updateShopItem: useCallback((id: string, updates: Partial<ShopItem>) => setAllItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i)), []),
     deleteShopItem: useCallback((id: string) => setAllItems(prev => prev.filter(i => i.id !== id)), []),
+    showFarmWarning,
+    closeFarmWarning: useCallback(() => { setShowFarmWarning(false); setHasWarned(true); }, []),
   };
 
   return <GameStateContext.Provider value={value}>{children}</GameStateContext.Provider>;
