@@ -14,7 +14,9 @@ interface LightningDodgeProps {
 type Attack = {
   id: number;
   type: 'horizontal' | 'vertical';
-  pos: number; // 0-100
+  pos: number; // Posición en el eje opuesto (0-100)
+  progress: number; // Progreso del rayo (0-100)
+  direction: 1 | -1; // Dirección del movimiento
   phase: 'warning' | 'active' | 'cooldown';
 };
 
@@ -40,8 +42,16 @@ export const LightningDodge = ({ duration, onHit, onComplete, difficulty }: Ligh
 
   const spawnAttack = useCallback(() => {
     const type = Math.random() > 0.5 ? 'horizontal' : 'vertical';
-    const pos = 10 + Math.random() * 80;
-    return { id: attackIdRef.current++, type, pos, phase: 'warning' as const };
+    const pos = 15 + Math.random() * 70;
+    const direction = Math.random() > 0.5 ? 1 : -1;
+    return { 
+      id: attackIdRef.current++, 
+      type, 
+      pos, 
+      progress: direction === 1 ? -10 : 110, 
+      direction: direction as 1 | -1,
+      phase: 'warning' as const 
+    };
   }, []);
 
   useEffect(() => {
@@ -58,7 +68,7 @@ export const LightningDodge = ({ duration, onHit, onComplete, difficulty }: Ligh
       lastTimeRef.current = time;
 
       // 1. Movimiento del jugador
-      const speed = 100;
+      const speed = 110;
       if (keysRef.current['arrowup'] || keysRef.current['w']) posRef.current.y -= speed * dt;
       if (keysRef.current['arrowdown'] || keysRef.current['s']) posRef.current.y += speed * dt;
       if (keysRef.current['arrowleft'] || keysRef.current['a']) posRef.current.x -= speed * dt;
@@ -76,33 +86,50 @@ export const LightningDodge = ({ duration, onHit, onComplete, difficulty }: Ligh
           return spawnAttack();
         }
 
-        const warningDuration = Math.max(0.4, 1.2 - (difficulty * 0.05));
-        const activeDuration = 0.15;
-        const cooldownDuration = 0.3;
+        const warningDuration = Math.max(0.3, 0.9 - (difficulty * 0.04));
+        const lightningSpeed = 350 + (difficulty * 15); // Velocidad del rayo cruzando
 
-        if (prev.phase === 'warning' && attackTimerRef.current > warningDuration) {
-          attackTimerRef.current = 0;
-          return { ...prev, phase: 'active' };
+        if (prev.phase === 'warning') {
+          if (attackTimerRef.current > warningDuration) {
+            attackTimerRef.current = 0;
+            return { ...prev, phase: 'active' };
+          }
+          return prev;
         }
 
         if (prev.phase === 'active') {
-          // Comprobar colisión
-          const playerVal = prev.type === 'horizontal' ? posRef.current.y : posRef.current.x;
-          if (Math.abs(playerVal - prev.pos) < 8) {
-            onHitRef.current(Math.max(2, Math.floor(difficulty * 1.5)));
-            attackTimerRef.current = 0;
-            return { ...prev, phase: 'cooldown' };
-          }
+          const newProgress = prev.progress + (lightningSpeed * dt * prev.direction);
           
-          if (attackTimerRef.current > activeDuration) {
+          // Comprobar colisión con el "cabezal" del rayo
+          const playerAxisPos = prev.type === 'horizontal' ? posRef.current.y : posRef.current.x;
+          const playerTravelPos = prev.type === 'horizontal' ? posRef.current.x : posRef.current.y;
+          
+          // Si el jugador está en la línea Y el rayo está pasando por su posición X (o viceversa)
+          const onLine = Math.abs(playerAxisPos - prev.pos) < 8;
+          const rayPassing = Math.abs(playerTravelPos - newProgress) < 12;
+
+          if (onLine && rayPassing) {
+            onHitRef.current(Math.max(3, Math.floor(difficulty * 1.8)));
+            // Pequeño cooldown tras golpe para no morir instantáneamente
+            return { ...prev, phase: 'cooldown', progress: newProgress };
+          }
+
+          // Si el rayo sale de la pantalla
+          if ((prev.direction === 1 && newProgress > 120) || (prev.direction === -1 && newProgress < -20)) {
             attackTimerRef.current = 0;
             return { ...prev, phase: 'cooldown' };
           }
+
+          return { ...prev, progress: newProgress };
         }
 
-        if (prev.phase === 'cooldown' && attackTimerRef.current > cooldownDuration) {
-          attackTimerRef.current = 0;
-          return spawnAttack();
+        if (prev.phase === 'cooldown') {
+          const cooldownDuration = 0.2;
+          if (attackTimerRef.current > cooldownDuration) {
+            attackTimerRef.current = 0;
+            return spawnAttack();
+          }
+          return prev;
         }
 
         return prev;
@@ -134,40 +161,59 @@ export const LightningDodge = ({ duration, onHit, onComplete, difficulty }: Ligh
       {/* Grid de fondo */}
       <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
 
-      {/* Aviso de ataque */}
+      {/* Aviso de trayectoria (Franja roja) */}
       {currentAttack && currentAttack.phase === 'warning' && (
         <div 
           className={cn(
-            "absolute bg-rose-600/30 animate-pulse border-rose-500/50",
+            "absolute bg-rose-600/20 animate-pulse border-rose-500/30",
             currentAttack.type === 'horizontal' ? "w-full h-12 border-y-2" : "h-full w-12 border-x-2"
           )}
           style={{ 
-            left: currentAttack.type === 'vertical' ? `${currentAttack.pos}%` : '0',
-            top: currentAttack.type === 'horizontal' ? `${currentAttack.pos}%` : '0',
+            left: currentAttack.type === 'vertical' ? `${currentAttack.pos}%` : '50%',
+            top: currentAttack.type === 'horizontal' ? `${currentAttack.pos}%` : '50%',
             transform: 'translate(-50%, -50%)'
           }}
         >
           <div className="absolute inset-0 flex items-center justify-center">
-            <AlertTriangle className="w-6 h-6 text-rose-500 opacity-50" />
+            <AlertTriangle className="w-6 h-6 text-rose-500 opacity-30" />
           </div>
         </div>
       )}
 
-      {/* Rayo activo */}
+      {/* Rayo en movimiento */}
       {currentAttack && currentAttack.phase === 'active' && (
-        <div 
-          className={cn(
-            "absolute bg-white shadow-[0_0_20px_#fff] z-20",
-            currentAttack.type === 'horizontal' ? "w-full h-10" : "h-full w-10"
-          )}
-          style={{ 
-            left: currentAttack.type === 'vertical' ? `${currentAttack.pos}%` : '0',
-            top: currentAttack.type === 'horizontal' ? `${currentAttack.pos}%` : '0',
-            transform: 'translate(-50%, -50%)'
-          }}
-        >
-          <div className="absolute inset-0 bg-yellow-400/50 animate-pulse" />
-        </div>
+        <>
+          {/* Rastro del rayo */}
+          <div 
+            className={cn(
+              "absolute bg-yellow-400/30 blur-sm z-10",
+              currentAttack.type === 'horizontal' ? "h-8" : "w-8"
+            )}
+            style={{ 
+              left: currentAttack.type === 'vertical' ? `${currentAttack.pos}%` : '0',
+              top: currentAttack.type === 'horizontal' ? `${currentAttack.pos}%` : '0',
+              width: currentAttack.type === 'horizontal' ? '100%' : undefined,
+              height: currentAttack.type === 'vertical' ? '100%' : undefined,
+              transform: 'translate(-50%, -50%)'
+            }}
+          />
+          
+          {/* Cabezal del rayo (El peligro real) */}
+          <div 
+            className={cn(
+              "absolute bg-white shadow-[0_0_25px_#fff] z-20 rounded-full",
+              currentAttack.type === 'horizontal' ? "w-16 h-10" : "h-16 w-10"
+            )}
+            style={{ 
+              left: currentAttack.type === 'vertical' ? `${currentAttack.pos}%` : `${currentAttack.progress}%`,
+              top: currentAttack.type === 'horizontal' ? `${currentAttack.pos}%` : `${currentAttack.progress}%`,
+              transform: 'translate(-50%, -50%)'
+            }}
+          >
+            <div className="absolute inset-0 bg-yellow-400/60 animate-pulse rounded-full" />
+            <Zap className="absolute inset-0 m-auto w-6 h-6 text-yellow-600" />
+          </div>
+        </>
       )}
 
       {/* Jugador */}
