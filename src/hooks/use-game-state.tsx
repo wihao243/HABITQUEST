@@ -181,7 +181,9 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const result: Record<string, boolean> = {};
     Object.entries(boughtItemsLog).forEach(([id, dateStr]) => {
       const item = allItems.find(i => i.id === id);
+      // CRÍTICO: Si es consumible, nunca se marca como agotado
       if (!item || item.category === 'consumible') return;
+      
       const purchaseDate = new Date(dateStr);
       if (item.effect.daily && isSameDay(purchaseDate, virtualTime)) result[id] = true;
       else if (item.effect.weekly && isSameWeek(purchaseDate, virtualTime)) result[id] = true;
@@ -256,7 +258,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const adds = newHistory.filter(a => a.type === 'add').length;
     const completes = newHistory.filter(a => a.type === 'complete').length;
 
-    // Umbral de detección: 4 acciones de cada tipo en 1 minuto
     if (adds >= 4 && completes >= 4) {
       if (!hasWarned) {
         setShowFarmWarning(true);
@@ -265,15 +266,12 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         let blockedUntil: string | undefined;
         let isPermanent = false;
 
-        // Sanciones: 1h, 24h, Permanente
         if (newBanCount === 1) blockedUntil = new Date(now + 60 * 60 * 1000).toISOString();
         else if (newBanCount === 2) blockedUntil = new Date(now + 24 * 60 * 60 * 1000).toISOString();
         else isPermanent = true;
 
         setStats(prev => ({ ...prev, blockedUntil, banCount: newBanCount, isPermanentlyBanned: isPermanent }));
         showError(isPermanent ? "Cuenta bloqueada permanentemente." : `Cuenta bloqueada por sanción nivel ${newBanCount}.`);
-        
-        // Resetear el aviso para que la próxima vez (tras el baneo) vuelva a avisar antes de la siguiente sanción
         setHasWarned(false);
       }
     }
