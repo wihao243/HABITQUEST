@@ -87,7 +87,8 @@ export interface Quest {
   completed: boolean;
   streak?: number;
   lastCompletedDate?: string;
-  recoverableStreak?: number; // Racha que se puede recuperar si se rompe
+  recoverableStreak?: number;
+  history?: string[]; // Array de fechas en formato YYYY-MM-DD
 }
 
 export interface Monster {

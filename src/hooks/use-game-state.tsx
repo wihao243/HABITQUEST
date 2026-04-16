@@ -148,7 +148,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     if (todayStr !== lastResetDate && isInitialLoadDone) {
       setQuests(prev => prev.map(q => {
         if (q.type === 'daily' || q.type === 'habit') {
-          // Si es un hábito y no se completó ayer, la racha se rompe
           if (q.type === 'habit' && q.lastCompletedDate !== yesterdayStr && q.lastCompletedDate !== todayStr && (q.streak || 0) > 0) {
             return { ...q, completed: false, recoverableStreak: q.streak, streak: 0 };
           }
@@ -339,7 +338,9 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         let newStreak = q.streak || 0;
         if (q.lastCompletedDate === yesterdayStr) newStreak += 1;
         else if (q.lastCompletedDate !== todayStr) newStreak = 1;
-        return { ...q, completed: true, lastCompletedDate: todayStr, streak: newStreak, recoverableStreak: undefined };
+        
+        const newHistory = [...(q.history || []), todayStr];
+        return { ...q, completed: true, lastCompletedDate: todayStr, streak: newStreak, recoverableStreak: undefined, history: newHistory };
       }
       return q;
     }));
