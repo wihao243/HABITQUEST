@@ -3,7 +3,7 @@ import { CharacterStats, Quest, Monster, ShopItem, AttributeDefinition } from "@
 import { ALL_ITEMS as INITIAL_ITEMS } from "@/data/items";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/lib/supabase";
-import { format, addDays, isSameDay, isSameWeek, isSameMonth, getWeek } from "date-fns";
+import { format, addDays, isSameDay, isSameWeek, isSameMonth, getWeek, subDays } from "date-fns";
 
 interface GameStateContextType {
   stats: CharacterStats;
@@ -47,6 +47,7 @@ interface GameStateContextType {
   deleteShopItem: (id: string) => void;
   showFarmWarning: boolean;
   closeFarmWarning: () => void;
+  recoverStreak: (id: string) => void;
 }
 
 const GameStateContext = createContext<GameStateContextType | undefined>(undefined);
@@ -109,7 +110,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const [activeTab, setActiveTab] = useState("daily");
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   
-  // Sistema Anti-Farmeo
   const [actionHistory, setActionHistory] = useState<{type: string, time: number}[]>([]);
   const [hasWarned, setHasWarned] = useState(false);
   const [showFarmWarning, setShowFarmWarning] = useState(false);
@@ -143,8 +143,19 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
 
   const checkDayReset = useCallback((currentTime: Date) => {
     const todayStr = format(currentTime, 'yyyy-MM-dd');
+    const yesterdayStr = format(subDays(currentTime, 1), 'yyyy-MM-dd');
+    
     if (todayStr !== lastResetDate && isInitialLoadDone) {
-      setQuests(prev => prev.map(q => (q.type === 'daily' || q.type === 'habit') ? { ...q, completed: false } : q));
+      setQuests(prev => prev.map(q => {
+        if (q.type === 'daily' || q.type === 'habit') {
+          // Si es un hábito y no se completó ayer, la racha se rompe
+          if (q.type === 'habit' && q.lastCompletedDate !== yesterdayStr && q.lastCompletedDate !== todayStr && (q.streak || 0) > 0) {
+            return { ...q, completed: false, recoverableStreak: q.streak, streak: 0 };
+          }
+          return { ...q, completed: false };
+        }
+        return q;
+      }));
       setLastResetDate(todayStr);
     }
   }, [lastResetDate, isInitialLoadDone]);
@@ -238,16 +249,14 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
   }, [stats, quests, inventory, boughtItemsLog, allItems, user, isInitialLoadDone, saveData]);
 
-  // Lógica de detección de farmeo progresivo
   const checkFarming = useCallback((type: string) => {
     const now = Date.now();
-    const newHistory = [...actionHistory, { type, time: now }].filter(a => now - a.time < 60000); // Último minuto
+    const newHistory = [...actionHistory, { type, time: now }].filter(a => now - a.time < 60000);
     setActionHistory(newHistory);
 
     const adds = newHistory.filter(a => a.type === 'add').length;
     const completes = newHistory.filter(a => a.type === 'complete').length;
 
-    // Si hay más de 4 creaciones y 4 completados en 1 minuto
     if (adds >= 4 && completes >= 4) {
       if (!hasWarned) {
         setShowFarmWarning(true);
@@ -256,23 +265,12 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         let blockedUntil: string | undefined;
         let isPermanent = false;
 
-        if (newBanCount === 1) {
-          blockedUntil = new Date(now + 30 * 60 * 1000).toISOString(); // 30 min
-        } else if (newBanCount === 2) {
-          blockedUntil = new Date(now + 60 * 60 * 1000).toISOString(); // 1 hora
-        } else if (newBanCount === 3) {
-          blockedUntil = new Date(now + 24 * 60 * 60 * 1000).toISOString(); // 24 horas
-        } else {
-          isPermanent = true;
-        }
+        if (newBanCount === 1) blockedUntil = new Date(now + 30 * 60 * 1000).toISOString();
+        else if (newBanCount === 2) blockedUntil = new Date(now + 60 * 60 * 1000).toISOString();
+        else if (newBanCount === 3) blockedUntil = new Date(now + 24 * 60 * 60 * 1000).toISOString();
+        else isPermanent = true;
 
-        setStats(prev => ({ 
-          ...prev, 
-          blockedUntil, 
-          banCount: newBanCount, 
-          isPermanentlyBanned: isPermanent 
-        }));
-        
+        setStats(prev => ({ ...prev, blockedUntil, banCount: newBanCount, isPermanentlyBanned: isPermanent }));
         showError(isPermanent ? "Cuenta bloqueada permanentemente." : `Cuenta bloqueada por sanción nivel ${newBanCount}.`);
       }
     }
@@ -325,7 +323,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
 
   const completeQuest = useCallback((id: string) => {
     const todayStr = format(virtualTime, 'yyyy-MM-dd');
-    const yesterdayStr = format(addDays(virtualTime, -1), 'yyyy-MM-dd');
+    const yesterdayStr = format(subDays(virtualTime, 1), 'yyyy-MM-dd');
     const quest = quests.find(q => q.id === id);
     if (!quest || quest.completed) return;
     
@@ -335,15 +333,17 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const r = rewards[quest.difficulty];
     const multiplier = getActiveMultiplier();
     const finalXp = Math.floor(r.xp * multiplier);
+    
     setQuests(prev => prev.map(q => {
       if (q.id === id) {
         let newStreak = q.streak || 0;
         if (q.lastCompletedDate === yesterdayStr) newStreak += 1;
         else if (q.lastCompletedDate !== todayStr) newStreak = 1;
-        return { ...q, completed: true, lastCompletedDate: todayStr, streak: newStreak };
+        return { ...q, completed: true, lastCompletedDate: todayStr, streak: newStreak, recoverableStreak: undefined };
       }
       return q;
     }));
+    
     setStats(prev => {
       let newXp = prev.xp + finalXp;
       let newLevel = prev.level;
@@ -359,8 +359,26 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         gameStats: { ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + r.gold }
       };
     });
-    showSuccess(`¡Misión completada! +${r.gold} Oro ${multiplier > 1 ? `(XP x${multiplier})` : ''}`);
+    showSuccess(`¡Misión completada! +${r.gold} Oro`);
   }, [quests, virtualTime, getActiveMultiplier, checkFarming]);
+
+  const recoverStreak = useCallback((id: string) => {
+    const cost = 50;
+    if (stats.gold < cost) {
+      showError(`Necesitas ${cost} de oro para recuperar la racha.`);
+      return;
+    }
+
+    setQuests(prev => prev.map(q => {
+      if (q.id === id && q.recoverableStreak) {
+        return { ...q, streak: q.recoverableStreak, recoverableStreak: undefined };
+      }
+      return q;
+    }));
+
+    setStats(prev => ({ ...prev, gold: prev.gold - cost }));
+    showSuccess("¡Racha recuperada con éxito!");
+  }, [stats.gold]);
 
   const winCombat = useCallback((xp: number, gold: number, remainingHp: number) => {
     const multiplier = getActiveMultiplier();
@@ -393,7 +411,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       };
     });
     setActiveCombat(null);
-    if (multiplier > 1) showSuccess(`¡Victoria! XP x${multiplier} aplicada.`);
   }, [activeCombat, virtualTime, getActiveMultiplier]);
 
   const loseCombat = useCallback((remainingHp: number) => {
@@ -417,7 +434,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
 
   const value = {
     stats, quests, inventory, virtualTime, allItems, user, loading, activeTab, setActiveTab,
-    completeQuest, useItem,
+    completeQuest, useItem, recoverStreak,
     takeDamage: useCallback((amount: number) => setStats(prev => ({ ...prev, hp: Math.max(0, prev.hp - amount) })), []),
     addQuest: useCallback((data: any) => {
       checkFarming('add');

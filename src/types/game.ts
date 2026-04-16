@@ -74,8 +74,8 @@ export interface CharacterStats {
   activeTimers: Record<string, number>;
   monsterCooldowns: Record<string, string>;
   blockedUntil?: string;
-  banCount: number; // Veces que ha sido baneado
-  isPermanentlyBanned?: boolean; // Si el baneo es definitivo
+  banCount: number;
+  isPermanentlyBanned?: boolean;
 }
 
 export interface Quest {
@@ -87,6 +87,7 @@ export interface Quest {
   completed: boolean;
   streak?: number;
   lastCompletedDate?: string;
+  recoverableStreak?: number; // Racha que se puede recuperar si se rompe
 }
 
 export interface Monster {
