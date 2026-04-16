@@ -73,7 +73,9 @@ export interface CharacterStats {
   activePenalties: string[];
   activeTimers: Record<string, number>;
   monsterCooldowns: Record<string, string>;
-  blockedUntil?: string; // Nueva propiedad para el bloqueo anti-farmeo
+  blockedUntil?: string;
+  banCount: number; // Veces que ha sido baneado
+  isPermanentlyBanned?: boolean; // Si el baneo es definitivo
 }
 
 export interface Quest {

@@ -34,7 +34,7 @@ const Index = () => {
   const isDead = stats.hp <= 0;
   
   // Verificar si el usuario está bloqueado por farmeo
-  const isBlocked = stats.blockedUntil && new Date(stats.blockedUntil).getTime() > new Date().getTime();
+  const isBlocked = (stats.blockedUntil && new Date(stats.blockedUntil).getTime() > new Date().getTime()) || stats.isPermanentlyBanned;
 
   const tabComponents = useMemo(() => [
     { id: "daily", component: <QuestList quests={quests} type="daily" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
@@ -48,7 +48,13 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
-      {isBlocked && <AntiFarmOverlay blockedUntil={stats.blockedUntil!} />}
+      {isBlocked && (
+        <AntiFarmOverlay 
+          blockedUntil={stats.blockedUntil} 
+          isPermanent={stats.isPermanentlyBanned} 
+          banCount={stats.banCount}
+        />
+      )}
       
       <AntiFarmWarning open={showFarmWarning} onAccept={closeFarmWarning} />
 

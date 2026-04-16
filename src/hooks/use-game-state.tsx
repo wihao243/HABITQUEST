@@ -72,6 +72,7 @@ const INITIAL_CHARACTER: CharacterStats = {
   attributes: { fuerza: 1, inteligencia: 1, espiritualidad: 1, carisma: 1 },
   attributeDefinitions: DEFAULT_ATTRIBUTES,
   gameStats: INITIAL_GAME_STATS, activePenalties: [], activeTimers: {}, monsterCooldowns: {},
+  banCount: 0,
 };
 
 const seededRandom = (seed: string) => {
@@ -210,7 +211,9 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
               ...data.game_state,
               attributes: { ...INITIAL_CHARACTER.attributes, ...(data.game_state.attributes || {}) },
               gameStats: { ...INITIAL_CHARACTER.gameStats, ...(data.game_state.gameStats || {}) },
-              attributeDefinitions: data.game_state.attributeDefinitions || INITIAL_CHARACTER.attributeDefinitions
+              attributeDefinitions: data.game_state.attributeDefinitions || INITIAL_CHARACTER.attributeDefinitions,
+              banCount: data.game_state.banCount || 0,
+              isPermanentlyBanned: data.game_state.isPermanentlyBanned || false
             });
           }
           if (data.quests) setQuests(data.quests);
@@ -235,7 +238,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
   }, [stats, quests, inventory, boughtItemsLog, allItems, user, isInitialLoadDone, saveData]);
 
-  // Lógica de detección de farmeo
+  // Lógica de detección de farmeo progresivo
   const checkFarming = useCallback((type: string) => {
     const now = Date.now();
     const newHistory = [...actionHistory, { type, time: now }].filter(a => now - a.time < 60000); // Último minuto
@@ -249,12 +252,31 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       if (!hasWarned) {
         setShowFarmWarning(true);
       } else {
-        const blockedUntil = new Date(now + 3600000).toISOString(); // 1 hora
-        setStats(prev => ({ ...prev, blockedUntil }));
-        showError("Cuenta bloqueada por 1 hora debido a farmeo excesivo.");
+        const newBanCount = stats.banCount + 1;
+        let blockedUntil: string | undefined;
+        let isPermanent = false;
+
+        if (newBanCount === 1) {
+          blockedUntil = new Date(now + 30 * 60 * 1000).toISOString(); // 30 min
+        } else if (newBanCount === 2) {
+          blockedUntil = new Date(now + 60 * 60 * 1000).toISOString(); // 1 hora
+        } else if (newBanCount === 3) {
+          blockedUntil = new Date(now + 24 * 60 * 60 * 1000).toISOString(); // 24 horas
+        } else {
+          isPermanent = true;
+        }
+
+        setStats(prev => ({ 
+          ...prev, 
+          blockedUntil, 
+          banCount: newBanCount, 
+          isPermanentlyBanned: isPermanent 
+        }));
+        
+        showError(isPermanent ? "Cuenta bloqueada permanentemente." : `Cuenta bloqueada por sanción nivel ${newBanCount}.`);
       }
     }
-  }, [actionHistory, hasWarned]);
+  }, [actionHistory, hasWarned, stats.banCount]);
 
   const getActiveMultiplier = useCallback(() => {
     let multiplier = 1;
