@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { QuestDialog } from "./QuestDialog";
 import { useGameState } from "@/hooks/use-game-state";
 import { HabitHistoryDialog } from "./HabitHistoryDialog";
+import { GlobalHabitHistory } from "./GlobalHabitHistory";
 
 interface QuestListProps {
   quests: Quest[];
@@ -20,7 +21,7 @@ interface QuestListProps {
 }
 
 export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, onDelete }: QuestListProps) => {
-  const { recoverStreak } = useGameState();
+  const { stats, recoverStreak } = useGameState();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingQuest, setEditingQuest] = useState<Quest | undefined>(undefined);
   const [showCompleted, setShowCompleted] = useState(false);
@@ -152,9 +153,12 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center">
-        <h3 className={cn("text-xl font-black uppercase italic tracking-tight", config[type].color)}>
-          {config[type].label}
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className={cn("text-xl font-black uppercase italic tracking-tight", config[type].color)}>
+            {config[type].label}
+          </h3>
+          {type === 'habit' && <GlobalHabitHistory stats={stats} />}
+        </div>
         <Button onClick={handleOpenCreate} size="sm" className="bg-slate-900 hover:bg-indigo-600 font-bold">
           <Plus className="w-4 h-4 mr-2" /> Añadir
         </Button>
