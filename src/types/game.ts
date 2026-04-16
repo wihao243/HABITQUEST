@@ -71,7 +71,7 @@ export interface CharacterStats {
   attributeDefinitions: AttributeDefinition[];
   gameStats: GameStats;
   activePenalties: string[];
-  activeTimers: Record<string, number>;
+  customPenalties?: Penalty[]; // Almacena las definiciones de castigos creados por el usuario
   monsterCooldowns: Record<string, string>;
   blockedUntil?: string;
   banCount: number;
@@ -138,7 +138,7 @@ export interface Achievement {
 
 export interface Penalty {
   id: string;
-  category: 'fisico' | 'limpieza' | 'digital' | 'social';
+  category: 'fisico' | 'limpieza' | 'digital' | 'social' | 'personalizado';
   icon: string;
   title: string;
   description: string;

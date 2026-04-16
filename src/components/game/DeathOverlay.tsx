@@ -2,9 +2,15 @@ import { ALL_PENALTIES } from "@/data/penalties";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Skull, ShieldAlert, Heart, CheckCircle2 } from "lucide-react";
-import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Skull, ShieldAlert, Heart, CheckCircle2, Plus, Search, Info } from "lucide-react";
+import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { useGameState } from "@/hooks/use-game-state";
+import { Penalty } from "@/types/game";
 
 interface DeathOverlayProps {
   penaltyIds: string[];
@@ -13,8 +19,41 @@ interface DeathOverlayProps {
 }
 
 export const DeathOverlay = ({ penaltyIds, onComplete, onRevive }: DeathOverlayProps) => {
+  const { stats, addPenaltyToActive, createCustomPenalty } = useGameState();
   const [sworn, setSworn] = useState(false);
-  const activePenalties = ALL_PENALTIES.filter(p => penaltyIds.includes(p.id));
+  const [search, setSearch] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
+  
+  // Formulario para castigo personalizado
+  const [customTitle, setCustomTitle] = useState("");
+  const [customDesc, setCustomDesc] = useState("");
+  const [customIcon, setCustomIcon] = useState("⚠️");
+
+  const activePenalties = useMemo(() => {
+    return penaltyIds.map(id => {
+      const standard = ALL_PENALTIES.find(p => p.id === id);
+      if (standard) return standard;
+      return stats.customPenalties?.find(p => p.id === id);
+    }).filter(Boolean) as Penalty[];
+  }, [penaltyIds, stats.customPenalties]);
+
+  const availablePenalties = useMemo(() => {
+    return ALL_PENALTIES.filter(p => !penaltyIds.includes(p.id))
+      .filter(p => p.title.toLowerCase().includes(search.toLowerCase()) || p.description.toLowerCase().includes(search.toLowerCase()));
+  }, [penaltyIds, search]);
+
+  const handleAddCustom = () => {
+    if (!customTitle.trim()) return;
+    createCustomPenalty({
+      title: customTitle,
+      description: customDesc,
+      icon: customIcon,
+      category: 'personalizado'
+    });
+    setCustomTitle("");
+    setCustomDesc("");
+    setIsAdding(false);
+  };
 
   return (
     <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
@@ -28,6 +67,93 @@ export const DeathOverlay = ({ penaltyIds, onComplete, onRevive }: DeathOverlayP
         </div>
 
         <div className="grid gap-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xs font-black uppercase tracking-widest text-slate-500">Penitencias Activas ({activePenalties.length})</h2>
+            
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="border-2 border-rose-500 text-rose-500 font-black uppercase text-[10px] h-8 hover:bg-rose-500 hover:text-white">
+                  <Plus className="w-3 h-3 mr-1" /> Añadir Penitencia
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px] bg-white rounded-2xl border-4 border-slate-900 max-h-[80vh] flex flex-col">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter text-rose-600">
+                    Elegir Castigo
+                  </DialogTitle>
+                </DialogHeader>
+
+                <div className="flex gap-2 mb-4">
+                  <Button 
+                    onClick={() => setIsAdding(false)} 
+                    variant={!isAdding ? "default" : "outline"}
+                    className="flex-1 font-black uppercase text-xs"
+                  >
+                    Predefinidos
+                  </Button>
+                  <Button 
+                    onClick={() => setIsAdding(true)} 
+                    variant={isAdding ? "default" : "outline"}
+                    className="flex-1 font-black uppercase text-xs"
+                  >
+                    Personalizado
+                  </Button>
+                </div>
+
+                {!isAdding ? (
+                  <>
+                    <div className="relative mb-4">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Input 
+                        placeholder="Buscar castigo..." 
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="pl-10 border-2 font-bold"
+                      />
+                    </div>
+                    <div className="flex-1 overflow-y-auto pr-2 space-y-2">
+                      {availablePenalties.map(p => (
+                        <button 
+                          key={p.id}
+                          onClick={() => addPenaltyToActive(p.id)}
+                          className="w-full text-left p-3 bg-slate-50 hover:bg-rose-50 border-2 border-slate-100 hover:border-rose-200 rounded-xl transition-all group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">{p.icon}</span>
+                            <div>
+                              <p className="font-black text-sm text-slate-800 group-hover:text-rose-600">{p.title}</p>
+                              <p className="text-[10px] font-bold text-slate-400 line-clamp-1">{p.description}</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-4 py-4">
+                    <div className="grid grid-cols-4 gap-3">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase">Icono</Label>
+                        <Input value={customIcon} onChange={e => setCustomIcon(e.target.value)} className="text-center text-2xl h-12 border-2" />
+                      </div>
+                      <div className="col-span-3 space-y-2">
+                        <Label className="text-[10px] font-black uppercase">Título del Castigo</Label>
+                        <Input value={customTitle} onChange={e => setCustomTitle(e.target.value)} placeholder="Ej: Limpiar el teclado" className="h-12 border-2 font-bold" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase">Descripción</Label>
+                      <Textarea value={customDesc} onChange={e => setCustomDesc(e.target.value)} placeholder="Detalla qué debes hacer exactamente..." className="border-2 font-bold min-h-[100px]" />
+                    </div>
+                    <Button onClick={handleAddCustom} className="w-full bg-rose-600 hover:bg-rose-500 font-black uppercase h-12">
+                      Añadir a la lista
+                    </Button>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+          </div>
+
           {activePenalties.map((penalty) => (
             <Card key={penalty.id} className="p-6 bg-slate-900 border-2 border-rose-900/50 text-white flex flex-col md:flex-row gap-6 items-center">
               <div className="text-4xl bg-slate-800 p-4 rounded-2xl border-2 border-slate-700">

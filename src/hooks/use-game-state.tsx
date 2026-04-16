@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { CharacterStats, Quest, Monster, ShopItem, AttributeDefinition } from "@/types/game";
+import { CharacterStats, Quest, Monster, ShopItem, AttributeDefinition, Penalty } from "@/types/game";
 import { ALL_ITEMS as INITIAL_ITEMS } from "@/data/items";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/lib/supabase";
@@ -32,6 +32,8 @@ interface GameStateContextType {
   resetToToday: () => void;
   resetHp: () => void;
   completePenalty: (id: string) => void;
+  addPenaltyToActive: (penaltyId: string) => void;
+  createCustomPenalty: (penalty: Omit<Penalty, 'id'>) => void;
   revive: () => void;
   setActiveCombat: (monster: Monster | null) => void;
   activeCombat: Monster | null;
@@ -72,7 +74,7 @@ const INITIAL_CHARACTER: CharacterStats = {
   name: "Héroe", avatar: "🧙‍♂️", title: "Héroe de la Rutina", level: 1, hp: 100, maxHp: 100, xp: 0, maxXp: 100, gold: 0,
   attributes: { fuerza: 1, inteligencia: 1, espiritualidad: 1, carisma: 1 },
   attributeDefinitions: DEFAULT_ATTRIBUTES,
-  gameStats: INITIAL_GAME_STATS, activePenalties: [], activeTimers: {}, monsterCooldowns: {},
+  gameStats: INITIAL_GAME_STATS, activePenalties: [], customPenalties: [], activeTimers: {}, monsterCooldowns: {},
   banCount: 0,
 };
 
@@ -181,7 +183,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const result: Record<string, boolean> = {};
     Object.entries(boughtItemsLog).forEach(([id, dateStr]) => {
       const item = allItems.find(i => i.id === id);
-      // CRÍTICO: Si es consumible, nunca se marca como agotado
       if (!item || item.category === 'consumible') return;
       
       const purchaseDate = new Date(dateStr);
@@ -224,6 +225,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
               attributes: { ...INITIAL_CHARACTER.attributes, ...(data.game_state.attributes || {}) },
               gameStats: { ...INITIAL_CHARACTER.gameStats, ...(data.game_state.gameStats || {}) },
               attributeDefinitions: data.game_state.attributeDefinitions || INITIAL_CHARACTER.attributeDefinitions,
+              customPenalties: data.game_state.customPenalties || [],
               banCount: data.game_state.banCount || 0,
               isPermanentlyBanned: data.game_state.isPermanentlyBanned || false
             });
@@ -456,6 +458,16 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     resetToToday: useCallback(() => setTimeOffset(0), []),
     resetHp: useCallback(() => setStats(prev => ({ ...prev, hp: prev.maxHp })), []),
     completePenalty: useCallback((id: string) => setStats(prev => ({ ...prev, activePenalties: (prev.activePenalties || []).filter(pId => pId !== id) })), []),
+    addPenaltyToActive: useCallback((penaltyId: string) => setStats(prev => ({ ...prev, activePenalties: [...(prev.activePenalties || []), penaltyId] })), []),
+    createCustomPenalty: useCallback((penalty: Omit<Penalty, 'id'>) => {
+      const id = `custom-${Math.random().toString(36).substr(2, 9)}`;
+      setStats(prev => ({
+        ...prev,
+        customPenalties: [...(prev.customPenalties || []), { ...penalty, id }],
+        activePenalties: [...(prev.activePenalties || []), id]
+      }));
+      showSuccess("Castigo personalizado añadido.");
+    }, []),
     revive: useCallback(() => setStats(prev => ({ ...prev, hp: prev.maxHp, activePenalties: [] })), []),
     setActiveCombat, activeCombat,
     winCombat, loseCombat, escapeCombat, buyItem,
