@@ -15,7 +15,7 @@ type Attack = {
   id: number;
   type: 'horizontal' | 'vertical';
   pos: number; // Posición en el eje opuesto (0-100)
-  progress: number; // Progreso del rayo (0-100)
+  progress: number; // Posición del cabezal (0-100)
   direction: 1 | -1; // Dirección del movimiento
   phase: 'warning' | 'active' | 'cooldown';
 };
@@ -87,7 +87,7 @@ export const LightningDodge = ({ duration, onHit, onComplete, difficulty }: Ligh
         }
 
         const warningDuration = Math.max(0.3, 0.9 - (difficulty * 0.04));
-        const lightningSpeed = 350 + (difficulty * 15); // Velocidad del rayo cruzando
+        const lightningSpeed = 350 + (difficulty * 15);
 
         if (prev.phase === 'warning') {
           if (attackTimerRef.current > warningDuration) {
@@ -100,21 +100,17 @@ export const LightningDodge = ({ duration, onHit, onComplete, difficulty }: Ligh
         if (prev.phase === 'active') {
           const newProgress = prev.progress + (lightningSpeed * dt * prev.direction);
           
-          // Comprobar colisión con el "cabezal" del rayo
           const playerAxisPos = prev.type === 'horizontal' ? posRef.current.y : posRef.current.x;
           const playerTravelPos = prev.type === 'horizontal' ? posRef.current.x : posRef.current.y;
           
-          // Si el jugador está en la línea Y el rayo está pasando por su posición X (o viceversa)
           const onLine = Math.abs(playerAxisPos - prev.pos) < 8;
           const rayPassing = Math.abs(playerTravelPos - newProgress) < 12;
 
           if (onLine && rayPassing) {
             onHitRef.current(Math.max(3, Math.floor(difficulty * 1.8)));
-            // Pequeño cooldown tras golpe para no morir instantáneamente
             return { ...prev, phase: 'cooldown', progress: newProgress };
           }
 
-          // Si el rayo sale de la pantalla
           if ((prev.direction === 1 && newProgress > 120) || (prev.direction === -1 && newProgress < -20)) {
             attackTimerRef.current = 0;
             return { ...prev, phase: 'cooldown' };
@@ -158,7 +154,6 @@ export const LightningDodge = ({ duration, onHit, onComplete, difficulty }: Ligh
 
   return (
     <div className="relative w-full aspect-square max-w-[300px] bg-slate-950 border-4 border-yellow-500 rounded-xl overflow-hidden mx-auto shadow-[0_0_30px_rgba(234,179,8,0.2)]">
-      {/* Grid de fondo */}
       <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
 
       {/* Aviso de trayectoria (Franja roja) */}
@@ -169,9 +164,9 @@ export const LightningDodge = ({ duration, onHit, onComplete, difficulty }: Ligh
             currentAttack.type === 'horizontal' ? "w-full h-12 border-y-2" : "h-full w-12 border-x-2"
           )}
           style={{ 
-            left: currentAttack.type === 'vertical' ? `${currentAttack.pos}%` : '50%',
-            top: currentAttack.type === 'horizontal' ? `${currentAttack.pos}%` : '50%',
-            transform: 'translate(-50%, -50%)'
+            left: currentAttack.type === 'vertical' ? `${currentAttack.pos}%` : '0',
+            top: currentAttack.type === 'horizontal' ? `${currentAttack.pos}%` : '0',
+            transform: currentAttack.type === 'vertical' ? 'translateX(-50%)' : 'translateY(-50%)'
           }}
         >
           <div className="absolute inset-0 flex items-center justify-center">
@@ -183,22 +178,20 @@ export const LightningDodge = ({ duration, onHit, onComplete, difficulty }: Ligh
       {/* Rayo en movimiento */}
       {currentAttack && currentAttack.phase === 'active' && (
         <>
-          {/* Rastro del rayo */}
+          {/* Rastro del rayo (Línea completa) */}
           <div 
             className={cn(
               "absolute bg-yellow-400/30 blur-sm z-10",
-              currentAttack.type === 'horizontal' ? "h-8" : "w-8"
+              currentAttack.type === 'horizontal' ? "w-full h-8" : "h-full w-8"
             )}
             style={{ 
               left: currentAttack.type === 'vertical' ? `${currentAttack.pos}%` : '0',
               top: currentAttack.type === 'horizontal' ? `${currentAttack.pos}%` : '0',
-              width: currentAttack.type === 'horizontal' ? '100%' : undefined,
-              height: currentAttack.type === 'vertical' ? '100%' : undefined,
-              transform: 'translate(-50%, -50%)'
+              transform: currentAttack.type === 'vertical' ? 'translateX(-50%)' : 'translateY(-50%)'
             }}
           />
           
-          {/* Cabezal del rayo (El peligro real) */}
+          {/* Cabezal del rayo */}
           <div 
             className={cn(
               "absolute bg-white shadow-[0_0_25px_#fff] z-20 rounded-full",
