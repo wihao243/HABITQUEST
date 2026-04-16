@@ -102,6 +102,7 @@ export interface Monster {
   xpReward: number;
   goldReward: number;
   description: string;
+  combatType?: 'standard' | 'clicker';
 }
 
 export interface Region {

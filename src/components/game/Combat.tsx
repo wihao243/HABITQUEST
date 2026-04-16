@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Monster, CharacterStats, ShopItem } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Sword, Package, ShieldAlert, X } from "lucide-react";
+import { Sword, Package, ShieldAlert, X, Zap, MousePointer2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DodgeArena } from "./DodgeArena";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -31,7 +31,15 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
   const [showDodge, setShowDodge] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
 
+  // Estados para el minijuego de Clicker (Mundo 3)
+  const [clickerPhase, setClickerPhase] = useState<'none' | 'countdown' | 'active'>('none');
+  const [clickerCountdown, setClickerCountdown] = useState(3);
+  const [clickerTimer, setClickerTimer] = useState(5);
+  const clickerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const isDodgeMode = monster.level >= 5;
+  const isClickerMode = monster.combatType === 'clicker';
+  
   const addLog = (msg: string) => setLog(prev => [msg, ...prev].slice(0, 5));
   const isImageAvatar = player.avatar.startsWith('data:image');
 
@@ -40,7 +48,16 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
     .filter(i => i && i.category === 'consumible' && i.effect.hp) as ShopItem[];
 
   const handleAttack = () => {
-    if (!isPlayerTurn || isFinished || animating) return;
+    if (!isPlayerTurn || isFinished || animating || clickerPhase !== 'none') return;
+
+    if (isClickerMode) {
+      startClickerMinigame();
+    } else {
+      standardAttack();
+    }
+  };
+
+  const standardAttack = () => {
     setAnimating("player");
     const damage = Math.floor(player.attributes.fuerza * 5 + Math.random() * 10);
     const newMonsterHp = Math.max(0, monsterHp - damage);
@@ -60,8 +77,68 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
     }, 400);
   };
 
+  const startClickerMinigame = () => {
+    setClickerPhase('countdown');
+    setClickerCountdown(3);
+    
+    const countdownInterval = setInterval(() => {
+      setClickerCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          setClickerPhase('active');
+          setClickerTimer(5);
+          startClickerActivePhase();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const startClickerActivePhase = () => {
+    const activeInterval = setInterval(() => {
+      setClickerTimer(prev => {
+        if (prev <= 0.1) {
+          clearInterval(activeInterval);
+          endClickerPhase();
+          return 0;
+        }
+        return prev - 0.1;
+      });
+    }, 100);
+    clickerIntervalRef.current = activeInterval;
+  };
+
+  const handleManualClick = () => {
+    if (clickerPhase !== 'active' || isFinished) return;
+    
+    setMonsterHp(prev => {
+      const next = Math.max(0, prev - 1);
+      if (next <= 0 && !isFinished) {
+        setIsFinished(true);
+        if (clickerIntervalRef.current) clearInterval(clickerIntervalRef.current);
+        setClickerPhase('none');
+        addLog(`¡Has derrotado a ${monster.name} a base de golpes!`);
+        setTimeout(() => onWin(monster.xpReward, monster.goldReward, playerHp), 800);
+      }
+      return next;
+    });
+    setAnimating("player");
+    setTimeout(() => setAnimating(null), 50);
+  };
+
+  const endClickerPhase = () => {
+    setClickerPhase('none');
+    addLog(`¡Tiempo agotado! El asalto ha terminado.`);
+    
+    if (monsterHp > 0) {
+      setIsPlayerTurn(false);
+      if (isDodgeMode) setTimeout(() => setShowDodge(true), 300);
+    }
+  };
+
   const handleUseItem = (item: ShopItem) => {
-    if (!isPlayerTurn || isFinished || animating) return;
+    if (!isPlayerTurn || isFinished || animating || clickerPhase !== 'none') return;
     
     const healAmount = item.effect.hp || 0;
     const newHp = Math.min(player.maxHp, playerHp + healAmount);
@@ -78,7 +155,7 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
   };
 
   useEffect(() => {
-    if (!isPlayerTurn && !isFinished && !isDodgeMode && !showDodge) {
+    if (!isPlayerTurn && !isFinished && !isDodgeMode && !showDodge && clickerPhase === 'none') {
       const timer = setTimeout(() => {
         setAnimating("monster");
         const damage = Math.max(1, Math.floor(monster.damage - (player.attributes.fuerza * 0.5)));
@@ -99,7 +176,7 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
       }, 600);
       return () => clearTimeout(timer);
     }
-  }, [isPlayerTurn, isFinished, isDodgeMode, showDodge, monster.damage, monster.name, player.attributes.fuerza, playerHp, onLose]);
+  }, [isPlayerTurn, isFinished, isDodgeMode, showDodge, monster.damage, monster.name, player.attributes.fuerza, playerHp, onLose, clickerPhase]);
 
   const handleDodgeHit = useCallback((damage: number) => {
     setPlayerHp(prev => {
@@ -153,9 +230,10 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8">
           <div className="flex flex-col items-center space-y-6">
             <div className={cn(
-              "w-48 h-48 rounded-3xl bg-slate-800 border-4 border-rose-500 flex items-center justify-center text-8xl shadow-lg transition-transform duration-300",
+              "w-48 h-48 rounded-3xl bg-slate-800 border-4 border-rose-500 flex items-center justify-center text-8xl shadow-lg transition-all duration-300",
               animating === "monster" && "scale-110 translate-y-4",
-              monsterHp <= 0 && "opacity-0 scale-50"
+              monsterHp <= 0 && "opacity-0 scale-50",
+              clickerPhase === 'active' && "animate-bounce"
             )}>
               {monster.avatar}
             </div>
@@ -170,7 +248,7 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
 
           <div className="flex flex-col items-center space-y-6">
             <div className={cn(
-              "w-48 h-48 rounded-3xl bg-indigo-600 border-4 border-yellow-500 flex items-center justify-center text-8xl shadow-lg transition-transform duration-300 overflow-hidden",
+              "w-48 h-48 rounded-3xl bg-indigo-600 border-4 border-yellow-500 flex items-center justify-center text-8xl shadow-lg transition-all duration-300 overflow-hidden",
               animating === "player" && "scale-110 -translate-y-4",
               playerHp <= 0 && "grayscale opacity-50"
             )}>
@@ -202,6 +280,25 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
                 onComplete={handleDodgeComplete} 
                 difficulty={monster.level} 
               />
+            </div>
+          ) : clickerPhase === 'countdown' ? (
+            <div className="flex flex-col items-center justify-center py-8 space-y-4 animate-in zoom-in duration-300">
+              <h3 className="text-3xl font-black text-yellow-500 uppercase italic tracking-tighter">¡Prepárate para clicar!</h3>
+              <div className="text-6xl font-black text-white animate-pulse">{clickerCountdown}</div>
+            </div>
+          ) : clickerPhase === 'active' ? (
+            <div className="flex flex-col items-center justify-center py-4 space-y-6">
+              <div className="flex items-center gap-4 w-full max-w-md">
+                <Zap className="w-6 h-6 text-yellow-400 animate-pulse" />
+                <Progress value={(clickerTimer / 5) * 100} className="h-6 flex-1 bg-slate-800 border-2 border-yellow-500" />
+                <span className="text-xl font-black text-white w-12">{clickerTimer.toFixed(1)}s</span>
+              </div>
+              <Button 
+                onClick={handleManualClick}
+                className="w-full max-w-md h-24 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-black text-4xl uppercase italic tracking-tighter shadow-[0_0_30px_rgba(234,179,8,0.4)] active:scale-95 transition-transform"
+              >
+                <MousePointer2 className="w-10 h-10 mr-4" /> ¡GOLPEA!
+              </Button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

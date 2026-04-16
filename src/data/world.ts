@@ -36,10 +36,10 @@ export const WORLD_REGIONS: Region[] = [
     icon: '⚡',
     color: 'bg-indigo-500',
     monsters: [
-      { id: 'm6', name: 'Águila de Rayo', avatar: '🦅', level: 12, hp: 180, maxHp: 180, damage: 40, xpReward: 150, goldReward: 100, description: 'Ataca con la velocidad del rayo.' },
-      { id: 'm7', name: 'Elemental de Tormenta', avatar: '🌪️', level: 15, hp: 250, maxHp: 250, damage: 55, xpReward: 250, goldReward: 180, description: 'Un torbellino de energía pura.' },
+      { id: 'm6', name: 'Águila de Rayo', avatar: '🦅', level: 12, hp: 180, maxHp: 180, damage: 40, xpReward: 150, goldReward: 100, description: 'Ataca con la velocidad del rayo.', combatType: 'clicker' },
+      { id: 'm7', name: 'Elemental de Tormenta', avatar: '🌪️', level: 15, hp: 250, maxHp: 250, damage: 55, xpReward: 250, goldReward: 180, description: 'Un torbellino de energía pura.', combatType: 'clicker' },
     ],
-    boss: { id: 'b3', name: 'Titán de las Nubes', avatar: '☁️', level: 20, hp: 800, maxHp: 800, damage: 90, xpReward: 1500, goldReward: 1000, description: 'El señor de las alturas, solo los héroes legendarios pueden desafiarlo.' }
+    boss: { id: 'b3', name: 'Titán de las Nubes', avatar: '☁️', level: 20, hp: 800, maxHp: 800, damage: 90, xpReward: 1500, goldReward: 1000, description: 'El señor de las alturas, solo los héroes legendarios pueden desafiarlo.', combatType: 'clicker' }
   },
   {
     id: 'r4',
