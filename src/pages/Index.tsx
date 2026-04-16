@@ -37,7 +37,6 @@ const Index = () => {
   const isBlocked = (stats.blockedUntil && new Date(stats.blockedUntil).getTime() > new Date().getTime()) || stats.isPermanentlyBanned;
 
   const tabComponents = useMemo(() => [
-    { id: "daily", component: <QuestList quests={quests} type="daily" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
     { id: "habit", component: <QuestList quests={quests} type="habit" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
     { id: "todo", component: <QuestList quests={quests} type="todo" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
     { id: "world", component: <WorldMap player={stats} onFight={setActiveCombat} currentTime={virtualTime} /> },
@@ -116,10 +115,7 @@ const Index = () => {
         <CharacterHeader stats={stats} onUpdateProfile={updateProfile} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-7 w-full h-14 bg-white border-2 border-slate-200 p-1 rounded-2xl shadow-sm sticky top-20 z-40">
-            <TabsTrigger value="daily" className="rounded-xl data-[state=active]:bg-indigo-600 data-[state=active]:text-white font-black text-[10px] uppercase tracking-tighter">
-              <Calendar className="w-4 h-4 mr-1 hidden md:block" /> Diarias
-            </TabsTrigger>
+          <TabsList className="grid grid-cols-6 w-full h-14 bg-white border-2 border-slate-200 p-1 rounded-2xl shadow-sm sticky top-20 z-40">
             <TabsTrigger value="habit" className="rounded-xl data-[state=active]:bg-purple-600 data-[state=active]:text-white font-black text-[10px] uppercase tracking-tighter">
               <Repeat className="w-4 h-4 mr-1 hidden md:block" /> Hábitos
             </TabsTrigger>

@@ -107,7 +107,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const [allItems, setAllItems] = useState<ShopItem[]>(INITIAL_ITEMS);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("daily");
+  const [activeTab, setActiveTab] = useState("habit");
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   
   const [actionHistory, setActionHistory] = useState<{type: string, time: number}[]>([]);
