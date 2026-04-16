@@ -112,8 +112,11 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
   const handleManualClick = () => {
     if (clickerPhase !== 'active' || isFinished) return;
     
+    // El daño por clic ahora es igual al nivel del jugador
+    const damagePerClick = player.level;
+    
     setMonsterHp(prev => {
-      const next = Math.max(0, prev - 1);
+      const next = Math.max(0, prev - damagePerClick);
       if (next <= 0 && !isFinished) {
         setIsFinished(true);
         if (clickerIntervalRef.current) clearInterval(clickerIntervalRef.current);
