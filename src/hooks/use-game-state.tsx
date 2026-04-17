@@ -152,6 +152,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     if (todayStr !== lastReset) {
       console.log("Iniciando reinicio diario:", todayStr);
       setQuests(prev => prev.map(q => {
+        // Solo reiniciamos misiones diarias y hábitos
         if (q.type === 'daily' || q.type === 'habit') {
           const resetQuest = { ...q, completed: false };
           
@@ -165,6 +166,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
           }
           return resetQuest;
         }
+        // Las tareas (todo) NO se reinician
         return q;
       }));
       
@@ -351,12 +353,22 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     
     setQuests(prev => prev.map(q => {
       if (q.id === id) {
+        // Solo calculamos racha para hábitos y diarias
         let newStreak = q.streak || 0;
-        if (q.lastCompletedDate === yesterdayStr) newStreak += 1;
-        else if (q.lastCompletedDate !== todayStr) newStreak = 1;
+        if (q.type !== 'todo') {
+          if (q.lastCompletedDate === yesterdayStr) newStreak += 1;
+          else if (q.lastCompletedDate !== todayStr) newStreak = 1;
+        }
         
-        const newHistory = [...(q.history || []), todayStr];
-        return { ...q, completed: true, lastCompletedDate: todayStr, streak: newStreak, recoverableStreak: undefined, history: newHistory };
+        const newHistory = q.type !== 'todo' ? [...(q.history || []), todayStr] : (q.history || []);
+        return { 
+          ...q, 
+          completed: true, 
+          lastCompletedDate: todayStr, 
+          streak: q.type !== 'todo' ? newStreak : undefined, 
+          recoverableStreak: undefined, 
+          history: newHistory 
+        };
       }
       return q;
     }));
@@ -455,7 +467,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     takeDamage: useCallback((amount: number) => setStats(prev => ({ ...prev, hp: Math.max(0, prev.hp - amount) })), []),
     addQuest: useCallback((data: any) => {
       checkFarming('add');
-      setQuests(prev => [...prev, { ...data, id: Math.random().toString(36).substr(2, 9), completed: false, streak: 0 }]);
+      setQuests(prev => [...prev, { ...data, id: Math.random().toString(36).substr(2, 9), completed: false, streak: data.type !== 'todo' ? 0 : undefined }]);
     }, [checkFarming]),
     updateQuest: useCallback((id: string, data: any) => setQuests(prev => prev.map(q => q.id === id ? { ...q, ...data } : q)), []),
     deleteQuest: useCallback((id: string) => setQuests(prev => prev.filter(q => q.id !== id)), []),

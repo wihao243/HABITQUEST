@@ -93,7 +93,7 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
               <Badge variant="outline" className="text-[10px] uppercase font-bold text-slate-500">
                 {quest.stat}
               </Badge>
-              {quest.streak && quest.streak > 0 && (
+              {type !== 'todo' && quest.streak && quest.streak > 0 && (
                 <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px] font-bold">
                   <Flame className="w-3 h-3 mr-1" /> {quest.streak}
                 </Badge>
@@ -126,7 +126,7 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
         </div>
       </div>
 
-      {quest.recoverableStreak && quest.recoverableStreak > 0 && !quest.completed && (
+      {type !== 'todo' && quest.recoverableStreak && quest.recoverableStreak > 0 && !quest.completed && (
         <div className="bg-amber-50 border-2 border-amber-200 p-3 rounded-xl flex items-center justify-between animate-in fade-in zoom-in-95 duration-300">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
