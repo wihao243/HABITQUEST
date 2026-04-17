@@ -75,7 +75,7 @@ const INITIAL_CHARACTER: CharacterStats = {
   attributes: { fuerza: 1, inteligencia: 1, espiritualidad: 1, carisma: 1 },
   attributeDefinitions: DEFAULT_ATTRIBUTES,
   gameStats: INITIAL_GAME_STATS, activePenalties: [], customPenalties: [], activeTimers: {}, monsterCooldowns: {},
-  banCount: 0,
+  banCount: 0, lastResetDate: format(new Date(), 'yyyy-MM-dd')
 };
 
 const seededRandom = (seed: string) => {
@@ -103,7 +103,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const [inventory, setInventory] = useState<string[]>([]);
   const [timeOffset, setTimeOffset] = useState(0);
   const [tick, setTick] = useState(Date.now());
-  const [lastResetDate, setLastResetDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [activeCombat, setActiveCombat] = useState<Monster | null>(null);
   const [boughtItemsLog, setBoughtItemsLog] = useState<Record<string, string>>({});
   const [allItems, setAllItems] = useState<ShopItem[]>(INITIAL_ITEMS);
@@ -144,22 +143,34 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   }, [user, isInitialLoadDone]);
 
   const checkDayReset = useCallback((currentTime: Date) => {
+    if (!isInitialLoadDone) return;
+
     const todayStr = format(currentTime, 'yyyy-MM-dd');
     const yesterdayStr = format(subDays(currentTime, 1), 'yyyy-MM-dd');
+    const lastReset = stats.lastResetDate;
     
-    if (todayStr !== lastResetDate && isInitialLoadDone) {
+    if (todayStr !== lastReset) {
+      console.log("Iniciando reinicio diario:", todayStr);
       setQuests(prev => prev.map(q => {
         if (q.type === 'daily' || q.type === 'habit') {
-          if (q.type === 'habit' && q.lastCompletedDate !== yesterdayStr && q.lastCompletedDate !== todayStr && (q.streak || 0) > 0) {
-            return { ...q, completed: false, recoverableStreak: q.streak, streak: 0 };
+          const resetQuest = { ...q, completed: false };
+          
+          if (q.type === 'habit') {
+            const completedYesterday = q.lastCompletedDate === yesterdayStr;
+            const completedToday = q.lastCompletedDate === todayStr;
+            
+            if (!completedYesterday && !completedToday && (q.streak || 0) > 0) {
+              return { ...resetQuest, recoverableStreak: q.streak, streak: 0 };
+            }
           }
-          return { ...q, completed: false };
+          return resetQuest;
         }
         return q;
       }));
-      setLastResetDate(todayStr);
+      
+      setStats(prev => ({ ...prev, lastResetDate: todayStr }));
     }
-  }, [lastResetDate, isInitialLoadDone]);
+  }, [stats.lastResetDate, isInitialLoadDone]);
 
   useEffect(() => {
     checkDayReset(virtualTime);
@@ -227,7 +238,8 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
               attributeDefinitions: data.game_state.attributeDefinitions || INITIAL_CHARACTER.attributeDefinitions,
               customPenalties: data.game_state.customPenalties || [],
               banCount: data.game_state.banCount || 0,
-              isPermanentlyBanned: data.game_state.isPermanentlyBanned || false
+              isPermanentlyBanned: data.game_state.isPermanentlyBanned || false,
+              lastResetDate: data.game_state.lastResetDate || format(new Date(), 'yyyy-MM-dd')
             });
           }
           if (data.quests) setQuests(data.quests);

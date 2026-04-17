@@ -71,11 +71,13 @@ export interface CharacterStats {
   attributeDefinitions: AttributeDefinition[];
   gameStats: GameStats;
   activePenalties: string[];
-  customPenalties?: Penalty[]; // Almacena las definiciones de castigos creados por el usuario
+  customPenalties?: Penalty[];
   monsterCooldowns: Record<string, string>;
   blockedUntil?: string;
   banCount: number;
   isPermanentlyBanned?: boolean;
+  lastResetDate?: string; // Nueva propiedad para persistir el reinicio diario
+  activeTimers: Record<string, number>;
 }
 
 export interface Quest {
@@ -88,7 +90,7 @@ export interface Quest {
   streak?: number;
   lastCompletedDate?: string;
   recoverableStreak?: number;
-  history?: string[]; // Array de fechas en formato YYYY-MM-DD
+  history?: string[];
 }
 
 export interface Monster {
