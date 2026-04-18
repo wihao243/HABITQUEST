@@ -10,7 +10,6 @@ import { WorldMap } from "@/components/game/WorldMap";
 import { Combat } from "@/components/game/Combat";
 import { AchievementsDialog } from "@/components/game/AchievementsDialog";
 import { StatsDialog } from "@/components/game/StatsDialog";
-import { ShopEditor } from "@/components/game/ShopEditor";
 import { Leaderboard } from "@/components/game/Leaderboard";
 import { AntiFarmOverlay } from "@/components/game/AntiFarmOverlay";
 import { AntiFarmWarning } from "@/components/game/AntiFarmWarning";
@@ -87,12 +86,6 @@ const Index = () => {
           <div className="flex gap-1">
             <AchievementsDialog stats={stats} />
             <StatsDialog stats={stats} />
-            <ShopEditor 
-              items={allItems} 
-              onAdd={addShopItem} 
-              onUpdate={updateShopItem} 
-              onDelete={deleteShopItem} 
-            />
             <AdminPanel 
               onReset={adminReset} 
               onAddGold={adminAddGold} 
@@ -103,6 +96,10 @@ const Index = () => {
               onResetHp={resetHp}
               onUnlockQuests={adminUnlockQuests}
               currentTime={virtualTime}
+              shopItems={allItems}
+              onAddShopItem={addShopItem}
+              onUpdateShopItem={updateShopItem}
+              onDeleteShopItem={deleteShopItem}
             />
             <Button variant="ghost" size="icon" onClick={logout} className="rounded-full hover:bg-rose-50 text-slate-600 hover:text-rose-600">
               <LogOut className="w-5 h-5" />
