@@ -40,9 +40,9 @@ const Index = () => {
     { id: "todo", component: <QuestList quests={quests} type="todo" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
     { id: "world", component: <WorldMap player={stats} onFight={setActiveCombat} currentTime={virtualTime} /> },
     { id: "ranking", component: <Leaderboard /> },
-    { id: "shop", component: <Shop items={shopItems} boughtInRotation={boughtInRotation} onBuy={buyItem} /> },
+    { id: "shop", component: <Shop items={shopItems} boughtInRotation={boughtInRotation} onBuy={buyItem} allItems={allItems} onAddShopItem={addShopItem} onUpdateShopItem={updateShopItem} onDeleteShopItem={deleteShopItem} /> },
     { id: "inventory", component: <Inventory inventoryIds={inventory} onUseItem={useItem} activeTimers={stats.activeTimers} pausedTimers={{}} onTogglePause={() => {}} allItems={allItems} /> },
-  ], [quests, stats, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, allItems]);
+  ], [quests, stats, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, allItems, completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, useItem, addShopItem, updateShopItem, deleteShopItem]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
@@ -96,10 +96,6 @@ const Index = () => {
               onResetHp={resetHp}
               onUnlockQuests={adminUnlockQuests}
               currentTime={virtualTime}
-              shopItems={allItems}
-              onAddShopItem={addShopItem}
-              onUpdateShopItem={updateShopItem}
-              onDeleteShopItem={deleteShopItem}
             />
             <Button variant="ghost" size="icon" onClick={logout} className="rounded-full hover:bg-rose-50 text-slate-600 hover:text-rose-600">
               <LogOut className="w-5 h-5" />

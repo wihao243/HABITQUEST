@@ -3,10 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon, RefreshCw, ShoppingBag } from "lucide-react";
+import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon, RefreshCw } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
-import { ShopEditor } from "./ShopEditor";
-import { ShopItem } from "@/types/game";
 
 interface AdminPanelProps {
   onReset: () => void;
@@ -18,16 +16,10 @@ interface AdminPanelProps {
   onResetHp: () => void;
   onUnlockQuests: () => void;
   currentTime: Date;
-  // Props para la tienda
-  shopItems: ShopItem[];
-  onAddShopItem: (item: Omit<ShopItem, 'id'>) => void;
-  onUpdateShopItem: (id: string, updates: Partial<ShopItem>) => void;
-  onDeleteShopItem: (id: string) => void;
 }
 
 export const AdminPanel = ({ 
-  onReset, onAddGold, onLevelUp, onClearInventory, onAdvanceTime, onResetToToday, onResetHp, onUnlockQuests, currentTime,
-  shopItems, onAddShopItem, onUpdateShopItem, onDeleteShopItem
+  onReset, onAddGold, onLevelUp, onClearInventory, onAdvanceTime, onResetToToday, onResetHp, onUnlockQuests, currentTime
 }: AdminPanelProps) => {
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -105,20 +97,6 @@ export const AdminPanel = ({
               <Button onClick={onResetToToday} variant="secondary" className="w-full font-black uppercase mt-2 bg-indigo-100 text-indigo-700 hover:bg-indigo-200">
                 <RefreshCw className="w-4 h-4 mr-2" /> Resetear a Hoy
               </Button>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                <ShoppingBag className="w-3 h-3" /> Gestión de la Tienda
-              </p>
-              <div className="grid grid-cols-1 gap-2">
-                <ShopEditor 
-                  items={shopItems} 
-                  onAdd={onAddShopItem} 
-                  onUpdate={onUpdateShopItem} 
-                  onDelete={onDeleteShopItem} 
-                />
-              </div>
             </div>
 
             <div className="space-y-2">

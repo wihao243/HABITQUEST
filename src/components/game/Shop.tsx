@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShoppingBag, Smartphone, Utensils, Coffee, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ShopEditor } from "./ShopEditor";
 
 interface ShopProps {
   items: {
@@ -14,9 +15,17 @@ interface ShopProps {
   };
   boughtInRotation: Record<string, boolean>;
   onBuy: (item: ShopItem, source: string) => void;
+  // Props para edición pública
+  allItems: ShopItem[];
+  onAddShopItem: (item: Omit<ShopItem, 'id'>) => void;
+  onUpdateShopItem: (id: string, updates: Partial<ShopItem>) => void;
+  onDeleteShopItem: (id: string) => void;
 }
 
-export const Shop = ({ items, boughtInRotation, onBuy }: ShopProps) => {
+export const Shop = ({ 
+  items, boughtInRotation, onBuy, 
+  allItems, onAddShopItem, onUpdateShopItem, onDeleteShopItem 
+}: ShopProps) => {
   const renderItem = (item: ShopItem, source: string) => {
     const isSoldOut = boughtInRotation[item.id];
 
@@ -78,9 +87,18 @@ export const Shop = ({ items, boughtInRotation, onBuy }: ShopProps) => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <ShoppingBag className="w-6 h-6 text-indigo-600" />
-        <h3 className="text-xl font-black uppercase italic">Bazar de Recompensas</h3>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ShoppingBag className="w-6 h-6 text-indigo-600" />
+          <h3 className="text-xl font-black uppercase italic">Bazar de Recompensas</h3>
+        </div>
+        
+        <ShopEditor 
+          items={allItems} 
+          onAdd={onAddShopItem} 
+          onUpdate={onUpdateShopItem} 
+          onDelete={onDeleteShopItem} 
+        />
       </div>
 
       <Tabs defaultValue="daily" className="w-full">
