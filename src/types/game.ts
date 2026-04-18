@@ -87,6 +87,7 @@ export interface Quest {
   difficulty: 'easy' | 'medium' | 'hard';
   stat: string;
   completed: boolean;
+  failed?: boolean;
   streak?: number;
   lastCompletedDate?: string;
   recoverableStreak?: number;

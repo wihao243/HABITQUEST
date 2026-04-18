@@ -189,7 +189,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     if (todayStr !== lastReset) {
       setQuests(prev => prev.map(q => {
         if (q.type === 'daily' || q.type === 'habit') {
-          const resetQuest = { ...q, completed: false };
+          const resetQuest = { ...q, completed: false, failed: false };
           if (q.type === 'habit') {
             const completedYesterday = q.lastCompletedDate === yesterdayStr;
             const completedToday = q.lastCompletedDate === todayStr;
@@ -368,7 +368,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const todayStr = format(virtualTime, 'yyyy-MM-dd');
     const yesterdayStr = format(subDays(virtualTime, 1), 'yyyy-MM-dd');
     const quest = quests.find(q => q.id === id);
-    if (!quest || quest.completed) return;
+    if (!quest || quest.completed || quest.failed) return;
     checkFarming('complete');
     const rewards = { easy: { xp: 10, gold: 5, attr: 0.1 }, medium: { xp: 25, gold: 15, attr: 0.2 }, hard: { xp: 60, gold: 40, attr: 0.5 } };
     const r = rewards[quest.difficulty];
@@ -412,11 +412,14 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   }, [quests, virtualTime, getActiveMultiplier, checkFarming]);
 
   const failHabit = useCallback((id: string) => {
+    const quest = quests.find(q => q.id === id);
+    if (!quest || quest.failed || quest.completed) return;
+    
     const amount = 5;
     setStats(prev => ({ ...prev, hp: Math.max(0, prev.hp - amount) }));
-    setQuests(prev => prev.map(q => q.id === id ? { ...q, completed: false } : q));
-    showError("¡Hábito fallido! Has recibido daño.");
-  }, []);
+    setQuests(prev => prev.map(q => q.id === id ? { ...q, completed: false, failed: true } : q));
+    showError("¡Hábito fallido! Has recibido daño y el hábito se ha bloqueado por hoy.");
+  }, [quests]);
 
   const recoverStreak = useCallback((id: string) => {
     const cost = 50;
@@ -502,7 +505,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     adminAddGold: useCallback((amount: number) => setStats(prev => ({ ...prev, gold: prev.gold + amount })), []),
     adminLevelUp: useCallback(() => setStats(prev => ({ ...prev, level: prev.level + 1, hp: prev.maxHp + 10, maxHp: prev.maxHp + 10 })), []),
     adminClearInventory: useCallback(() => setInventory([]), []),
-    adminUnlockQuests: useCallback(() => setQuests(prev => prev.map(q => ({ ...q, completed: false }))), []),
+    adminUnlockQuests: useCallback(() => setQuests(prev => prev.map(q => ({ ...q, completed: false, failed: false }))), []),
     advanceTime: useCallback((days: number) => setTimeOffset(prev => prev + days * 24 * 60 * 60 * 1000), []),
     resetToToday: useCallback(() => setTimeOffset(0), []),
     resetHp: useCallback(() => setStats(prev => ({ ...prev, hp: prev.maxHp })), []),
