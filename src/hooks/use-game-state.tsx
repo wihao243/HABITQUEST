@@ -117,6 +117,36 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
 
   const virtualTime = useMemo(() => new Date(tick + timeOffset), [tick, timeOffset]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const notifiedTimersRef = useRef<Set<string>>(new Set());
+
+  // Función para reproducir la alarma sintetizada
+  const playAlarm = useCallback(() => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const duration = 10; // 10 segundos
+      const startTime = audioCtx.currentTime;
+      
+      // Crear un patrón de pitidos
+      for (let i = 0; i < duration * 2; i++) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, startTime + i * 0.5); // Nota La (A5)
+        
+        gain.gain.setValueAtTime(0.1, startTime + i * 0.5);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + i * 0.5 + 0.2);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start(startTime + i * 0.5);
+        osc.stop(startTime + i * 0.5 + 0.2);
+      }
+    } catch (e) {
+      console.error("Error al reproducir alarma:", e);
+    }
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -124,6 +154,23 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     }, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Monitor de temporizadores para la alarma
+  useEffect(() => {
+    if (!isInitialLoadDone) return;
+    
+    const now = virtualTime.getTime();
+    Object.entries(stats.activeTimers || {}).forEach(([id, expiration]) => {
+      if (now >= expiration && !notifiedTimersRef.current.has(id)) {
+        const item = allItems.find(i => i.id === id);
+        if (item) {
+          playAlarm();
+          showError(`¡Temporizador finalizado: ${item.title}!`);
+          notifiedTimersRef.current.add(id);
+        }
+      }
+    });
+  }, [virtualTime, stats.activeTimers, allItems, isInitialLoadDone, playAlarm]);
 
   const saveData = useCallback(async (s: any, q: any, i: any, b: any, a: any) => {
     if (!user || !isInitialLoadDone) return;
@@ -152,7 +199,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     if (todayStr !== lastReset) {
       console.log("Iniciando reinicio diario:", todayStr);
       setQuests(prev => prev.map(q => {
-        // Solo reiniciamos misiones diarias y hábitos
         if (q.type === 'daily' || q.type === 'habit') {
           const resetQuest = { ...q, completed: false };
           
@@ -166,7 +212,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
           }
           return resetQuest;
         }
-        // Las tareas (todo) NO se reinician
         return q;
       }));
       
@@ -327,6 +372,8 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         const now = virtualTime.getTime();
         const currentExpiration = newTimers[id] || now;
         newTimers[id] = Math.max(now, currentExpiration) + (item.effect.timer * 60 * 1000);
+        // Limpiar de la lista de notificados si se vuelve a usar
+        notifiedTimersRef.current.delete(id);
       }
       return { ...prev, hp: newHp, xp: newXp, level: newLevel, maxXp: newMaxXp, maxHp: newMaxHp, activeTimers: newTimers };
     });
@@ -353,7 +400,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     
     setQuests(prev => prev.map(q => {
       if (q.id === id) {
-        // Solo calculamos racha para hábitos y diarias
         let newStreak = q.streak || 0;
         if (q.type !== 'todo') {
           if (q.lastCompletedDate === yesterdayStr) newStreak += 1;
