@@ -14,7 +14,7 @@ interface QuestListProps {
   quests: Quest[];
   type: 'daily' | 'habit' | 'todo';
   onComplete: (id: string) => void;
-  onFail: (amount: number) => void;
+  onFail: (id: string) => void;
   onAdd: (data: Omit<Quest, 'id' | 'completed' | 'streak'>) => void;
   onUpdate: (id: string, data: Partial<Quest>) => void;
   onDelete: (id: string) => void;
@@ -108,7 +108,7 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
               variant="outline" 
               size="icon" 
               className="text-rose-500 hover:bg-rose-50 border-rose-200 h-11 w-11"
-              onClick={() => onFail(5)}
+              onClick={() => onFail(quest.id)}
             >
               <Skull className="w-5 h-5" />
             </Button>

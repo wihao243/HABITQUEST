@@ -16,6 +16,7 @@ interface GameStateContextType {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   completeQuest: (id: string) => void;
+  failHabit: (id: string) => void;
   useItem: (id: string) => void;
   takeDamage: (amount: number) => void;
   addQuest: (data: any) => void;
@@ -119,27 +120,20 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const notifiedTimersRef = useRef<Set<string>>(new Set());
 
-  // Función para reproducir la alarma sintetizada
   const playAlarm = useCallback(() => {
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const duration = 10; // 10 segundos
+      const duration = 10;
       const startTime = audioCtx.currentTime;
-      
-      // Crear un patrón de pitidos
       for (let i = 0; i < duration * 2; i++) {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        
         osc.type = 'square';
-        osc.frequency.setValueAtTime(880, startTime + i * 0.5); // Nota La (A5)
-        
+        osc.frequency.setValueAtTime(880, startTime + i * 0.5);
         gain.gain.setValueAtTime(0.1, startTime + i * 0.5);
         gain.gain.exponentialRampToValueAtTime(0.0001, startTime + i * 0.5 + 0.2);
-        
         osc.connect(gain);
         gain.connect(audioCtx.destination);
-        
         osc.start(startTime + i * 0.5);
         osc.stop(startTime + i * 0.5 + 0.2);
       }
@@ -155,10 +149,8 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     return () => clearInterval(interval);
   }, []);
 
-  // Monitor de temporizadores para la alarma
   useEffect(() => {
     if (!isInitialLoadDone) return;
-    
     const now = virtualTime.getTime();
     Object.entries(stats.activeTimers || {}).forEach(([id, expiration]) => {
       if (now >= expiration && !notifiedTimersRef.current.has(id)) {
@@ -191,21 +183,16 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
 
   const checkDayReset = useCallback((currentTime: Date) => {
     if (!isInitialLoadDone) return;
-
     const todayStr = format(currentTime, 'yyyy-MM-dd');
     const yesterdayStr = format(subDays(currentTime, 1), 'yyyy-MM-dd');
     const lastReset = stats.lastResetDate;
-    
     if (todayStr !== lastReset) {
-      console.log("Iniciando reinicio diario:", todayStr);
       setQuests(prev => prev.map(q => {
         if (q.type === 'daily' || q.type === 'habit') {
           const resetQuest = { ...q, completed: false };
-          
           if (q.type === 'habit') {
             const completedYesterday = q.lastCompletedDate === yesterdayStr;
             const completedToday = q.lastCompletedDate === todayStr;
-            
             if (!completedYesterday && !completedToday && (q.streak || 0) > 0) {
               return { ...resetQuest, recoverableStreak: q.streak, streak: 0 };
             }
@@ -214,7 +201,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         }
         return q;
       }));
-      
       setStats(prev => ({ ...prev, lastResetDate: todayStr }));
     }
   }, [stats.lastResetDate, isInitialLoadDone]);
@@ -242,7 +228,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     Object.entries(boughtItemsLog).forEach(([id, dateStr]) => {
       const item = allItems.find(i => i.id === id);
       if (!item || item.category === 'consumible') return;
-      
       const purchaseDate = new Date(dateStr);
       if (item.effect.daily && isSameDay(purchaseDate, virtualTime)) result[id] = true;
       else if (item.effect.weekly && isSameWeek(purchaseDate, virtualTime)) result[id] = true;
@@ -274,7 +259,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       try {
         const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
         if (error) throw error;
-        
         if (data) {
           if (data.game_state) {
             setStats({
@@ -315,10 +299,8 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const now = Date.now();
     const newHistory = [...actionHistory, { type, time: now }].filter(a => now - a.time < 60000);
     setActionHistory(newHistory);
-
     const adds = newHistory.filter(a => a.type === 'add').length;
     const completes = newHistory.filter(a => a.type === 'complete').length;
-
     if (adds >= 4 && completes >= 4) {
       if (!hasWarned) {
         setShowFarmWarning(true);
@@ -326,11 +308,9 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         const newBanCount = stats.banCount + 1;
         let blockedUntil: string | undefined;
         let isPermanent = false;
-
         if (newBanCount === 1) blockedUntil = new Date(now + 60 * 60 * 1000).toISOString();
         else if (newBanCount === 2) blockedUntil = new Date(now + 24 * 60 * 60 * 1000).toISOString();
         else isPermanent = true;
-
         setStats(prev => ({ ...prev, blockedUntil, banCount: newBanCount, isPermanentlyBanned: isPermanent }));
         showError(isPermanent ? "Cuenta bloqueada permanentemente." : `Cuenta bloqueada por sanción nivel ${newBanCount}.`);
         setHasWarned(false);
@@ -372,7 +352,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         const now = virtualTime.getTime();
         const currentExpiration = newTimers[id] || now;
         newTimers[id] = Math.max(now, currentExpiration) + (item.effect.timer * 60 * 1000);
-        // Limpiar de la lista de notificados si se vuelve a usar
         notifiedTimersRef.current.delete(id);
       }
       return { ...prev, hp: newHp, xp: newXp, level: newLevel, maxXp: newMaxXp, maxHp: newMaxHp, activeTimers: newTimers };
@@ -390,14 +369,11 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const yesterdayStr = format(subDays(virtualTime, 1), 'yyyy-MM-dd');
     const quest = quests.find(q => q.id === id);
     if (!quest || quest.completed) return;
-    
     checkFarming('complete');
-
     const rewards = { easy: { xp: 10, gold: 5, attr: 0.1 }, medium: { xp: 25, gold: 15, attr: 0.2 }, hard: { xp: 60, gold: 40, attr: 0.5 } };
     const r = rewards[quest.difficulty];
     const multiplier = getActiveMultiplier();
     const finalXp = Math.floor(r.xp * multiplier);
-    
     setQuests(prev => prev.map(q => {
       if (q.id === id) {
         let newStreak = q.streak || 0;
@@ -405,7 +381,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
           if (q.lastCompletedDate === yesterdayStr) newStreak += 1;
           else if (q.lastCompletedDate !== todayStr) newStreak = 1;
         }
-        
         const newHistory = q.type !== 'todo' ? [...(q.history || []), todayStr] : (q.history || []);
         return { 
           ...q, 
@@ -418,7 +393,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       }
       return q;
     }));
-    
     setStats(prev => {
       let newXp = prev.xp + finalXp;
       let newLevel = prev.level;
@@ -437,20 +411,25 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     showSuccess(`¡Misión completada! +${r.gold} Oro`);
   }, [quests, virtualTime, getActiveMultiplier, checkFarming]);
 
+  const failHabit = useCallback((id: string) => {
+    const amount = 5;
+    setStats(prev => ({ ...prev, hp: Math.max(0, prev.hp - amount) }));
+    setQuests(prev => prev.map(q => q.id === id ? { ...q, completed: false } : q));
+    showError("¡Hábito fallido! Has recibido daño.");
+  }, []);
+
   const recoverStreak = useCallback((id: string) => {
     const cost = 50;
     if (stats.gold < cost) {
       showError(`Necesitas ${cost} de oro para recuperar la racha.`);
       return;
     }
-
     setQuests(prev => prev.map(q => {
       if (q.id === id && q.recoverableStreak) {
         return { ...q, streak: q.recoverableStreak, recoverableStreak: undefined };
       }
       return q;
     }));
-
     setStats(prev => ({ ...prev, gold: prev.gold - cost }));
     showSuccess("¡Racha recuperada con éxito!");
   }, [stats.gold]);
@@ -509,7 +488,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
 
   const value = {
     stats, quests, inventory, virtualTime, allItems, user, loading, activeTab, setActiveTab,
-    completeQuest, useItem, recoverStreak,
+    completeQuest, failHabit, useItem, recoverStreak,
     takeDamage: useCallback((amount: number) => setStats(prev => ({ ...prev, hp: Math.max(0, prev.hp - amount) })), []),
     addQuest: useCallback((data: any) => {
       checkFarming('add');
@@ -549,7 +528,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     showFarmWarning,
     closeFarmWarning: useCallback(() => { setShowFarmWarning(false); setHasWarned(true); }, []),
   };
-
   return <GameStateContext.Provider value={value}>{children}</GameStateContext.Provider>;
 };
 

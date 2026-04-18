@@ -23,7 +23,7 @@ const Index = () => {
   const { 
     stats, quests, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, allItems,
     activeTab, setActiveTab,
-    completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, useItem, updateProfile,
+    completeQuest, failHabit, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, useItem, updateProfile,
     adminReset, adminAddGold, adminLevelUp, adminClearInventory, adminUnlockQuests, advanceTime, resetToToday,
     completePenalty, revive, setActiveCombat, winCombat, loseCombat, escapeCombat,
     addShopItem, updateShopItem, deleteShopItem, logout, resetHp,
@@ -31,18 +31,16 @@ const Index = () => {
   } = useGameState();
 
   const isDead = stats.hp <= 0;
-  
-  // Verificar si el usuario está bloqueado por farmeo
   const isBlocked = (stats.blockedUntil && new Date(stats.blockedUntil).getTime() > new Date().getTime()) || stats.isPermanentlyBanned;
 
   const tabComponents = useMemo(() => [
-    { id: "habit", component: <QuestList quests={quests} type="habit" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
-    { id: "todo", component: <QuestList quests={quests} type="todo" onComplete={completeQuest} onFail={takeDamage} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
+    { id: "habit", component: <QuestList quests={quests} type="habit" onComplete={completeQuest} onFail={failHabit} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
+    { id: "todo", component: <QuestList quests={quests} type="todo" onComplete={completeQuest} onFail={failHabit} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
     { id: "world", component: <WorldMap player={stats} onFight={setActiveCombat} currentTime={virtualTime} /> },
     { id: "ranking", component: <Leaderboard /> },
     { id: "shop", component: <Shop items={shopItems} boughtInRotation={boughtInRotation} onBuy={buyItem} allItems={allItems} onAddShopItem={addShopItem} onUpdateShopItem={updateShopItem} onDeleteShopItem={deleteShopItem} /> },
     { id: "inventory", component: <Inventory inventoryIds={inventory} onUseItem={useItem} activeTimers={stats.activeTimers} pausedTimers={{}} onTogglePause={() => {}} allItems={allItems} /> },
-  ], [quests, stats, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, allItems, completeQuest, takeDamage, addQuest, updateQuest, deleteQuest, buyItem, useItem, addShopItem, updateShopItem, deleteShopItem]);
+  ], [quests, stats, inventory, shopItems, virtualTime, boughtInRotation, activeCombat, allItems, completeQuest, failHabit, addQuest, updateQuest, deleteQuest, buyItem, useItem, addShopItem, updateShopItem, deleteShopItem]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
@@ -53,9 +51,7 @@ const Index = () => {
           banCount={stats.banCount}
         />
       )}
-      
       <AntiFarmWarning open={showFarmWarning} onAccept={closeFarmWarning} />
-
       {isDead && !isBlocked && (
         <DeathOverlay 
           penaltyIds={stats.activePenalties} 
@@ -63,7 +59,6 @@ const Index = () => {
           onRevive={revive} 
         />
       )}
-
       {activeCombat && !isBlocked && (
         <Combat 
           monster={activeCombat} 
@@ -76,7 +71,6 @@ const Index = () => {
           onUseItem={useItem}
         />
       )}
-
       <nav className="bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-50 shadow-sm">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -103,10 +97,8 @@ const Index = () => {
           </div>
         </div>
       </nav>
-
       <main className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
         <CharacterHeader stats={stats} onUpdateProfile={updateProfile} />
-
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid grid-cols-6 w-full h-14 bg-white border-2 border-slate-200 p-1 rounded-2xl shadow-sm sticky top-20 z-40">
             <TabsTrigger value="habit" className="rounded-xl data-[state=active]:bg-purple-600 data-[state=active]:text-white font-black text-[10px] uppercase tracking-tighter">
@@ -128,7 +120,6 @@ const Index = () => {
               <Package className="w-4 h-4 mr-1 hidden md:block" /> Inventario
             </TabsTrigger>
           </TabsList>
-
           <div className="mt-8 relative">
             {tabComponents.map((tab) => (
               <div 
@@ -144,7 +135,6 @@ const Index = () => {
           </div>
         </Tabs>
       </main>
-
       <MadeWithDyad />
     </div>
   );
