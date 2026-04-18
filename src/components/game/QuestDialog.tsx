@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Quest } from "@/types/game";
 import { cn } from "@/lib/utils";
 import { useGameState } from "@/hooks/use-game-state";
+import { Calendar } from "lucide-react";
 
 interface QuestDialogProps {
   open: boolean;
@@ -21,23 +22,32 @@ export const QuestDialog = ({ open, onOpenChange, onSubmit, initialData, type }:
   const [title, setTitle] = useState("");
   const [difficulty, setDifficulty] = useState<Quest['difficulty']>("medium");
   const [stat, setStat] = useState<string>("");
+  const [deadline, setDeadline] = useState<string>("");
 
   useEffect(() => {
     if (initialData) {
       setTitle(initialData.title);
       setDifficulty(initialData.difficulty);
       setStat(initialData.stat);
+      setDeadline(initialData.deadline || "");
     } else {
       setTitle("");
       setDifficulty("medium");
       setStat(stats.attributeDefinitions[0]?.id || "");
+      setDeadline("");
     }
   }, [initialData, open, stats.attributeDefinitions]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !stat) return;
-    onSubmit({ title, difficulty, stat, type });
+    onSubmit({ 
+      title, 
+      difficulty, 
+      stat, 
+      type,
+      deadline: type === 'todo' && deadline ? deadline : undefined 
+    });
     onOpenChange(false);
   };
 
@@ -99,6 +109,21 @@ export const QuestDialog = ({ open, onOpenChange, onSubmit, initialData, type }:
               </Select>
             </div>
           </div>
+
+          {type === 'todo' && (
+            <div className="space-y-2">
+              <Label htmlFor="deadline" className="font-bold uppercase text-xs text-slate-500 flex items-center gap-2">
+                <Calendar className="w-3 h-3" /> Fecha Límite (Opcional)
+              </Label>
+              <Input 
+                id="deadline" 
+                type="date"
+                value={deadline} 
+                onChange={(e) => setDeadline(e.target.value)} 
+                className="border-2 border-slate-200 focus:border-indigo-500 font-bold h-12"
+              />
+            </div>
+          )}
 
           <Button type="submit" className="w-full bg-slate-900 hover:bg-indigo-600 font-black uppercase h-14 text-lg shadow-lg">
             {initialData ? 'Guardar Cambios' : 'Crear Misión'}

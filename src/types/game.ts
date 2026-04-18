@@ -76,7 +76,7 @@ export interface CharacterStats {
   blockedUntil?: string;
   banCount: number;
   isPermanentlyBanned?: boolean;
-  lastResetDate?: string; // Nueva propiedad para persistir el reinicio diario
+  lastResetDate?: string;
   activeTimers: Record<string, number>;
 }
 
@@ -92,6 +92,7 @@ export interface Quest {
   lastCompletedDate?: string;
   recoverableStreak?: number;
   history?: string[];
+  deadline?: string; // Nueva propiedad para fecha límite
 }
 
 export interface Monster {
