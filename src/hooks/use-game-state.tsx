@@ -427,15 +427,21 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       showError(`Necesitas ${cost} de oro para recuperar la racha.`);
       return;
     }
+    const yesterdayStr = format(subDays(virtualTime, 1), 'yyyy-MM-dd');
     setQuests(prev => prev.map(q => {
       if (q.id === id && q.recoverableStreak) {
-        return { ...q, streak: q.recoverableStreak, recoverableStreak: undefined };
+        return { 
+          ...q, 
+          streak: q.recoverableStreak, 
+          recoverableStreak: undefined,
+          lastCompletedDate: yesterdayStr // Crucial: fingimos que se completó ayer para que hoy sume
+        };
       }
       return q;
     }));
     setStats(prev => ({ ...prev, gold: prev.gold - cost }));
     showSuccess("¡Racha recuperada con éxito!");
-  }, [stats.gold]);
+  }, [stats.gold, virtualTime]);
 
   const winCombat = useCallback((xp: number, gold: number, remainingHp: number) => {
     const multiplier = getActiveMultiplier();
