@@ -22,7 +22,7 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [rarityFilter, setRarityFilter] = useState<string>("all");
   
   const [formData, setFormData] = useState<Omit<ShopItem, 'id'>>({
     title: "",
@@ -52,10 +52,10 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
   const filteredItems = useMemo(() => {
     return items.filter(item => {
       const matchesSearch = item.title.toLowerCase().includes(search.toLowerCase());
-      const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
-      return matchesSearch && matchesCategory;
+      const matchesRarity = rarityFilter === "all" || item.rarity === rarityFilter;
+      return matchesSearch && matchesRarity;
     });
-  }, [items, search, categoryFilter]);
+  }, [items, search, rarityFilter]);
 
   const handleOpenAdd = () => {
     setEditingId(null);
@@ -127,18 +127,17 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
                 />
               </div>
               <div className="flex gap-2 w-full md:w-auto">
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <Select value={rarityFilter} onValueChange={setRarityFilter}>
                   <SelectTrigger className="flex-1 md:w-[160px] border-2 font-bold h-11">
                     <Filter className="w-3 h-3 mr-2" />
-                    <SelectValue placeholder="Categoría" />
+                    <SelectValue placeholder="Rareza" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="consumible">Consumibles</SelectItem>
-                    <SelectItem value="dopamina">Dopamina</SelectItem>
-                    <SelectItem value="gastronomia">Gastronomía</SelectItem>
-                    <SelectItem value="relax">Relax</SelectItem>
-                    <SelectItem value="hobbies">Hobbies</SelectItem>
+                    <SelectItem value="all">Todas las Rarezas</SelectItem>
+                    <SelectItem value="comun" className="text-slate-600 font-bold">Común</SelectItem>
+                    <SelectItem value="raro" className="text-blue-600 font-bold">Raro</SelectItem>
+                    <SelectItem value="epico" className="text-purple-600 font-bold">Épico</SelectItem>
+                    <SelectItem value="legendario" className="text-orange-600 font-bold">Legendario</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button onClick={handleOpenAdd} className="bg-indigo-600 hover:bg-indigo-700 font-black uppercase text-xs h-11 px-4">
@@ -192,7 +191,7 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
               ))}
               {filteredItems.length === 0 && (
                 <div className="col-span-full py-20 text-center">
-                  <p className="text-slate-400 font-black uppercase italic tracking-widest">No hay objetos que coincidan</p>
+                  <p className="text-slate-400 font-black uppercase italic tracking-widest">No hay objetos con esta rareza</p>
                 </div>
               )}
             </div>
