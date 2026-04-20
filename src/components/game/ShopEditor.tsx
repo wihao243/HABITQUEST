@@ -265,7 +265,17 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
               </div>
               <div className="space-y-1">
                 <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-amber-500"><TrendingUp className="w-3 h-3" /> Multiplicador XP</Label>
-                <Input type="number" step="0.1" value={formData.effect.xpMultiplier || 1} onChange={e => setFormData({...formData, effect: { ...formData.effect, xpMultiplier: parseFloat(e.target.value) || 1 }})} className="h-8 text-xs font-bold" />
+                <Input 
+                  type="number" 
+                  step="0.1" 
+                  min="1"
+                  value={formData.effect.xpMultiplier || 1} 
+                  onChange={e => {
+                    const val = parseFloat(e.target.value) || 1;
+                    setFormData({...formData, effect: { ...formData.effect, xpMultiplier: Math.max(1, val) }});
+                  }} 
+                  className="h-8 text-xs font-bold" 
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-indigo-500"><Clock className="w-3 h-3" /> Duración (Min)</Label>
