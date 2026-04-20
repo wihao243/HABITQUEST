@@ -213,14 +213,22 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const dailySeed = format(virtualTime, 'yyyy-MM-dd');
     const weeklySeed = format(virtualTime, 'yyyy-') + getWeek(virtualTime);
     const monthlySeed = format(virtualTime, 'yyyy-MM');
+
+    // 1. Seleccionar Diarios (6 objetos)
     const dailyPool = allItems.filter(i => i.effect.daily || i.category === 'consumible');
-    const weeklyPool = allItems.filter(i => i.effect.weekly);
-    const monthlyPool = allItems.filter(i => i.effect.monthly);
-    return {
-      daily: shuffleWithSeed(dailyPool, dailySeed).slice(0, 6),
-      weekly: shuffleWithSeed(weeklyPool, weeklySeed).slice(0, 5),
-      monthly: shuffleWithSeed(monthlyPool, monthlySeed).slice(0, 5),
-    };
+    const daily = shuffleWithSeed(dailyPool, dailySeed).slice(0, 6);
+    const dailyIds = new Set(daily.map(i => i.id));
+
+    // 2. Seleccionar Semanales (6 objetos, excluyendo los que ya están en Diarios)
+    const weeklyPool = allItems.filter(i => i.effect.weekly && !dailyIds.has(i.id));
+    const weekly = shuffleWithSeed(weeklyPool, weeklySeed).slice(0, 6);
+    const weeklyIds = new Set(weekly.map(i => i.id));
+
+    // 3. Seleccionar Mensuales (6 objetos, excluyendo los que ya están en Diarios o Semanales)
+    const monthlyPool = allItems.filter(i => i.effect.monthly && !dailyIds.has(i.id) && !weeklyIds.has(i.id));
+    const monthly = shuffleWithSeed(monthlyPool, monthlySeed).slice(0, 6);
+
+    return { daily, weekly, monthly };
   }, [allItems, virtualTime]);
 
   const boughtInRotation = useMemo(() => {
@@ -230,7 +238,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       if (!item) return;
       
       const purchaseDate = new Date(dateStr);
-      // Los consumibles se consideran de rotación diaria por defecto si no tienen otra marcada
       const isDaily = item.effect.daily || item.category === 'consumible';
       
       if (isDaily && isSameDay(purchaseDate, virtualTime)) result[id] = true;
@@ -438,7 +445,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
           ...q, 
           streak: q.recoverableStreak, 
           recoverableStreak: undefined,
-          lastCompletedDate: yesterdayStr // Crucial: fingimos que se completó ayer para que hoy sume
+          lastCompletedDate: yesterdayStr 
         };
       }
       return q;
