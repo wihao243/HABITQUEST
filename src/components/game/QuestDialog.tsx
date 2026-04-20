@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Quest } from "@/types/game";
 import { cn } from "@/lib/utils";
 import { useGameState } from "@/hooks/use-game-state";
-import { Calendar } from "lucide-react";
+import { Calendar, Clock } from "lucide-react";
 
 interface QuestDialogProps {
   open: boolean;
@@ -113,11 +113,11 @@ export const QuestDialog = ({ open, onOpenChange, onSubmit, initialData, type }:
           {type === 'todo' && (
             <div className="space-y-2">
               <Label htmlFor="deadline" className="font-bold uppercase text-xs text-slate-500 flex items-center gap-2">
-                <Calendar className="w-3 h-3" /> Fecha Límite (Opcional)
+                <Calendar className="w-3 h-3" /> Plazo de Entrega (Fecha y Hora)
               </Label>
               <Input 
                 id="deadline" 
-                type="date"
+                type="datetime-local"
                 value={deadline} 
                 onChange={(e) => setDeadline(e.target.value)} 
                 className="border-2 border-slate-200 focus:border-indigo-500 font-bold h-12"

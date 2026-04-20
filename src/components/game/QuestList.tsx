@@ -2,14 +2,14 @@ import { useState } from "react";
 import { Quest } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Flame, Plus, Skull, Edit3, Trash2, RefreshCw, ChevronDown, ChevronUp, XCircle, Calendar } from "lucide-react";
+import { CheckCircle2, Flame, Plus, Skull, Edit3, Trash2, RefreshCw, ChevronDown, ChevronUp, XCircle, Calendar, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { QuestDialog } from "./QuestDialog";
 import { useGameState } from "@/hooks/use-game-state";
 import { HabitHistoryDialog } from "./HabitHistoryDialog";
 import { GlobalHabitHistory } from "./GlobalHabitHistory";
-import { format, isBefore, startOfDay } from "date-fns";
+import { format, isBefore } from "date-fns";
 import { es } from "date-fns/locale";
 
 interface QuestListProps {
@@ -59,7 +59,7 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
   };
 
   const renderQuestCard = (quest: Quest) => {
-    const isOverdue = quest.deadline && isBefore(new Date(quest.deadline), startOfDay(virtualTime)) && !quest.completed;
+    const isOverdue = quest.deadline && isBefore(new Date(quest.deadline), virtualTime) && !quest.completed;
 
     return (
       <Card key={quest.id} className={cn(
@@ -116,8 +116,8 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
                     "text-[10px] font-bold flex items-center gap-1",
                     isOverdue ? "bg-rose-100 text-rose-700 border-rose-200" : "bg-slate-100 text-slate-600 border-slate-200"
                   )}>
-                    <Calendar className="w-3 h-3" /> 
-                    {format(new Date(quest.deadline), "d MMM", { locale: es })}
+                    <Clock className="w-3 h-3" /> 
+                    {format(new Date(quest.deadline), "d MMM, HH:mm", { locale: es })}
                     {isOverdue && " (Vencido)"}
                   </Badge>
                 )}
