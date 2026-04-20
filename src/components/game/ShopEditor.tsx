@@ -1,11 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ShopItem, ItemCategory } from "@/types/game";
-import { ShoppingBag, Plus, Edit3, Trash2, Save, X, Heart, Zap, TrendingUp, Search, Filter } from "lucide-react";
+import { ShoppingBag, Plus, Edit3, Trash2, Save, X, Heart, Zap, TrendingUp, Search, Filter, Coins, Clock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -26,13 +26,32 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
   
   const [formData, setFormData] = useState<Omit<ShopItem, 'id'>>({
     title: "",
-    cost: 50,
+    cost: 0,
     category: "consumible",
     icon: "🎁",
     rarity: "comun",
     description: "",
-    effect: { daily: true, hp: 0, xpFlat: 0, xpMultiplier: 1 }
+    effect: { daily: true, hp: 0, xpFlat: 0, xpMultiplier: 1, timer: 0 }
   });
+
+  // Función de cálculo automático de coste
+  const calculateAutoCost = (effect: any) => {
+    const hpCost = (effect.hp || 0) * 10;
+    const xpFlatCost = (effect.xpFlat || 0) * 10;
+    const xpMultCost = Math.max(0, (effect.xpMultiplier - 1) * 500);
+    const timerCost = (effect.timer || 0) * 1; // Base de 1 oro por minuto
+    
+    // El coste mínimo es 10 si no tiene efectos, para que nada sea gratis
+    return Math.max(10, Math.floor(hpCost + xpFlatCost + xpMultCost + timerCost));
+  };
+
+  // Recalcular coste cuando cambian los efectos
+  useEffect(() => {
+    const newCost = calculateAutoCost(formData.effect);
+    if (newCost !== formData.cost) {
+      setFormData(prev => ({ ...prev, cost: newCost }));
+    }
+  }, [formData.effect]);
 
   const filteredItems = useMemo(() => {
     return items.filter(item => {
@@ -56,7 +75,8 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
         ...item.effect,
         hp: item.effect.hp || 0,
         xpFlat: item.effect.xpFlat || 0,
-        xpMultiplier: item.effect.xpMultiplier || 1
+        xpMultiplier: item.effect.xpMultiplier || 1,
+        timer: item.effect.timer || 0
       } 
     });
     setIsFormOpen(true);
@@ -75,12 +95,12 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
   const resetForm = () => {
     setFormData({
       title: "",
-      cost: 50,
+      cost: 0,
       category: "consumible",
       icon: "🎁",
       rarity: "comun",
       description: "",
-      effect: { daily: true, hp: 0, xpFlat: 0, xpMultiplier: 1 }
+      effect: { daily: true, hp: 0, xpFlat: 0, xpMultiplier: 1, timer: 0 }
     });
   };
 
@@ -174,17 +194,11 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
                   </div>
                 </Card>
               ))}
-              {filteredItems.length === 0 && (
-                <div className="col-span-2 py-12 text-center text-slate-400 font-bold italic">
-                  No se encontraron objetos con esos filtros.
-                </div>
-              )}
             </div>
           </ScrollArea>
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Formulario (Independiente para evitar saltos) */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-[500px] bg-white rounded-2xl border-4 border-slate-900 shadow-2xl">
           <DialogHeader>
@@ -205,8 +219,13 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
             </div>
             
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-slate-500">Coste (Oro)</Label>
-              <Input type="number" value={formData.cost} onChange={e => setFormData({...formData, cost: parseInt(e.target.value)})} className="border-2 font-bold h-11" />
+              <Label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1">
+                <Coins className="w-3 h-3 text-yellow-500" /> Coste (Auto-calculado)
+              </Label>
+              <div className="h-11 border-2 border-slate-100 bg-slate-50 rounded-md flex items-center px-3 font-black text-slate-900">
+                {formData.cost} Oro
+              </div>
+              <p className="text-[8px] font-bold text-slate-400 uppercase">El precio se ajusta según los efectos</p>
             </div>
 
             <div className="space-y-2">
@@ -236,18 +255,22 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
               </Select>
             </div>
 
-            <div className="col-span-2 p-3 bg-indigo-50 rounded-xl border-2 border-indigo-100 grid grid-cols-3 gap-2">
+            <div className="col-span-2 p-3 bg-indigo-50 rounded-xl border-2 border-indigo-100 grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-rose-500"><Heart className="w-3 h-3" /> HP</Label>
+                <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-rose-500"><Heart className="w-3 h-3" /> Curación (HP)</Label>
                 <Input type="number" value={formData.effect.hp || 0} onChange={e => setFormData({...formData, effect: { ...formData.effect, hp: parseInt(e.target.value) || 0 }})} className="h-8 text-xs font-bold" />
               </div>
               <div className="space-y-1">
-                <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-blue-500"><Zap className="w-3 h-3" /> XP</Label>
+                <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-blue-500"><Zap className="w-3 h-3" /> Experiencia (XP)</Label>
                 <Input type="number" value={formData.effect.xpFlat || 0} onChange={e => setFormData({...formData, effect: { ...formData.effect, xpFlat: parseInt(e.target.value) || 0 }})} className="h-8 text-xs font-bold" />
               </div>
               <div className="space-y-1">
-                <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-amber-500"><TrendingUp className="w-3 h-3" /> Mult.</Label>
+                <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-amber-500"><TrendingUp className="w-3 h-3" /> Multiplicador XP</Label>
                 <Input type="number" step="0.1" value={formData.effect.xpMultiplier || 1} onChange={e => setFormData({...formData, effect: { ...formData.effect, xpMultiplier: parseFloat(e.target.value) || 1 }})} className="h-8 text-xs font-bold" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-indigo-500"><Clock className="w-3 h-3" /> Duración (Minutos)</Label>
+                <Input type="number" value={formData.effect.timer || 0} onChange={e => setFormData({...formData, effect: { ...formData.effect, timer: parseInt(e.target.value) || 0 }})} className="h-8 text-xs font-bold" />
               </div>
             </div>
 
