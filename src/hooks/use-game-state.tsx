@@ -227,9 +227,13 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const result: Record<string, boolean> = {};
     Object.entries(boughtItemsLog).forEach(([id, dateStr]) => {
       const item = allItems.find(i => i.id === id);
-      if (!item || item.category === 'consumible') return;
+      if (!item) return;
       const purchaseDate = new Date(dateStr);
-      if (item.effect.daily && isSameDay(purchaseDate, virtualTime)) result[id] = true;
+      
+      // Los consumibles se tratan como diarios por defecto en la lógica de la tienda
+      const isDaily = item.effect.daily || item.category === 'consumible';
+      
+      if (isDaily && isSameDay(purchaseDate, virtualTime)) result[id] = true;
       else if (item.effect.weekly && isSameWeek(purchaseDate, virtualTime)) result[id] = true;
       else if (item.effect.monthly && isSameMonth(purchaseDate, virtualTime)) result[id] = true;
     });
@@ -352,7 +356,474 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         const now = virtualTime.getTime();
         const currentExpiration = newTimers[id] || now;
         newTimers[id] = Math.max(now, currentExpiration) + (item.effect.timer * 60 * 1000);
-        notifiedTimersRef.current.delete(id);
+        notifiedTimersRef.current.add(id); // Marcar como notificado para que no suene la alarma al activarlo
+      }
+      return { ...prev, hp: newHp, xp: newXp, level: newLevel, maxXp: newMaxXp, maxHp: newMaxHp, activeTimers: newTimers };
+    });
+    setInventory(prev => {
+      const idx = prev.indexOf(id);
+      if (idx > -1) { const n = [...prev]; n.splice(idx, 1); return n; }
+      return prev;
+    });
+    if (item.category === 'consumible') showSuccess(`Usado: ${item.title}`);
+  }, [allItems, virtualTime]);
+
+  const completeQuest = useCallback((id: string) => {
+    const todayStr = format(virtualTime, 'yyyy-MM-dd');
+    const yesterdayStr = format(subDays(virtualTime, 1), 'yyyy-MM-dd');
+    const quest = quests.find(q => q.id === id);
+    if (!quest || quest.completed || quest.failed) return;
+    checkFarming('complete');
+    const rewards = { easy: { xp: 10, gold: 5, attr: 0.1 }, medium: { xp: 25, gold: 15, attr: 0.2 }, hard: { xp: 60, gold: 40, attr: 0.5 } };
+    const r = rewards[quest.difficulty];
+    const multiplier = getActiveMultiplier();
+    const finalXp = Math.floor(r.xp * multiplier);
+    setQuests(prev => prev.map(q => {
+      if (q.id === id) {
+        let newStreak = q.streak || 0;
+        if (q.type !== 'todo') {
+          if (q.lastCompletedDate === yesterdayStr) newStreak += 1;
+          else if (q.lastCompletedDate !== todayStr) newStreak = 1;
+        }
+        const newHistory = q.type !== 'todo' ? [...(q.history || []), todayStr] : (q.history || []);
+        return { 
+          ...q, 
+          completed: true, 
+          lastCompletedDate: todayStr, 
+          streak: q.type !== 'todo' ? newStreak : undefined, 
+          recoverableStreak: undefined, 
+          history: newHistory 
+        };
+      }
+      return q;
+    }));
+    setStats(prev => {
+      let newXp = prev.xp + finalXp;
+      let newLevel = prev.level;
+      let newMaxXp = prev.maxXp;
+      let newMaxHp = prev.maxHp;
+      let newHp = prev.hp;
+      while (newXp >= newMaxXp) {
+        newXp -= newMaxXp; newLevel += 1; newMaxXp = Math.floor(newMaxXp * 1.2); newMaxHp += 10; newHp = newMaxHp;
+      }
+      return {
+        ...prev, xp: newXp, level: newLevel, maxXp: newMaxXp, hp: newHp, maxHp: newMaxHp, gold: prev.gold + r.gold,
+        attributes: { ...prev.attributes, [quest.stat]: (prev.attributes[quest.stat] || 1) + r.attr },
+        gameStats: { ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + r.gold }
+      };
+    });
+    showSuccess(`¡Misión completada! +${r.gold} Oro`);
+  }, [quests, virtualTime, getActiveMultiplier, checkFarming]);
+
+  const failHabit = useCallback((id: string) => {
+    const quest = quests.find(q => q.id === id);
+    if (!quest || quest.failed || quest.completed) return;
+    
+    const amount = 5;
+    setStats(prev => ({ ...prev, hp: Math.max(0, prev.hp - amount) }));
+    setQuests(prev => prev.map(q => q.id === id ? { ...q, completed: false, failed: true } : q));
+    showError("¡Hábito fallido! Has recibido daño y el hábito se ha bloqueado por hoy.");
+  }, [quests]);
+
+  const recoverStreak = useCallback((id: string) => {
+    const cost = 50;
+    if (stats.gold < cost) {
+      showError(`Necesitas ${cost} de oro para recuperar la racha.`);
+      return;
+    }
+    const yesterdayStr = format(subDays(virtualTime, 1), 'yyyy-MM-dd');
+    setQuests(prev => prev.map(q => {
+      if (q.id === id && q.recoverableStreak) {
+        return { 
+          ...q, 
+          streak: q.recoverableStreak, 
+          recoverableStreak: undefined,
+          lastCompletedDate: yesterdayStr // Crucial: fingimos que se completó ayer para que hoy sume
+        };
+      }
+      return q;
+    }));
+    setStats(prev => ({ ...prev, gold: prev.gold - cost }));
+    showSuccess("¡Racha recuperada con éxito!");
+  }, [stats.gold, virtualTime]);
+
+  const winCombat = useCallback((xp: number, gold: number, remainingHp: number) => {
+    const multiplier = getActiveMultiplier();
+    const finalXp = Math.floor(xp * multiplier);
+    const monsterId = activeCombat?.id;
+    const isBoss = activeCombat?.id.startsWith('b');
+    setStats(prev => {
+      let newXp = prev.xp + finalXp;
+      let newLevel = prev.level;
+      let newMaxXp = prev.maxXp;
+      let newMaxHp = prev.maxHp;
+      let newHp = remainingHp;
+      while (newXp >= newMaxXp) {
+        newXp -= newMaxXp; newLevel += 1; newMaxXp = Math.floor(newMaxXp * 1.2); newMaxHp += 10; newHp = newMaxHp;
+      }
+      const newCooldowns = { ...(prev.monsterCooldowns || {}) };
+      if (monsterId) {
+        const cooldownMinutes = isBoss ? 60 : 30;
+        const respawnTime = new Date(virtualTime.getTime() +<dyad-write path="src/hooks/use-game-state.tsx" description="Completando la actualización de la lógica de la tienda para que los consumibles se agoten y corrigiendo el bug de la racha">
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { CharacterStats, Quest, Monster, ShopItem, AttributeDefinition, Penalty } from "@/types/game";
+import { ALL_ITEMS as INITIAL_ITEMS } from "@/data/items";
+import { showSuccess, showError } from "@/utils/toast";
+import { supabase } from "@/lib/supabase";
+import { format, addDays, isSameDay, isSameWeek, isSameMonth, getWeek, subDays } from "date-fns";
+
+interface GameStateContextType {
+  stats: CharacterStats;
+  quests: Quest[];
+  inventory: string[];
+  virtualTime: Date;
+  allItems: ShopItem[];
+  user: any;
+  loading: boolean;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  completeQuest: (id: string) => void;
+  failHabit: (id: string) => void;
+  useItem: (id: string) => void;
+  takeDamage: (amount: number) => void;
+  addQuest: (data: any) => void;
+  updateQuest: (id: string, data: any) => void;
+  deleteQuest: (id: string) => void;
+  updateProfile: (updates: Partial<CharacterStats>) => void;
+  updateAttributeDefinitions: (definitions: AttributeDefinition[]) => void;
+  adminReset: () => void;
+  adminAddGold: (amount: number) => void;
+  adminLevelUp: () => void;
+  adminClearInventory: () => void;
+  adminUnlockQuests: () => void;
+  advanceTime: (days: number) => void;
+  resetToToday: () => void;
+  resetHp: () => void;
+  completePenalty: (id: string) => void;
+  addPenaltyToActive: (penaltyId: string) => void;
+  createCustomPenalty: (penalty: Omit<Penalty, 'id'>) => void;
+  revive: () => void;
+  setActiveCombat: (monster: Monster | null) => void;
+  activeCombat: Monster | null;
+  winCombat: (xp: number, gold: number, remainingHp: number) => void;
+  loseCombat: (remainingHp: number) => void;
+  escapeCombat: (remainingHp: number) => void;
+  buyItem: (item: ShopItem, source: string) => void;
+  logout: () => void;
+  shopItems: { daily: ShopItem[]; weekly: ShopItem[]; monthly: ShopItem[] };
+  boughtInRotation: Record<string, boolean>;
+  addShopItem: (item: Omit<ShopItem, 'id'>) => void;
+  updateShopItem: (id: string, updates: Partial<ShopItem>) => void;
+  deleteShopItem: (id: string) => void;
+  showFarmWarning: boolean;
+  closeFarmWarning: () => void;
+  recoverStreak: (id: string) => void;
+}
+
+const GameStateContext = createContext<GameStateContextType | undefined>(undefined);
+
+const DEFAULT_ATTRIBUTES: AttributeDefinition[] = [
+  { id: 'fuerza', name: 'Fuerza', icon: '💪', color: 'text-orange-400' },
+  { id: 'inteligencia', name: 'Inteligencia', icon: '🧠', color: 'text-blue-400' },
+  { id: 'espiritualidad', name: 'Espíritu', icon: '✨', color: 'text-yellow-400' },
+  { id: 'carisma', name: 'Carisma', icon: '🎭', color: 'text-pink-400' },
+];
+
+const INITIAL_GAME_STATS = {
+  tasksCompleted: 0, habitsCompleted: 0, dailiesCompleted: 0, monstersDefeated: 0, bossesDefeated: 0,
+  totalGoldEarned: 0, totalDeaths: 0, itemsBought: 0, history: [], currentStreak: 0, maxStreak: 0,
+  perfectDays: 0, waterDrank: 0, exerciseDays: 0, cardioSessions: 0, healthyMeals: 0, stepsMax: 0,
+  exerciseHours: 0, pagesRead: 0, languagePractice: 0, meditationHours: 0, deepWorkSessions: 0,
+  journalEntries: 0, noSnoozeDays: 0, cosmeticsBought: 0, petsOwned: 0, realLifeRewardsBought: 0,
+  lowHpHeals: 0, friendsInvited: 0,
+};
+
+const INITIAL_CHARACTER: CharacterStats = {
+  name: "Héroe", avatar: "🧙‍♂️", title: "Héroe de la Rutina", level: 1, hp: 100, maxHp: 100, xp: 0, maxXp: 100, gold: 0,
+  attributes: { fuerza: 1, inteligencia: 1, espiritualidad: 1, carisma: 1 },
+  attributeDefinitions: DEFAULT_ATTRIBUTES,
+  gameStats: INITIAL_GAME_STATS, activePenalties: [], customPenalties: [], activeTimers: {}, monsterCooldowns: {},
+  banCount: 0, lastResetDate: format(new Date(), 'yyyy-MM-dd')
+};
+
+const seededRandom = (seed: string) => {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  const x = Math.sin(hash) * 10000;
+  return x - Math.floor(x);
+};
+
+const shuffleWithSeed = <T,>(array: T[], seed: string): T[] => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(seededRandom(seed + i) * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
+export const GameStateProvider = ({ children }: { children: React.ReactNode }) => {
+  const [stats, setStats] = useState<CharacterStats>(INITIAL_CHARACTER);
+  const [quests, setQuests] = useState<Quest[]>([]);
+  const [inventory, setInventory] = useState<string[]>([]);
+  const [timeOffset, setTimeOffset] = useState(0);
+  const [tick, setTick] = useState(Date.now());
+  const [activeCombat, setActiveCombat] = useState<Monster | null>(null);
+  const [boughtItemsLog, setBoughtItemsLog] = useState<Record<string, string>>({});
+  const [allItems, setAllItems] = useState<ShopItem[]>(INITIAL_ITEMS);
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("habit");
+  const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
+  
+  const [actionHistory, setActionHistory] = useState<{type: string, time: number}[]>([]);
+  const [hasWarned, setHasWarned] = useState(false);
+  const [showFarmWarning, setShowFarmWarning] = useState(false);
+
+  const virtualTime = useMemo(() => new Date(tick + timeOffset), [tick, timeOffset]);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const notifiedTimersRef = useRef<Set<string>>(new Set());
+
+  const playAlarm = useCallback(() => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const duration = 10;
+      const startTime = audioCtx.currentTime;
+      for (let i = 0; i < duration * 2; i++) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, startTime + i * 0.5);
+        gain.gain.setValueAtTime(0.1, startTime + i * 0.5);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + i * 0.5 + 0.2);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(startTime + i * 0.5);
+        osc.stop(startTime + i * 0.5 + 0.2);
+      }
+    } catch (e) {
+      console.error("Error al reproducir alarma:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!isInitialLoadDone) return;
+    const now = virtualTime.getTime();
+    Object.entries(stats.activeTimers || {}).forEach(([id, expiration]) => {
+      if (now >= expiration && !notifiedTimersRef.current.has(id)) {
+        const item = allItems.find(i => i.id === id);
+        if (item) {
+          playAlarm();
+          showError(`¡Temporizador finalizado: ${item.title}!`);
+          notifiedTimersRef.current.add(id);
+        }
+      }
+    });
+  }, [virtualTime, stats.activeTimers, allItems, isInitialLoadDone, playAlarm]);
+
+  const saveData = useCallback(async (s: any, q: any, i: any, b: any, a: any) => {
+    if (!user || !isInitialLoadDone) return;
+    try {
+      await supabase.from('profiles').upsert({
+        id: user.id, 
+        game_state: s, 
+        quests: q, 
+        inventory: i, 
+        bought_items: b, 
+        all_items: a, 
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' });
+    } catch (err) {
+      console.error("Error guardando datos:", err);
+    }
+  }, [user, isInitialLoadDone]);
+
+  const checkDayReset = useCallback((currentTime: Date) => {
+    if (!isInitialLoadDone) return;
+    const todayStr = format(currentTime, 'yyyy-MM-dd');
+    const yesterdayStr = format(subDays(currentTime, 1), 'yyyy-MM-dd');
+    const lastReset = stats.lastResetDate;
+    if (todayStr !== lastReset) {
+      setQuests(prev => prev.map(q => {
+        if (q.type === 'daily' || q.type === 'habit') {
+          const resetQuest = { ...q, completed: false, failed: false };
+          if (q.type === 'habit') {
+            const completedYesterday = q.lastCompletedDate === yesterdayStr;
+            const completedToday = q.lastCompletedDate === todayStr;
+            if (!completedYesterday && !completedToday && (q.streak || 0) > 0) {
+              return { ...resetQuest, recoverableStreak: q.streak, streak: 0 };
+            }
+          }
+          return resetQuest;
+        }
+        return q;
+      }));
+      setStats(prev => ({ ...prev, lastResetDate: todayStr }));
+    }
+  }, [stats.lastResetDate, isInitialLoadDone]);
+
+  useEffect(() => {
+    checkDayReset(virtualTime);
+  }, [virtualTime, checkDayReset]);
+
+  const shopItems = useMemo(() => {
+    const dailySeed = format(virtualTime, 'yyyy-MM-dd');
+    const weeklySeed = format(virtualTime, 'yyyy-') + getWeek(virtualTime);
+    const monthlySeed = format(virtualTime, 'yyyy-MM');
+    const dailyPool = allItems.filter(i => i.effect.daily || i.category === 'consumible');
+    const weeklyPool = allItems.filter(i => i.effect.weekly);
+    const monthlyPool = allItems.filter(i => i.effect.monthly);
+    return {
+      daily: shuffleWithSeed(dailyPool, dailySeed).slice(0, 6),
+      weekly: shuffleWithSeed(weeklyPool, weeklySeed).slice(0, 5),
+      monthly: shuffleWithSeed(monthlyPool, monthlySeed).slice(0, 5),
+    };
+  }, [allItems, virtualTime]);
+
+  const boughtInRotation = useMemo(() => {
+    const result: Record<string, boolean> = {};
+    Object.entries(boughtItemsLog).forEach(([id, dateStr]) => {
+      const item = allItems.find(i => i.id === id);
+      if (!item) return;
+      const purchaseDate = new Date(dateStr);
+      
+      // Los consumibles se tratan como diarios por defecto en la lógica de la tienda
+      const isDaily = item.effect.daily || item.category === 'consumible';
+      
+      if (isDaily && isSameDay(purchaseDate, virtualTime)) result[id] = true;
+      else if (item.effect.weekly && isSameWeek(purchaseDate, virtualTime)) result[id] = true;
+      else if (item.effect.monthly && isSameMonth(purchaseDate, virtualTime)) result[id] = true;
+    });
+    return result;
+  }, [boughtItemsLog, allItems, virtualTime]);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      if (!session) setLoading(false);
+    };
+    initAuth();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (!session) { 
+        setLoading(false); 
+        setIsInitialLoadDone(false); 
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const loadData = async () => {
+      try {
+        const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+        if (error) throw error;
+        if (data) {
+          if (data.game_state) {
+            setStats({
+              ...INITIAL_CHARACTER,
+              ...data.game_state,
+              attributes: { ...INITIAL_CHARACTER.attributes, ...(data.game_state.attributes || {}) },
+              gameStats: { ...INITIAL_CHARACTER.gameStats, ...(data.game_state.gameStats || {}) },
+              attributeDefinitions: data.game_state.attributeDefinitions || INITIAL_CHARACTER.attributeDefinitions,
+              customPenalties: data.game_state.customPenalties || [],
+              banCount: data.game_state.banCount || 0,
+              isPermanentlyBanned: data.game_state.isPermanentlyBanned || false,
+              lastResetDate: data.game_state.lastResetDate || format(new Date(), 'yyyy-MM-dd')
+            });
+          }
+          if (data.quests) setQuests(data.quests);
+          if (data.inventory) setInventory(data.inventory);
+          if (data.bought_items) setBoughtItemsLog(data.bought_items);
+          if (data.all_items) setAllItems(data.all_items);
+        }
+      } catch (err) { 
+        console.error("Error cargando perfil:", err); 
+      } finally { 
+        setLoading(false); 
+        setIsInitialLoadDone(true); 
+      }
+    };
+    loadData();
+  }, [user]);
+
+  useEffect(() => {
+    if (!isInitialLoadDone || !user) return;
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => saveData(stats, quests, inventory, boughtItemsLog, allItems), 2000);
+    return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
+  }, [stats, quests, inventory, boughtItemsLog, allItems, user, isInitialLoadDone, saveData]);
+
+  const checkFarming = useCallback((type: string) => {
+    const now = Date.now();
+    const newHistory = [...actionHistory, { type, time: now }].filter(a => now - a.time < 60000);
+    setActionHistory(newHistory);
+    const adds = newHistory.filter(a => a.type === 'add').length;
+    const completes = newHistory.filter(a => a.type === 'complete').length;
+    if (adds >= 4 && completes >= 4) {
+      if (!hasWarned) {
+        setShowFarmWarning(true);
+      } else {
+        const newBanCount = stats.banCount + 1;
+        let blockedUntil: string | undefined;
+        let isPermanent = false;
+        if (newBanCount === 1) blockedUntil = new Date(now + 60 * 60 * 1000).toISOString();
+        else if (newBanCount === 2) blockedUntil = new Date(now + 24 * 60 * 60 * 1000).toISOString();
+        else isPermanent = true;
+        setStats(prev => ({ ...prev, blockedUntil, banCount: newBanCount, isPermanentlyBanned: isPermanent }));
+        showError(isPermanent ? "Cuenta bloqueada permanentemente." : `Cuenta bloqueada por sanción nivel ${newBanCount}.`);
+        setHasWarned(false);
+      }
+    }
+  }, [actionHistory, hasWarned, stats.banCount]);
+
+  const getActiveMultiplier = useCallback(() => {
+    let multiplier = 1;
+    const now = virtualTime.getTime();
+    Object.entries(stats.activeTimers || {}).forEach(([itemId, expiration]) => {
+      if (expiration > now) {
+        const item = allItems.find(i => i.id === itemId);
+        if (item?.effect.xpMultiplier) multiplier *= item.effect.xpMultiplier;
+      }
+    });
+    return multiplier;
+  }, [stats.activeTimers, allItems, virtualTime]);
+
+  const useItem = useCallback((id: string) => {
+    const item = allItems.find(i => i.id === id);
+    if (!item) return;
+    setStats(prev => {
+      let newHp = prev.hp;
+      let newXp = prev.xp;
+      let newLevel = prev.level;
+      let newMaxXp = prev.maxXp;
+      let newMaxHp = prev.maxHp;
+      if (item.effect.hp) newHp = Math.min(prev.maxHp, prev.hp + item.effect.hp);
+      if (item.effect.xpFlat) {
+        newXp += item.effect.xpFlat;
+        while (newXp >= newMaxXp) {
+          newXp -= newMaxXp; newLevel += 1; newMaxXp = Math.floor(newMaxXp * 1.2); newMaxHp += 10; newHp = newMaxHp;
+          showSuccess(`¡SUBIDA DE NIVEL! Ahora eres nivel ${newLevel}`);
+        }
+      }
+      const newTimers = { ...(prev.activeTimers || {}) };
+      if (item.effect.timer) {
+        const now = virtualTime.getTime();
+        const currentExpiration = newTimers[id] || now;
+        newTimers[id] = Math.max(now, currentExpiration) + (item.effect.timer * 60 * 1000);
+        notifiedTimersRef.current.add(id); // Marcar como notificado para que no suene la alarma al activarlo
       }
       return { ...prev, hp: newHp, xp: newXp, level: newLevel, maxXp: newMaxXp, maxHp: newMaxHp, activeTimers: newTimers };
     });
