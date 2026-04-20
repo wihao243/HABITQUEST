@@ -257,11 +257,29 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
             <div className="col-span-2 p-3 bg-indigo-50 rounded-xl border-2 border-indigo-100 grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-rose-500"><Heart className="w-3 h-3" /> Curación (HP)</Label>
-                <Input type="number" value={formData.effect.hp || 0} onChange={e => setFormData({...formData, effect: { ...formData.effect, hp: parseInt(e.target.value) || 0 }})} className="h-8 text-xs font-bold" />
+                <Input 
+                  type="number" 
+                  min="0"
+                  value={formData.effect.hp || 0} 
+                  onChange={e => {
+                    const val = parseInt(e.target.value) || 0;
+                    setFormData({...formData, effect: { ...formData.effect, hp: Math.max(0, val) }});
+                  }} 
+                  className="h-8 text-xs font-bold" 
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-blue-500"><Zap className="w-3 h-3" /> Experiencia (XP)</Label>
-                <Input type="number" value={formData.effect.xpFlat || 0} onChange={e => setFormData({...formData, effect: { ...formData.effect, xpFlat: parseInt(e.target.value) || 0 }})} className="h-8 text-xs font-bold" />
+                <Input 
+                  type="number" 
+                  min="0"
+                  value={formData.effect.xpFlat || 0} 
+                  onChange={e => {
+                    const val = parseInt(e.target.value) || 0;
+                    setFormData({...formData, effect: { ...formData.effect, xpFlat: Math.max(0, val) }});
+                  }} 
+                  className="h-8 text-xs font-bold" 
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-amber-500"><TrendingUp className="w-3 h-3" /> Multiplicador XP</Label>
@@ -279,7 +297,16 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
               </div>
               <div className="space-y-1">
                 <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-indigo-500"><Clock className="w-3 h-3" /> Duración (Min)</Label>
-                <Input type="number" value={formData.effect.timer || 0} onChange={e => setFormData({...formData, effect: { ...formData.effect, timer: parseInt(e.target.value) || 0 }})} className="h-8 text-xs font-bold" />
+                <Input 
+                  type="number" 
+                  min="0"
+                  value={formData.effect.timer || 0} 
+                  onChange={e => {
+                    const val = parseInt(e.target.value) || 0;
+                    setFormData({...formData, effect: { ...formData.effect, timer: Math.max(0, val) }});
+                  }} 
+                  className="h-8 text-xs font-bold" 
+                />
               </div>
             </div>
 
