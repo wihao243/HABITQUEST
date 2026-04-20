@@ -219,13 +219,23 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const daily = shuffleWithSeed(dailyPool, dailySeed).slice(0, 6);
     const dailyIds = new Set(daily.map(i => i.id));
 
-    // 2. Seleccionar Semanales (6 objetos, excluyendo los que ya están en Diarios)
-    const weeklyPool = allItems.filter(i => i.effect.weekly && !dailyIds.has(i.id));
+    // 2. Seleccionar Semanales (6 objetos)
+    // Priorizamos los marcados como weekly, pero si no hay suficientes, permitimos otros
+    let weeklyPool = allItems.filter(i => i.effect.weekly && !dailyIds.has(i.id));
+    if (weeklyPool.length < 6) {
+      const fallback = allItems.filter(i => !dailyIds.has(i.id) && !weeklyPool.find(wp => wp.id === i.id));
+      weeklyPool = [...weeklyPool, ...fallback];
+    }
     const weekly = shuffleWithSeed(weeklyPool, weeklySeed).slice(0, 6);
     const weeklyIds = new Set(weekly.map(i => i.id));
 
-    // 3. Seleccionar Mensuales (6 objetos, excluyendo los que ya están en Diarios o Semanales)
-    const monthlyPool = allItems.filter(i => i.effect.monthly && !dailyIds.has(i.id) && !weeklyIds.has(i.id));
+    // 3. Seleccionar Mensuales (6 objetos)
+    // Priorizamos los marcados como monthly, pero si no hay suficientes, permitimos otros
+    let monthlyPool = allItems.filter(i => i.effect.monthly && !dailyIds.has(i.id) && !weeklyIds.has(i.id));
+    if (monthlyPool.length < 6) {
+      const fallback = allItems.filter(i => !dailyIds.has(i.id) && !weeklyIds.has(i.id) && !monthlyPool.find(mp => mp.id === i.id));
+      monthlyPool = [...monthlyPool, ...fallback];
+    }
     const monthly = shuffleWithSeed(monthlyPool, monthlySeed).slice(0, 6);
 
     return { daily, weekly, monthly };

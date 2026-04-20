@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ShopItem, ItemCategory } from "@/types/game";
-import { ShoppingBag, Plus, Edit3, Trash2, Save, X, Heart, Zap, TrendingUp, Search, Filter, Coins, Clock } from "lucide-react";
+import { ShoppingBag, Plus, Edit3, Trash2, Save, X, Heart, Zap, TrendingUp, Search, Filter, Coins, Clock, Calendar } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -72,7 +72,10 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
         hp: item.effect.hp || 0,
         xpFlat: item.effect.xpFlat || 0,
         xpMultiplier: item.effect.xpMultiplier || 1,
-        timer: item.effect.timer || 0
+        timer: item.effect.timer || 0,
+        daily: item.effect.daily || false,
+        weekly: item.effect.weekly || false,
+        monthly: item.effect.monthly || false
       } 
     });
     setIsFormOpen(true);
@@ -97,6 +100,24 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
       rarity: "comun",
       description: "",
       effect: { daily: true, hp: 0, xpFlat: 0, xpMultiplier: 1, timer: 0 }
+    });
+  };
+
+  const getRotationType = () => {
+    if (formData.effect.monthly) return "monthly";
+    if (formData.effect.weekly) return "weekly";
+    return "daily";
+  };
+
+  const setRotationType = (type: string) => {
+    setFormData({
+      ...formData,
+      effect: {
+        ...formData.effect,
+        daily: type === "daily",
+        weekly: type === "weekly",
+        monthly: type === "monthly"
+      }
     });
   };
 
@@ -175,6 +196,9 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
                           )}>
                             {item.rarity}
                           </Badge>
+                          <Badge variant="secondary" className="text-[8px] uppercase font-black px-1 h-4">
+                            {item.effect.monthly ? "Mensual" : item.effect.weekly ? "Semanal" : "Diario"}
+                          </Badge>
                         </div>
                       </div>
                     </div>
@@ -241,6 +265,23 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
             </div>
 
             <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase text-slate-500">Frecuencia (Rotación)</Label>
+              <Select value={getRotationType()} onValueChange={setRotationType}>
+                <SelectTrigger className="border-2 font-bold h-11">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-3 h-3" />
+                    <SelectValue />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">Diario</SelectItem>
+                  <SelectItem value="weekly">Semanal</SelectItem>
+                  <SelectItem value="monthly">Mensual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="col-span-2 space-y-2">
               <Label className="text-[10px] font-black uppercase text-slate-500">Categoría</Label>
               <Select value={formData.category} onValueChange={(v: any) => setFormData({...formData, category: v})}>
                 <SelectTrigger className="border-2 font-bold h-11"><SelectValue /></SelectTrigger>
