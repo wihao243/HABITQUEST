@@ -34,18 +34,14 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
     effect: { daily: true, hp: 0, xpFlat: 0, xpMultiplier: 1, timer: 0 }
   });
 
-  // Función de cálculo automático de coste
   const calculateAutoCost = (effect: any) => {
     const hpCost = (effect.hp || 0) * 10;
     const xpFlatCost = (effect.xpFlat || 0) * 10;
     const xpMultCost = Math.max(0, (effect.xpMultiplier - 1) * 500);
-    const timerCost = (effect.timer || 0) * 1; // Base de 1 oro por minuto
-    
-    // El coste mínimo es 10 si no tiene efectos, para que nada sea gratis
+    const timerCost = (effect.timer || 0) * 1;
     return Math.max(10, Math.floor(hpCost + xpFlatCost + xpMultCost + timerCost));
   };
 
-  // Recalcular coste cuando cambian los efectos
   useEffect(() => {
     const newCost = calculateAutoCost(formData.effect);
     if (newCost !== formData.cost) {
@@ -112,30 +108,27 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
             <ShoppingBag className="w-4 h-4 mr-2" /> Gestionar Tienda
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[800px] bg-white rounded-2xl border-4 border-slate-900 max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <div className="p-6 border-b-4 border-slate-900 bg-slate-50">
-            <DialogHeader className="mb-4">
-              <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter text-slate-900 flex items-center justify-between">
-                Catálogo Global de Objetos
-                <Button onClick={handleOpenAdd} className="bg-indigo-600 hover:bg-indigo-700 font-black uppercase text-xs">
-                  <Plus className="w-4 h-4 mr-2" /> Nuevo Objeto
-                </Button>
+        <DialogContent className="sm:max-w-[800px] w-[95vw] bg-white rounded-2xl border-4 border-slate-900 h-[85vh] flex flex-col p-0 overflow-hidden">
+          <div className="p-6 border-b-4 border-slate-900 bg-slate-50 shrink-0">
+            <DialogHeader className="mb-6 pr-8">
+              <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter text-slate-900">
+                Catálogo Global
               </DialogTitle>
             </DialogHeader>
 
-            <div className="flex flex-col md:flex-row gap-3">
-              <div className="relative flex-1">
+            <div className="flex flex-col md:flex-row gap-4 items-end md:items-center">
+              <div className="relative flex-1 w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input 
                   placeholder="Buscar por nombre..." 
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10 border-2 font-bold h-10"
+                  className="pl-10 border-2 font-bold h-11"
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full md:w-auto">
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-[160px] border-2 font-bold h-10">
+                  <SelectTrigger className="flex-1 md:w-[160px] border-2 font-bold h-11">
                     <Filter className="w-3 h-3 mr-2" />
                     <SelectValue placeholder="Categoría" />
                   </SelectTrigger>
@@ -148,14 +141,17 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
                     <SelectItem value="hobbies">Hobbies</SelectItem>
                   </SelectContent>
                 </Select>
+                <Button onClick={handleOpenAdd} className="bg-indigo-600 hover:bg-indigo-700 font-black uppercase text-xs h-11 px-4">
+                  <Plus className="w-4 h-4 mr-2" /> Nuevo
+                </Button>
               </div>
             </div>
           </div>
 
-          <ScrollArea className="flex-1 p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <ScrollArea className="flex-1">
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredItems.map(item => (
-                <Card key={item.id} className="p-3 bg-white rounded-xl border-2 border-slate-100 hover:border-indigo-200 transition-all group">
+                <Card key={item.id} className="p-4 bg-white rounded-xl border-2 border-slate-100 hover:border-indigo-200 transition-all group">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className={cn(
@@ -184,16 +180,21 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
                       </div>
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button size="icon" variant="ghost" onClick={() => handleOpenEdit(item)} className="h-8 w-8 text-indigo-600 hover:bg-indigo-50">
+                      <Button size="icon" variant="ghost" onClick={() => handleOpenEdit(item)} className="h-9 w-9 text-indigo-600 hover:bg-indigo-50">
                         <Edit3 className="w-4 h-4" />
                       </Button>
-                      <Button size="icon" variant="ghost" onClick={() => onDelete(item.id)} className="h-8 w-8 text-rose-600 hover:bg-rose-50">
+                      <Button size="icon" variant="ghost" onClick={() => onDelete(item.id)} className="h-9 w-9 text-rose-600 hover:bg-rose-50">
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
                 </Card>
               ))}
+              {filteredItems.length === 0 && (
+                <div className="col-span-full py-20 text-center">
+                  <p className="text-slate-400 font-black uppercase italic tracking-widest">No hay objetos que coincidan</p>
+                </div>
+              )}
             </div>
           </ScrollArea>
         </DialogContent>
@@ -203,7 +204,7 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
         <DialogContent className="sm:max-w-[500px] bg-white rounded-2xl border-4 border-slate-900 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-black uppercase italic tracking-tighter text-indigo-600">
-              {editingId ? "Editar Objeto" : "Nuevo Objeto de Tienda"}
+              {editingId ? "Editar Objeto" : "Nuevo Objeto"}
             </DialogTitle>
           </DialogHeader>
           
@@ -220,12 +221,11 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
             
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1">
-                <Coins className="w-3 h-3 text-yellow-500" /> Coste (Auto-calculado)
+                <Coins className="w-3 h-3 text-yellow-500" /> Coste
               </Label>
               <div className="h-11 border-2 border-slate-100 bg-slate-50 rounded-md flex items-center px-3 font-black text-slate-900">
                 {formData.cost} Oro
               </div>
-              <p className="text-[8px] font-bold text-slate-400 uppercase">El precio se ajusta según los efectos</p>
             </div>
 
             <div className="space-y-2">
@@ -269,7 +269,7 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
                 <Input type="number" step="0.1" value={formData.effect.xpMultiplier || 1} onChange={e => setFormData({...formData, effect: { ...formData.effect, xpMultiplier: parseFloat(e.target.value) || 1 }})} className="h-8 text-xs font-bold" />
               </div>
               <div className="space-y-1">
-                <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-indigo-500"><Clock className="w-3 h-3" /> Duración (Minutos)</Label>
+                <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-indigo-500"><Clock className="w-3 h-3" /> Duración (Min)</Label>
                 <Input type="number" value={formData.effect.timer || 0} onChange={e => setFormData({...formData, effect: { ...formData.effect, timer: parseInt(e.target.value) || 0 }})} className="h-8 text-xs font-bold" />
               </div>
             </div>
@@ -282,7 +282,7 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
 
           <div className="flex gap-2">
             <Button onClick={handleSave} className="flex-1 bg-slate-900 hover:bg-indigo-600 font-black uppercase h-12">
-              <Save className="w-4 h-4 mr-2" /> {editingId ? "Actualizar" : "Crear Objeto"}
+              <Save className="w-4 h-4 mr-2" /> Guardar
             </Button>
             <Button onClick={() => setIsFormOpen(false)} variant="outline" className="border-2 font-black uppercase h-12">
               Cancelar
