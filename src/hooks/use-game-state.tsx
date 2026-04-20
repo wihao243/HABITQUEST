@@ -227,9 +227,13 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const result: Record<string, boolean> = {};
     Object.entries(boughtItemsLog).forEach(([id, dateStr]) => {
       const item = allItems.find(i => i.id === id);
-      if (!item || item.category === 'consumible') return;
+      if (!item) return;
+      
       const purchaseDate = new Date(dateStr);
-      if (item.effect.daily && isSameDay(purchaseDate, virtualTime)) result[id] = true;
+      // Los consumibles se consideran de rotación diaria por defecto si no tienen otra marcada
+      const isDaily = item.effect.daily || item.category === 'consumible';
+      
+      if (isDaily && isSameDay(purchaseDate, virtualTime)) result[id] = true;
       else if (item.effect.weekly && isSameWeek(purchaseDate, virtualTime)) result[id] = true;
       else if (item.effect.monthly && isSameMonth(purchaseDate, virtualTime)) result[id] = true;
     });
