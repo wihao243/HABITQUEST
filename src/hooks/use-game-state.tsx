@@ -214,13 +214,10 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const weeklySeed = format(virtualTime, 'yyyy-') + getWeek(virtualTime);
     const monthlySeed = format(virtualTime, 'yyyy-MM');
 
-    // 1. Seleccionar Diarios (6 objetos)
     const dailyPool = allItems.filter(i => i.effect.daily || i.category === 'consumible');
     const daily = shuffleWithSeed(dailyPool, dailySeed).slice(0, 6);
     const dailyIds = new Set(daily.map(i => i.id));
 
-    // 2. Seleccionar Semanales (6 objetos)
-    // Priorizamos los marcados como weekly, pero si no hay suficientes, permitimos otros
     let weeklyPool = allItems.filter(i => i.effect.weekly && !dailyIds.has(i.id));
     if (weeklyPool.length < 6) {
       const fallback = allItems.filter(i => !dailyIds.has(i.id) && !weeklyPool.find(wp => wp.id === i.id));
@@ -229,8 +226,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const weekly = shuffleWithSeed(weeklyPool, weeklySeed).slice(0, 6);
     const weeklyIds = new Set(weekly.map(i => i.id));
 
-    // 3. Seleccionar Mensuales (6 objetos)
-    // Priorizamos los marcados como monthly, pero si no hay suficientes, permitimos otros
     let monthlyPool = allItems.filter(i => i.effect.monthly && !dailyIds.has(i.id) && !weeklyIds.has(i.id));
     if (monthlyPool.length < 6) {
       const fallback = allItems.filter(i => !dailyIds.has(i.id) && !weeklyIds.has(i.id) && !monthlyPool.find(mp => mp.id === i.id));
@@ -494,6 +489,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         } 
       };
     });
+    showSuccess(`¡Victoria! Has ganado ${finalXp} XP y ${gold} Oro.`);
     setActiveCombat(null);
   }, [activeCombat, virtualTime, getActiveMultiplier]);
 

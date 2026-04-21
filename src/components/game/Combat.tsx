@@ -5,11 +5,12 @@ import { Monster, CharacterStats, ShopItem } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Sword, Package, ShieldAlert, X, Zap, MousePointer2 } from "lucide-react";
+import { Sword, Package, ShieldAlert, X, Zap, MousePointer2, Trophy, Coins, Star, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DodgeArena } from "./DodgeArena";
 import { LightningDodge } from "./LightningDodge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useGameState } from "@/hooks/use-game-state";
 
 interface CombatProps {
   monster: Monster;
@@ -23,11 +24,13 @@ interface CombatProps {
 }
 
 export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, onEscape, onUseItem }: CombatProps) => {
+  const { virtualTime } = useGameState();
   const [monsterHp, setMonsterHp] = useState(monster.hp);
   const [playerHp, setPlayerHp] = useState(player.hp);
   const [log, setLog] = useState<string[]>(["¡Comienza el combate!"]);
   const [isPlayerTurn, setIsPlayerTurn] = useState(true);
   const [isFinished, setIsFinished] = useState(false);
+  const [showVictory, setShowVictory] = useState(false);
   const [animating, setAnimating] = useState<"player" | "monster" | null>(null);
   const [showDodge, setShowDodge] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
@@ -43,6 +46,21 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
   
   const addLog = (msg: string) => setLog(prev => [msg, ...prev].slice(0, 5));
   const isImageAvatar = player.avatar.startsWith('data:image');
+
+  // Calcular multiplicador de XP actual para mostrar en la pantalla de victoria
+  const xpMultiplier = (() => {
+    let multiplier = 1;
+    const now = virtualTime.getTime();
+    Object.entries(player.activeTimers || {}).forEach(([itemId, expiration]) => {
+      if (expiration > now) {
+        const item = allItems.find(i => i.id === itemId);
+        if (item?.effect.xpMultiplier) multiplier *= item.effect.xpMultiplier;
+      }
+    });
+    return multiplier;
+  })();
+
+  const finalXpReward = Math.floor(monster.xpReward * xpMultiplier);
 
   const usableItems = inventory
     .map(id => allItems.find(i => i.id === id))
@@ -70,7 +88,7 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
       if (newMonsterHp <= 0) {
         setIsFinished(true);
         addLog(`¡Has derrotado a ${monster.name}!`);
-        setTimeout(() => onWin(monster.xpReward, monster.goldReward, playerHp), 800);
+        setTimeout(() => setShowVictory(true), 600);
       } else {
         setIsPlayerTurn(false);
         if (isDodgeMode) setTimeout(() => setShowDodge(true), 300);
@@ -113,8 +131,7 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
   const handleManualClick = () => {
     if (clickerPhase !== 'active' || isFinished) return;
     
-    // El daño por clic ahora es la mitad del nivel del jugador, redondeado hacia abajo
-    const damagePerClick = Math.floor(player.level / 2);
+    const damagePerClick = Math.floor(player.level / 2) + 1;
     
     setMonsterHp(prev => {
       const next = Math.max(0, prev - damagePerClick);
@@ -123,7 +140,7 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
         if (clickerIntervalRef.current) clearInterval(clickerIntervalRef.current);
         setClickerPhase('none');
         addLog(`¡Has derrotado a ${monster.name} a base de golpes!`);
-        setTimeout(() => onWin(monster.xpReward, monster.goldReward, playerHp), 800);
+        setTimeout(() => setShowVictory(true), 600);
       }
       return next;
     });
@@ -204,6 +221,44 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
   return (
     <div className="fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
       <Card className="max-w-4xl w-full bg-slate-900 border-4 border-slate-800 overflow-hidden shadow-2xl relative">
+        
+        {/* Pantalla de Victoria */}
+        {showVictory && (
+          <div className="absolute inset-0 z-50 bg-slate-900/95 flex flex-col items-center justify-center p-8 animate-in fade-in zoom-in duration-500">
+            <div className="relative mb-8">
+              <div className="absolute inset-0 bg-yellow-500 blur-3xl opacity-20 animate-pulse" />
+              <Trophy className="w-24 h-24 text-yellow-500 relative z-10 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" />
+            </div>
+            
+            <h2 className="text-5xl font-black text-white italic uppercase tracking-tighter mb-2">¡Victoria!</h2>
+            <p className="text-indigo-400 font-bold uppercase tracking-widest text-sm mb-12">Has derrotado a {monster.name}</p>
+            
+            <div className="grid grid-cols-2 gap-6 w-full max-w-md mb-12">
+              <div className="bg-slate-800/50 border-2 border-blue-500/30 p-6 rounded-3xl text-center space-y-2">
+                <div className="flex justify-center"><Star className="w-8 h-8 text-blue-400" /></div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Experiencia</p>
+                <p className="text-3xl font-black text-white">+{finalXpReward}</p>
+                {xpMultiplier > 1 && (
+                  <p className="text-[10px] font-black text-blue-400 uppercase">Bonus x{xpMultiplier.toFixed(1)}</p>
+                )}
+              </div>
+              
+              <div className="bg-slate-800/50 border-2 border-yellow-500/30 p-6 rounded-3xl text-center space-y-2">
+                <div className="flex justify-center"><Coins className="w-8 h-8 text-yellow-500" /></div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Oro Ganado</p>
+                <p className="text-3xl font-black text-white">+{monster.goldReward}</p>
+              </div>
+            </div>
+            
+            <Button 
+              onClick={() => onWin(monster.xpReward, monster.goldReward, playerHp)}
+              className="w-full max-w-md h-16 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xl uppercase italic tracking-tighter shadow-lg group"
+            >
+              Reclamar Botín <ChevronRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
+            </Button>
+          </div>
+        )}
+
         {showInventory && (
           <div className="absolute inset-0 z-20 bg-slate-900/95 p-8 flex flex-col">
             <div className="flex justify-between items-center mb-6">
