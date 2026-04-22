@@ -401,7 +401,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const rewards = { easy: { xp: 10, gold: 5, attr: 0.1 }, medium: { xp: 25, gold: 15, attr: 0.2 }, hard: { xp: 60, gold: 40, attr: 0.5 } };
     const r = rewards[quest.difficulty];
     
-    // Ajuste por calidad (poca diferencia)
     const qualityMultiplier = quality === 'mal' ? 0.9 : quality === 'excelente' ? 1.1 : 1.0;
     
     const multiplier = getActiveMultiplier();
@@ -455,7 +454,10 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   }, [quests]);
 
   const recoverStreak = useCallback((id: string) => {
-    const cost = 50;
+    const quest = quests.find(q => q.id === id);
+    if (!quest || !quest.recoverableStreak) return;
+
+    const cost = quest.recoverableStreak * 10;
     if (stats.gold < cost) {
       showError(`Necesitas ${cost} de oro para recuperar la racha.`);
       return;
@@ -474,7 +476,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     }));
     setStats(prev => ({ ...prev, gold: prev.gold - cost }));
     showSuccess("¡Racha recuperada con éxito!");
-  }, [stats.gold, virtualTime]);
+  }, [stats.gold, virtualTime, quests]);
 
   const winCombat = useCallback((xp: number, gold: number, remainingHp: number) => {
     const multiplier = getActiveMultiplier();

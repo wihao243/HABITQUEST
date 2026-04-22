@@ -31,7 +31,6 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
   const [showFailed, setShowFailed] = useState(true);
   const [showRestDays, setShowRestDays] = useState(false);
   
-  // Estado para el diálogo de calidad
   const [qualityDialogOpen, setQualityDialogOpen] = useState(false);
   const [selectedQuestId, setSelectedQuestId] = useState<string | null>(null);
   const [selectedQuestTitle, setSelectedQuestTitle] = useState("");
@@ -218,7 +217,7 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
               onClick={() => recoverStreak(quest.id)}
               className="border-amber-500 text-amber-700 hover:bg-amber-500 hover:text-white font-black uppercase text-[10px] h-8"
             >
-              <RefreshCw className="w-3 h-3 mr-1" /> Recuperar (50 Oro)
+              <RefreshCw className="w-3 h-3 mr-1" /> Recuperar ({quest.recoverableStreak * 10} Oro)
             </Button>
           </div>
         )}
