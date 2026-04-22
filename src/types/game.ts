@@ -92,7 +92,8 @@ export interface Quest {
   lastCompletedDate?: string;
   recoverableStreak?: number;
   history?: string[];
-  deadline?: string; // Nueva propiedad para fecha límite
+  deadline?: string;
+  activeDays?: number[]; // 0 = Domingo, 1 = Lunes, etc.
 }
 
 export interface Monster {

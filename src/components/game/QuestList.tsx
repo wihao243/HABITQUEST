@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Quest } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Flame, Plus, Skull, Edit3, Trash2, RefreshCw, ChevronDown, ChevronUp, XCircle, Calendar, Clock } from "lucide-react";
+import { CheckCircle2, Flame, Plus, Skull, Edit3, Trash2, RefreshCw, ChevronDown, ChevronUp, XCircle, Calendar, Clock, Coffee } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { QuestDialog } from "./QuestDialog";
@@ -28,9 +28,23 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
   const [editingQuest, setEditingQuest] = useState<Quest | undefined>(undefined);
   const [showCompleted, setShowCompleted] = useState(false);
   const [showFailed, setShowFailed] = useState(true);
+  const [showRestDays, setShowRestDays] = useState(false);
+
+  const currentDayOfWeek = virtualTime.getDay();
 
   const filteredQuests = quests.filter(q => q.type === type);
-  const activeQuests = filteredQuests.filter(q => !q.completed && !q.failed);
+  
+  // Lógica de filtrado por días activos para hábitos
+  const activeQuests = filteredQuests.filter(q => {
+    if (q.completed || q.failed) return false;
+    if (type === 'habit' && q.activeDays && !q.activeDays.includes(currentDayOfWeek)) return false;
+    return true;
+  });
+
+  const restDayQuests = type === 'habit' 
+    ? filteredQuests.filter(q => !q.completed && !q.failed && q.activeDays && !q.activeDays.includes(currentDayOfWeek))
+    : [];
+
   const completedQuests = filteredQuests.filter(q => q.completed);
   const failedQuests = filteredQuests.filter(q => q.failed);
   
@@ -58,27 +72,29 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
     }
   };
 
-  const renderQuestCard = (quest: Quest) => {
+  const renderQuestCard = (quest: Quest, isRestDay = false) => {
     const isOverdue = quest.deadline && isBefore(new Date(quest.deadline), virtualTime) && !quest.completed;
 
     return (
       <Card key={quest.id} className={cn(
         "p-4 flex flex-col gap-4 border-2 transition-all group",
         quest.completed ? "opacity-50 bg-slate-50" : 
-        quest.failed ? "opacity-60 bg-rose-50 border-rose-200" : "hover:border-indigo-400 shadow-md bg-white"
+        quest.failed ? "opacity-60 bg-rose-50 border-rose-200" : 
+        isRestDay ? "opacity-60 bg-slate-50 border-dashed border-slate-200" : "hover:border-indigo-400 shadow-md bg-white"
       )}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className={cn(
               "w-12 h-12 rounded-xl flex items-center justify-center text-white font-black shadow-lg",
               quest.failed ? "bg-slate-400" :
+              isRestDay ? "bg-slate-300" :
               quest.difficulty === 'easy' ? "bg-emerald-500" : quest.difficulty === 'medium' ? "bg-amber-500" : "bg-rose-500"
             )}>
               {quest.stat.substring(0, 2).toUpperCase()}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <p className={cn("font-black text-lg leading-tight", quest.failed ? "text-slate-400 line-through" : "text-slate-800")}>
+                <p className={cn("font-black text-lg leading-tight", (quest.failed || isRestDay) ? "text-slate-400" : "text-slate-800", quest.failed && "line-through")}>
                   {quest.title}
                 </p>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -111,6 +127,11 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
                     <Flame className="w-3 h-3 mr-1" /> {quest.streak}
                   </Badge>
                 )}
+                {isRestDay && (
+                  <Badge className="bg-blue-50 text-blue-600 border-blue-100 text-[10px] font-bold">
+                    <Coffee className="w-3 h-3 mr-1" /> Descanso
+                  </Badge>
+                )}
                 {quest.deadline && (
                   <Badge className={cn(
                     "text-[10px] font-bold flex items-center gap-1",
@@ -129,6 +150,10 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
             {quest.failed ? (
               <div className="flex items-center gap-2 text-rose-500 font-black uppercase text-[10px] px-4">
                 <XCircle className="w-5 h-5" /> Fallido
+              </div>
+            ) : isRestDay ? (
+              <div className="flex items-center gap-2 text-slate-400 font-black uppercase text-[10px] px-4 italic">
+                Hoy no toca
               </div>
             ) : (
               <>
@@ -157,7 +182,7 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
           </div>
         </div>
 
-        {type !== 'todo' && quest.recoverableStreak && quest.recoverableStreak > 0 && !quest.completed && !quest.failed && (
+        {type !== 'todo' && quest.recoverableStreak && quest.recoverableStreak > 0 && !quest.completed && !quest.failed && !isRestDay && (
           <div className="bg-amber-50 border-2 border-amber-200 p-3 rounded-xl flex items-center justify-between animate-in fade-in zoom-in-95 duration-300">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
@@ -197,11 +222,29 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
       </div>
 
       <div className="grid gap-3">
-        {activeQuests.map(renderQuestCard)}
+        {activeQuests.map(q => renderQuestCard(q))}
         
         {activeQuests.length === 0 && completedQuests.length === 0 && failedQuests.length === 0 && (
           <div className="text-center py-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
             <p className="text-slate-400 font-bold italic">{config[type].empty}</p>
+          </div>
+        )}
+
+        {restDayQuests.length > 0 && (
+          <div className="mt-8 space-y-4">
+            <button 
+              onClick={() => setShowRestDays(!showRestDays)}
+              className="flex items-center gap-2 text-[10px] font-black uppercase text-blue-500 hover:text-blue-700 transition-colors"
+            >
+              {showRestDays ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              Días de Descanso ({restDayQuests.length})
+            </button>
+            
+            {showRestDays && (
+              <div className="grid gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                {restDayQuests.map(q => renderQuestCard(q, true))}
+              </div>
+            )}
           </div>
         )}
 
@@ -217,7 +260,7 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
             
             {showFailed && (
               <div className="grid gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                {failedQuests.map(renderQuestCard)}
+                {failedQuests.map(q => renderQuestCard(q))}
               </div>
             )}
           </div>
@@ -235,7 +278,7 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
             
             {showCompleted && (
               <div className="grid gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                {completedQuests.map(renderQuestCard)}
+                {completedQuests.map(q => renderQuestCard(q))}
               </div>
             )}
           </div>

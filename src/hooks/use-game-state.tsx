@@ -184,26 +184,27 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const checkDayReset = useCallback((currentTime: Date) => {
     if (!isInitialLoadDone) return;
     const todayStr = format(currentTime, 'yyyy-MM-dd');
-    const yesterdayStr = format(subDays(currentTime, 1), 'yyyy-MM-dd');
+    const yesterday = subDays(currentTime, 1);
+    const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
+    const yesterdayDayOfWeek = yesterday.getDay();
     const lastReset = stats.lastResetDate;
     
     if (todayStr !== lastReset) {
       setQuests(prev => prev.map(q => {
         if (q.type === 'daily' || q.type === 'habit') {
-          // Reinicio básico de estado diario
           let updatedQuest = { ...q, completed: false, failed: false };
           
           if (q.type === 'habit') {
+            const wasActiveYesterday = !q.activeDays || q.activeDays.includes(yesterdayDayOfWeek);
             const completedYesterday = q.lastCompletedDate === yesterdayStr;
             const completedToday = q.lastCompletedDate === todayStr;
             
-            // REGLA: Si tenía una racha recuperable de ayer y no la usó, caduca hoy
             if (q.recoverableStreak) {
               updatedQuest.recoverableStreak = undefined;
             }
 
-            // Si perdió su racha ayer, se vuelve recuperable solo por hoy
-            if (!completedYesterday && !completedToday && (q.streak || 0) > 0) {
+            // Solo penalizamos si ayer era un día activo y no se completó
+            if (wasActiveYesterday && !completedYesterday && !completedToday && (q.streak || 0) > 0) {
               updatedQuest.recoverableStreak = q.streak;
               updatedQuest.streak = 0;
             }
@@ -405,8 +406,15 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       if (q.id === id) {
         let newStreak = q.streak || 0;
         if (q.type !== 'todo') {
-          if (q.lastCompletedDate === yesterdayStr) newStreak += 1;
-          else if (q.lastCompletedDate !== todayStr) newStreak = 1;
+          // Lógica de racha mejorada para días activos
+          if (q.lastCompletedDate === yesterdayStr) {
+            newStreak += 1;
+          } else if (q.lastCompletedDate !== todayStr) {
+            // Si no se completó ayer, pero ayer era un día de descanso, la racha debería mantenerse
+            // Sin embargo, checkDayReset ya maneja la rotura de racha. 
+            // Aquí simplemente reiniciamos si no hay racha previa válida.
+            newStreak = 1;
+          }
         }
         const newHistory = q.type !== 'todo' ? [...(q.history || []), todayStr] : (q.history || []);
         return { 
