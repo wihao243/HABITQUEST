@@ -186,18 +186,29 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const todayStr = format(currentTime, 'yyyy-MM-dd');
     const yesterdayStr = format(subDays(currentTime, 1), 'yyyy-MM-dd');
     const lastReset = stats.lastResetDate;
+    
     if (todayStr !== lastReset) {
       setQuests(prev => prev.map(q => {
         if (q.type === 'daily' || q.type === 'habit') {
-          const resetQuest = { ...q, completed: false, failed: false };
+          // Reinicio básico de estado diario
+          let updatedQuest = { ...q, completed: false, failed: false };
+          
           if (q.type === 'habit') {
             const completedYesterday = q.lastCompletedDate === yesterdayStr;
             const completedToday = q.lastCompletedDate === todayStr;
+            
+            // REGLA: Si tenía una racha recuperable de ayer y no la usó, caduca hoy
+            if (q.recoverableStreak) {
+              updatedQuest.recoverableStreak = undefined;
+            }
+
+            // Si perdió su racha ayer, se vuelve recuperable solo por hoy
             if (!completedYesterday && !completedToday && (q.streak || 0) > 0) {
-              return { ...resetQuest, recoverableStreak: q.streak, streak: 0 };
+              updatedQuest.recoverableStreak = q.streak;
+              updatedQuest.streak = 0;
             }
           }
-          return resetQuest;
+          return updatedQuest;
         }
         return q;
       }));
@@ -489,7 +500,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         } 
       };
     });
-    showSuccess(`¡Victoria! Has ganado ${finalXp} XP y ${gold} Oro.`);
     setActiveCombat(null);
   }, [activeCombat, virtualTime, getActiveMultiplier]);
 
