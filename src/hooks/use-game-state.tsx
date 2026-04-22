@@ -149,19 +149,47 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     return () => clearInterval(interval);
   }, []);
 
+  // Lógica de temporizadores corregida
   useEffect(() => {
     if (!isInitialLoadDone) return;
     const now = virtualTime.getTime();
+    const toRemove: string[] = [];
+
     Object.entries(stats.activeTimers || {}).forEach(([id, expiration]) => {
-      if (now >= expiration && !notifiedTimersRef.current.has(id)) {
-        const item = allItems.find(i => i.id === id);
-        if (item) {
-          playAlarm();
-          showError(`¡Temporizador finalizado: ${item.title}!`);
+      if (now >= expiration) {
+        // Si no hemos notificado este temporizador en esta sesión
+        if (!notifiedTimersRef.current.has(id)) {
+          const item = allItems.find(i => i.id === id);
+          // Solo notificamos si ha expirado recientemente (últimos 10 segundos)
+          // Esto evita que salten notificaciones viejas al recargar la página
+          if (item && (now - expiration < 10000)) {
+            playAlarm();
+            showError(`¡Temporizador finalizado: ${item.title}!`);
+          }
           notifiedTimersRef.current.add(id);
+        }
+        
+        // Marcamos para eliminar del estado si lleva más de 5 segundos expirado
+        // Esto limpia la base de datos y evita el bug de repetición
+        if (now - expiration > 5000) {
+          toRemove.push(id);
         }
       }
     });
+
+    if (toRemove.length > 0) {
+      setStats(prev => {
+        const newTimers = { ...prev.activeTimers };
+        let changed = false;
+        toRemove.forEach(id => {
+          if (newTimers[id]) {
+            delete newTimers[id];
+            changed = true;
+          }
+        });
+        return changed ? { ...prev, activeTimers: newTimers } : prev;
+      });
+    }
   }, [virtualTime, stats.activeTimers, allItems, isInitialLoadDone, playAlarm]);
 
   const saveData = useCallback(async (s: any, q: any, i: any, b: any, a: any) => {
@@ -225,16 +253,13 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const weeklySeed = format(virtualTime, 'yyyy-') + getWeek(virtualTime);
     const monthlySeed = format(virtualTime, 'yyyy-MM');
 
-    // 1. Seleccionar Mensuales primero (tienen prioridad)
     const monthly = shuffleWithSeed(allItems, monthlySeed).slice(0, 6);
     const monthlyIds = new Set(monthly.map(i => i.id));
 
-    // 2. Seleccionar Semanales excluyendo Mensuales
     const weeklyPool = allItems.filter(i => !monthlyIds.has(i.id));
     const weekly = shuffleWithSeed(weeklyPool, weeklySeed).slice(0, 6);
     const weeklyIds = new Set(weekly.map(i => i.id));
 
-    // 3. Seleccionar Diarios excluyendo Mensuales y Semanales
     const dailyPool = allItems.filter(i => !monthlyIds.has(i.id) && !weeklyIds.has(i.id));
     const daily = shuffleWithSeed(dailyPool, dailySeed).slice(0, 6);
 
@@ -249,9 +274,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       
       const purchaseDate = new Date(dateStr);
       
-      // Comprobar si el objeto fue comprado en la rotación actual
-      // Como ahora cualquier objeto puede estar en cualquier sitio, 
-      // comprobamos si la compra coincide con el periodo de la rotación
       if (isSameDay(purchaseDate, virtualTime)) result[id] = true;
       else if (isSameWeek(purchaseDate, virtualTime)) result[id] = true;
       else if (isSameMonth(purchaseDate, virtualTime)) result[id] = true;
