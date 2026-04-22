@@ -15,7 +15,7 @@ interface GameStateContextType {
   loading: boolean;
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  completeQuest: (id: string) => void;
+  completeQuest: (id: string, quality?: 'mal' | 'bien' | 'excelente') => void;
   failHabit: (id: string) => void;
   useItem: (id: string) => void;
   takeDamage: (amount: number) => void;
@@ -203,7 +203,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
               updatedQuest.recoverableStreak = undefined;
             }
 
-            // Solo penalizamos si ayer era un día activo y no se completó
             if (wasActiveYesterday && !completedYesterday && !completedToday && (q.streak || 0) > 0) {
               updatedQuest.recoverableStreak = q.streak;
               updatedQuest.streak = 0;
@@ -351,7 +350,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const now = virtualTime.getTime();
     Object.entries(stats.activeTimers || {}).forEach(([itemId, expiration]) => {
       if (expiration > now) {
-        const item = allItems.find(i => i.id === itemId);
+        const item = allItems.find(i => i.id === id);
         if (item?.effect.xpMultiplier) multiplier *= item.effect.xpMultiplier;
       }
     });
@@ -392,29 +391,28 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     if (item.category === 'consumible') showSuccess(`Usado: ${item.title}`);
   }, [allItems, virtualTime]);
 
-  const completeQuest = useCallback((id: string) => {
+  const completeQuest = useCallback((id: string, quality: 'mal' | 'bien' | 'excelente' = 'bien') => {
     const todayStr = format(virtualTime, 'yyyy-MM-dd');
     const yesterdayStr = format(subDays(virtualTime, 1), 'yyyy-MM-dd');
     const quest = quests.find(q => q.id === id);
     if (!quest || quest.completed || quest.failed) return;
     checkFarming('complete');
+    
     const rewards = { easy: { xp: 10, gold: 5, attr: 0.1 }, medium: { xp: 25, gold: 15, attr: 0.2 }, hard: { xp: 60, gold: 40, attr: 0.5 } };
     const r = rewards[quest.difficulty];
+    
+    // Ajuste por calidad (poca diferencia)
+    const qualityMultiplier = quality === 'mal' ? 0.9 : quality === 'excelente' ? 1.1 : 1.0;
+    
     const multiplier = getActiveMultiplier();
-    const finalXp = Math.floor(r.xp * multiplier);
+    const finalXp = Math.floor(r.xp * multiplier * qualityMultiplier);
+    
     setQuests(prev => prev.map(q => {
       if (q.id === id) {
         let newStreak = q.streak || 0;
         if (q.type !== 'todo') {
-          // Lógica de racha mejorada para días activos
-          if (q.lastCompletedDate === yesterdayStr) {
-            newStreak += 1;
-          } else if (q.lastCompletedDate !== todayStr) {
-            // Si no se completó ayer, pero ayer era un día de descanso, la racha debería mantenerse
-            // Sin embargo, checkDayReset ya maneja la rotura de racha. 
-            // Aquí simplemente reiniciamos si no hay racha previa válida.
-            newStreak = 1;
-          }
+          if (q.lastCompletedDate === yesterdayStr) newStreak += 1;
+          else if (q.lastCompletedDate !== todayStr) newStreak = 1;
         }
         const newHistory = q.type !== 'todo' ? [...(q.history || []), todayStr] : (q.history || []);
         return { 
@@ -443,7 +441,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         gameStats: { ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + r.gold }
       };
     });
-    showSuccess(`¡Misión completada! +${r.gold} Oro`);
+    showSuccess(`¡Misión completada (${quality})! +${finalXp} XP`);
   }, [quests, virtualTime, getActiveMultiplier, checkFarming]);
 
   const failHabit = useCallback((id: string) => {

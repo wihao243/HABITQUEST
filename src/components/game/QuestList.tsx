@@ -9,13 +9,14 @@ import { QuestDialog } from "./QuestDialog";
 import { useGameState } from "@/hooks/use-game-state";
 import { HabitHistoryDialog } from "./HabitHistoryDialog";
 import { GlobalHabitHistory } from "./GlobalHabitHistory";
+import { QualitySelectionDialog } from "./QualitySelectionDialog";
 import { format, isBefore } from "date-fns";
 import { es } from "date-fns/locale";
 
 interface QuestListProps {
   quests: Quest[];
   type: 'daily' | 'habit' | 'todo';
-  onComplete: (id: string) => void;
+  onComplete: (id: string, quality?: 'mal' | 'bien' | 'excelente') => void;
   onFail: (id: string) => void;
   onAdd: (data: Omit<Quest, 'id' | 'completed' | 'streak'>) => void;
   onUpdate: (id: string, data: Partial<Quest>) => void;
@@ -29,12 +30,16 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
   const [showCompleted, setShowCompleted] = useState(false);
   const [showFailed, setShowFailed] = useState(true);
   const [showRestDays, setShowRestDays] = useState(false);
+  
+  // Estado para el diálogo de calidad
+  const [qualityDialogOpen, setQualityDialogOpen] = useState(false);
+  const [selectedQuestId, setSelectedQuestId] = useState<string | null>(null);
+  const [selectedQuestTitle, setSelectedQuestTitle] = useState("");
 
   const currentDayOfWeek = virtualTime.getDay();
 
   const filteredQuests = quests.filter(q => q.type === type);
   
-  // Lógica de filtrado por días activos para hábitos
   const activeQuests = filteredQuests.filter(q => {
     if (q.completed || q.failed) return false;
     if (type === 'habit' && q.activeDays && !q.activeDays.includes(currentDayOfWeek)) return false;
@@ -62,6 +67,20 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
   const handleOpenEdit = (quest: Quest) => {
     setEditingQuest(quest);
     setIsDialogOpen(true);
+  };
+
+  const handleCompleteClick = (quest: Quest) => {
+    setSelectedQuestId(quest.id);
+    setSelectedQuestTitle(quest.title);
+    setQualityDialogOpen(true);
+  };
+
+  const handleQualitySelect = (quality: 'mal' | 'bien' | 'excelente') => {
+    if (selectedQuestId) {
+      onComplete(selectedQuestId, quality);
+      setQualityDialogOpen(false);
+      setSelectedQuestId(null);
+    }
   };
 
   const handleSubmit = (data: any) => {
@@ -169,7 +188,7 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
                 )}
                 <Button 
                   disabled={quest.completed}
-                  onClick={() => onComplete(quest.id)}
+                  onClick={() => handleCompleteClick(quest)}
                   className={cn(
                     "h-11 px-6 font-black uppercase tracking-tighter",
                     quest.completed ? "bg-emerald-500" : "bg-slate-900 hover:bg-indigo-600"
@@ -291,6 +310,13 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
         onSubmit={handleSubmit}
         initialData={editingQuest}
         type={type}
+      />
+
+      <QualitySelectionDialog 
+        open={qualityDialogOpen}
+        onOpenChange={setQualityDialogOpen}
+        onSelect={handleQualitySelect}
+        title={selectedQuestTitle}
       />
     </div>
   );
