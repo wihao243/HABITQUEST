@@ -225,24 +225,18 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const weeklySeed = format(virtualTime, 'yyyy-') + getWeek(virtualTime);
     const monthlySeed = format(virtualTime, 'yyyy-MM');
 
-    const dailyPool = allItems.filter(i => i.effect.daily || i.category === 'consumible');
-    const daily = shuffleWithSeed(dailyPool, dailySeed).slice(0, 6);
-    const dailyIds = new Set(daily.map(i => i.id));
+    // 1. Seleccionar Mensuales primero (tienen prioridad)
+    const monthly = shuffleWithSeed(allItems, monthlySeed).slice(0, 6);
+    const monthlyIds = new Set(monthly.map(i => i.id));
 
-    let weeklyPool = allItems.filter(i => i.effect.weekly && !dailyIds.has(i.id));
-    if (weeklyPool.length < 6) {
-      const fallback = allItems.filter(i => !dailyIds.has(i.id) && !weeklyPool.find(wp => wp.id === i.id));
-      weeklyPool = [...weeklyPool, ...fallback];
-    }
+    // 2. Seleccionar Semanales excluyendo Mensuales
+    const weeklyPool = allItems.filter(i => !monthlyIds.has(i.id));
     const weekly = shuffleWithSeed(weeklyPool, weeklySeed).slice(0, 6);
     const weeklyIds = new Set(weekly.map(i => i.id));
 
-    let monthlyPool = allItems.filter(i => i.effect.monthly && !dailyIds.has(i.id) && !weeklyIds.has(i.id));
-    if (monthlyPool.length < 6) {
-      const fallback = allItems.filter(i => !dailyIds.has(i.id) && !weeklyIds.has(i.id) && !monthlyPool.find(mp => mp.id === i.id));
-      monthlyPool = [...monthlyPool, ...fallback];
-    }
-    const monthly = shuffleWithSeed(monthlyPool, monthlySeed).slice(0, 6);
+    // 3. Seleccionar Diarios excluyendo Mensuales y Semanales
+    const dailyPool = allItems.filter(i => !monthlyIds.has(i.id) && !weeklyIds.has(i.id));
+    const daily = shuffleWithSeed(dailyPool, dailySeed).slice(0, 6);
 
     return { daily, weekly, monthly };
   }, [allItems, virtualTime]);
@@ -254,11 +248,13 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       if (!item) return;
       
       const purchaseDate = new Date(dateStr);
-      const isDaily = item.effect.daily || item.category === 'consumible';
       
-      if (isDaily && isSameDay(purchaseDate, virtualTime)) result[id] = true;
-      else if (item.effect.weekly && isSameWeek(purchaseDate, virtualTime)) result[id] = true;
-      else if (item.effect.monthly && isSameMonth(purchaseDate, virtualTime)) result[id] = true;
+      // Comprobar si el objeto fue comprado en la rotación actual
+      // Como ahora cualquier objeto puede estar en cualquier sitio, 
+      // comprobamos si la compra coincide con el periodo de la rotación
+      if (isSameDay(purchaseDate, virtualTime)) result[id] = true;
+      else if (isSameWeek(purchaseDate, virtualTime)) result[id] = true;
+      else if (isSameMonth(purchaseDate, virtualTime)) result[id] = true;
     });
     return result;
   }, [boughtItemsLog, allItems, virtualTime]);
@@ -521,7 +517,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     setActiveCombat(null);
   }, []);
 
-  const buyItem = useCallback((item: ShopItem) => {
+  const buyItem = useCallback((item: ShopItem, source: string) => {
     if (stats.gold >= item.cost) {
       setStats(prev => ({ ...prev, gold: prev.gold - item.cost }));
       setInventory(prev => [...prev, item.id]);
