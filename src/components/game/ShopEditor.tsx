@@ -31,7 +31,7 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
     icon: "🎁",
     rarity: "comun",
     description: "",
-    effect: { daily: true, hp: 0, xpFlat: 0, xpMultiplier: 1, timer: 0 }
+    effect: { hp: 0, xpFlat: 0, xpMultiplier: 1, timer: 0 }
   });
 
   const calculateAutoCost = (effect: any) => {
@@ -72,10 +72,7 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
         hp: item.effect.hp || 0,
         xpFlat: item.effect.xpFlat || 0,
         xpMultiplier: item.effect.xpMultiplier || 1,
-        timer: item.effect.timer || 0,
-        daily: item.effect.daily || false,
-        weekly: item.effect.weekly || false,
-        monthly: item.effect.monthly || false
+        timer: item.effect.timer || 0
       } 
     });
     setIsFormOpen(true);
@@ -99,25 +96,7 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
       icon: "🎁",
       rarity: "comun",
       description: "",
-      effect: { daily: true, hp: 0, xpFlat: 0, xpMultiplier: 1, timer: 0 }
-    });
-  };
-
-  const getRotationType = () => {
-    if (formData.effect.monthly) return "monthly";
-    if (formData.effect.weekly) return "weekly";
-    return "daily";
-  };
-
-  const setRotationType = (type: string) => {
-    setFormData({
-      ...formData,
-      effect: {
-        ...formData.effect,
-        daily: type === "daily",
-        weekly: type === "weekly",
-        monthly: type === "monthly"
-      }
+      effect: { hp: 0, xpFlat: 0, xpMultiplier: 1, timer: 0 }
     });
   };
 
@@ -196,9 +175,6 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
                           )}>
                             {item.rarity}
                           </Badge>
-                          <Badge variant="secondary" className="text-[8px] uppercase font-black px-1 h-4">
-                            {item.effect.monthly ? "Mensual" : item.effect.weekly ? "Semanal" : "Diario"}
-                          </Badge>
                         </div>
                       </div>
                     </div>
@@ -251,7 +227,7 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="col-span-2 space-y-2">
               <Label className="text-[10px] font-black uppercase text-slate-500">Rareza</Label>
               <Select value={formData.rarity} onValueChange={(v: any) => setFormData({...formData, rarity: v})}>
                 <SelectTrigger className="border-2 font-bold h-11"><SelectValue /></SelectTrigger>
@@ -260,23 +236,6 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
                   <SelectItem value="raro">Raro</SelectItem>
                   <SelectItem value="epico">Épico</SelectItem>
                   <SelectItem value="legendario">Legendario</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-slate-500">Frecuencia (Rotación)</Label>
-              <Select value={getRotationType()} onValueChange={setRotationType}>
-                <SelectTrigger className="border-2 font-bold h-11">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-3 h-3" />
-                    <SelectValue />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">Diario</SelectItem>
-                  <SelectItem value="weekly">Semanal</SelectItem>
-                  <SelectItem value="monthly">Mensual</SelectItem>
                 </SelectContent>
               </Select>
             </div>
