@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { CharacterStats, Quest, Monster, ShopItem, AttributeDefinition, Penalty } from "@/types/game";
 import { ALL_ITEMS as INITIAL_ITEMS } from "@/data/items";
+import { ALL_PENALTIES } from "@/data/penalties";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/lib/supabase";
 import { format, addDays, isSameDay, isSameWeek, isSameMonth, getWeek, subDays } from "date-fns";
@@ -157,11 +158,8 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
 
     Object.entries(stats.activeTimers || {}).forEach(([id, expiration]) => {
       if (now >= expiration) {
-        // Si no hemos notificado este temporizador en esta sesión
         if (!notifiedTimersRef.current.has(id)) {
           const item = allItems.find(i => i.id === id);
-          // Solo notificamos si ha expirado recientemente (últimos 10 segundos)
-          // Esto evita que salten notificaciones viejas al recargar la página
           if (item && (now - expiration < 10000)) {
             playAlarm();
             showError(`¡Temporizador finalizado: ${item.title}!`);
@@ -169,8 +167,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
           notifiedTimersRef.current.add(id);
         }
         
-        // Marcamos para eliminar del estado si lleva más de 5 segundos expirado
-        // Esto limpia la base de datos y evita el bug de repetición
         if (now - expiration > 5000) {
           toRemove.push(id);
         }
@@ -368,7 +364,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const now = virtualTime.getTime();
     Object.entries(stats.activeTimers || {}).forEach(([itemId, expiration]) => {
       if (expiration > now) {
-        const item = allItems.find(i => i.id === id);
+        const item = allItems.find(i => i.id === itemId);
         if (item?.effect.xpMultiplier) multiplier *= item.effect.xpMultiplier;
       }
     });
@@ -466,7 +462,15 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     if (!quest || quest.failed || quest.completed) return;
     
     const amount = 5;
-    setStats(prev => ({ ...prev, hp: Math.max(0, prev.hp - amount) }));
+    setStats(prev => {
+      const newHp = Math.max(0, prev.hp - amount);
+      let newPenalties = [...(prev.activePenalties || [])];
+      if (newHp <= 0 && newPenalties.length === 0) {
+        const randomPenalty = ALL_PENALTIES[Math.floor(Math.random() * ALL_PENALTIES.length)];
+        newPenalties.push(randomPenalty.id);
+      }
+      return { ...prev, hp: newHp, activePenalties: newPenalties };
+    });
     setQuests(prev => prev.map(q => q.id === id ? { ...q, completed: false, failed: true } : q));
     showError("¡Hábito fallido! Has recibido daño y el hábito se ha bloqueado por hoy.");
   }, [quests]);
@@ -530,7 +534,19 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   }, [activeCombat, virtualTime, getActiveMultiplier]);
 
   const loseCombat = useCallback((remainingHp: number) => {
-    setStats(prev => ({ ...prev, hp: remainingHp, gameStats: { ...prev.gameStats, totalDeaths: prev.gameStats.totalDeaths + 1 } }));
+    setStats(prev => {
+      let newPenalties = [...(prev.activePenalties || [])];
+      if (remainingHp <= 0 && newPenalties.length === 0) {
+        const randomPenalty = ALL_PENALTIES[Math.floor(Math.random() * ALL_PENALTIES.length)];
+        newPenalties.push(randomPenalty.id);
+      }
+      return { 
+        ...prev, 
+        hp: remainingHp, 
+        activePenalties: newPenalties,
+        gameStats: { ...prev.gameStats, totalDeaths: prev.gameStats.totalDeaths + 1 } 
+      };
+    });
     setActiveCombat(null);
   }, []);
 
@@ -551,7 +567,15 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const value = {
     stats, quests, inventory, virtualTime, allItems, user, loading, activeTab, setActiveTab,
     completeQuest, failHabit, useItem, recoverStreak,
-    takeDamage: useCallback((amount: number) => setStats(prev => ({ ...prev, hp: Math.max(0, prev.hp - amount) })), []),
+    takeDamage: useCallback((amount: number) => setStats(prev => {
+      const newHp = Math.max(0, prev.hp - amount);
+      let newPenalties = [...(prev.activePenalties || [])];
+      if (newHp <= 0 && newPenalties.length === 0) {
+        const randomPenalty = ALL_PENALTIES[Math.floor(Math.random() * ALL_PENALTIES.length)];
+        newPenalties.push(randomPenalty.id);
+      }
+      return { ...prev, hp: newHp, activePenalties: newPenalties };
+    }), []),
     addQuest: useCallback((data: any) => {
       checkFarming('add');
       setQuests(prev => [...prev, { ...data, id: Math.random().toString(36).substr(2, 9), completed: false, streak: data.type !== 'todo' ? 0 : undefined }]);
