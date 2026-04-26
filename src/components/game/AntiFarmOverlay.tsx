@@ -45,7 +45,7 @@ export const AntiFarmOverlay = ({ blockedUntil, isPermanent, banCount }: AntiFar
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-slate-950 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-rose-900/20 via-transparent to-transparent" />
       
       <Card className="max-w-md w-full p-8 bg-slate-900 border-4 border-rose-600 shadow-[0_0_50px_rgba(225,29,72,0.3)] text-center space-y-6 relative overflow-hidden">

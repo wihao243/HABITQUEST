@@ -56,7 +56,7 @@ export const DeathOverlay = ({ penaltyIds, onComplete, onRevive }: DeathOverlayP
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[45] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
       <div className="max-w-2xl w-full space-y-8 py-12">
         <div className="text-center space-y-4">
           <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-rose-600 border-8 border-rose-900 animate-pulse">

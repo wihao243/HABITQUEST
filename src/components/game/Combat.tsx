@@ -219,7 +219,7 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
   }, [monster.name]);
 
   return (
-    <div className="fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-40 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
       <Card className="max-w-4xl w-full bg-slate-900 border-4 border-slate-800 overflow-hidden shadow-2xl relative">
         
         {/* Pantalla de Victoria */}
