@@ -10,7 +10,7 @@ export const WORLD_REGIONS: Region[] = [
     color: 'bg-emerald-500',
     monsters: [
       { id: 'm1', name: 'Slime de Lodo', avatar: '💧', level: 1, hp: 30, maxHp: 30, damage: 5, xpReward: 3, goldReward: 2, description: 'Una masa pegajosa que ralentiza tus movimientos.' },
-      { id: 'm2', name: 'Duende del Sueño', avatar: '/src/assets/duende-sueno.png', level: 2, hp: 45, maxHp: 45, damage: 8, xpReward: 5, goldReward: 3, description: 'Te lanza polvos mágicos que te dan ganas de dormir.' },
+      { id: 'm2', name: 'Duende del Sueño', avatar: '/duende-sueno.png', level: 2, hp: 45, maxHp: 45, damage: 8, xpReward: 5, goldReward: 3, description: 'Te lanza polvos mágicos que te dan ganas de dormir.' },
       { id: 'm3', name: 'Lobo de las Sombras', avatar: '🐺', level: 3, hp: 60, maxHp: 60, damage: 12, xpReward: 8, goldReward: 5, description: 'Acecha a los que pierden el enfoque.' },
     ],
     boss: { id: 'b1', name: 'Gran Ent de la Procrastinación', avatar: '🌳', level: 5, hp: 150, maxHp: 150, damage: 20, xpReward: 30, goldReward: 15, description: 'Un árbol milenario que ha atrapado a miles en su inactividad.' }
