@@ -1,26 +1,26 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
-import { Trophy, Medal, User, Star, Crown, RefreshCw } from "lucide-react";
+import { Trophy, Medal, User, Star, Crown, RefreshCw, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CharacterStats } from "@/types/game";
+import { ProfileDetailsDialog } from "./ProfileDetailsDialog";
 
 interface LeaderboardEntry {
   id: string;
-  name: string;
-  level: number;
-  avatar: string;
-  title: string;
+  stats: CharacterStats;
 }
 
 export const Leaderboard = () => {
   const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedLeader, setSelectedLeader] = useState<CharacterStats | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const fetchLeaders = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      // Obtenemos todos los perfiles que tengan datos de juego
       const { data, error } = await supabase
         .from('profiles')
         .select('id, game_state')
@@ -32,12 +32,9 @@ export const Leaderboard = () => {
         const formatted = data
           .map(d => ({
             id: d.id,
-            name: d.game_state?.name || "Héroe Anónimo",
-            level: d.game_state?.level || 1,
-            avatar: d.game_state?.avatar || "🧙‍♂️",
-            title: d.game_state?.title || "Aventurero"
+            stats: d.game_state as CharacterStats
           }))
-          .sort((a, b) => b.level - a.level)
+          .sort((a, b) => (b.stats.level || 1) - (a.stats.level || 1))
           .slice(0, 100);
         
         setLeaders(formatted);
@@ -53,6 +50,11 @@ export const Leaderboard = () => {
   useEffect(() => {
     fetchLeaders();
   }, [fetchLeaders]);
+
+  const handleLeaderClick = (stats: CharacterStats) => {
+    setSelectedLeader(stats);
+    setIsDialogOpen(true);
+  };
 
   if (loading) {
     return (
@@ -82,16 +84,21 @@ export const Leaderboard = () => {
 
       <div className="grid gap-3">
         {leaders.map((leader, index) => {
+          const stats = leader.stats;
           const isTop3 = index < 3;
-          const isImageAvatar = leader.avatar.startsWith('data:image');
+          const isImageAvatar = stats.avatar?.startsWith('data:image');
           
           return (
-            <Card key={leader.id} className={cn(
-              "p-4 flex items-center justify-between border-2 transition-all bg-white group",
-              index === 0 ? "border-yellow-400 shadow-yellow-100 shadow-lg scale-[1.02] z-10" : 
-              index === 1 ? "border-slate-300 shadow-md" : 
-              index === 2 ? "border-orange-300 shadow-sm" : "border-slate-100 hover:border-indigo-200"
-            )}>
+            <Card 
+              key={leader.id} 
+              onClick={() => handleLeaderClick(stats)}
+              className={cn(
+                "p-4 flex items-center justify-between border-2 transition-all bg-white group cursor-pointer active:scale-[0.98]",
+                index === 0 ? "border-yellow-400 shadow-yellow-100 shadow-lg scale-[1.02] z-10" : 
+                index === 1 ? "border-slate-300 shadow-md" : 
+                index === 2 ? "border-orange-300 shadow-sm" : "border-slate-100 hover:border-indigo-200"
+              )}
+            >
               <div className="flex items-center gap-4">
                 <div className="w-10 text-center font-black text-slate-400 flex items-center justify-center">
                   {index === 0 ? <Crown className="w-6 h-6 text-yellow-500 drop-shadow-sm" /> : 
@@ -105,30 +112,33 @@ export const Leaderboard = () => {
                   index === 0 ? "border-yellow-400" : "border-white"
                 )}>
                   {isImageAvatar ? (
-                    <img src={leader.avatar} alt={leader.name} className="w-full h-full object-cover" />
+                    <img src={stats.avatar} alt={stats.name} className="w-full h-full object-cover" />
                   ) : (
-                    leader.avatar
+                    stats.avatar || "🧙‍♂️"
                   )}
                 </div>
 
                 <div>
                   <p className="font-black text-slate-800 leading-tight flex items-center gap-2">
-                    {leader.name}
+                    {stats.name}
                     {index === 0 && <Star className="w-3 h-3 fill-yellow-500 text-yellow-500 animate-pulse" />}
                   </p>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{leader.title}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{stats.title}</p>
                 </div>
               </div>
 
-              <div className="text-right">
-                <p className={cn(
-                  "text-[10px] font-black uppercase",
-                  isTop3 ? "text-indigo-600" : "text-slate-400"
-                )}>Nivel</p>
-                <p className={cn(
-                  "text-2xl font-black leading-none",
-                  index === 0 ? "text-yellow-600" : "text-slate-900"
-                )}>{leader.level}</p>
+              <div className="flex items-center gap-6">
+                <div className="text-right">
+                  <p className={cn(
+                    "text-[10px] font-black uppercase",
+                    isTop3 ? "text-indigo-600" : "text-slate-400"
+                  )}>Nivel</p>
+                  <p className={cn(
+                    "text-2xl font-black leading-none",
+                    index === 0 ? "text-yellow-600" : "text-slate-900"
+                  )}>{stats.level}</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-indigo-500 transition-colors" />
               </div>
             </Card>
           );
@@ -142,6 +152,12 @@ export const Leaderboard = () => {
           </div>
         )}
       </div>
+
+      <ProfileDetailsDialog 
+        stats={selectedLeader} 
+        open={isDialogOpen} 
+        onOpenChange={setIsDialogOpen} 
+      />
     </div>
   );
 };
