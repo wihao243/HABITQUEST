@@ -35,6 +35,14 @@ export const WorldMap = ({ player, onFight, currentTime }: WorldMapProps) => {
     return { minutes, seconds };
   };
 
+  const renderAvatar = (avatar: string, className?: string) => {
+    const isImage = avatar.startsWith('/') || avatar.startsWith('http') || avatar.startsWith('data:');
+    if (isImage) {
+      return <img src={avatar} alt="Avatar" className={cn("w-full h-full object-cover rounded-xl", className)} />;
+    }
+    return avatar;
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center gap-2">
@@ -110,8 +118,8 @@ export const WorldMap = ({ player, onFight, currentTime }: WorldMapProps) => {
                     cooldown ? "opacity-60 grayscale" : "hover:border-rose-400"
                   )}>
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl">
-                        {monster.avatar}
+                      <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl overflow-hidden">
+                        {renderAvatar(monster.avatar)}
                       </div>
                       <div>
                         <p className="font-black text-slate-800 leading-tight">{monster.name}</p>
@@ -152,10 +160,10 @@ export const WorldMap = ({ player, onFight, currentTime }: WorldMapProps) => {
                       cooldown ? "border-slate-200 bg-slate-50 grayscale opacity-60" : "border-rose-500 bg-rose-50"
                     )}>
                       <div className={cn(
-                        "w-24 h-24 rounded-full border-4 flex items-center justify-center text-6xl shadow-lg",
+                        "w-24 h-24 rounded-full border-4 flex items-center justify-center text-6xl shadow-lg overflow-hidden",
                         cooldown ? "bg-slate-400 border-slate-300" : "bg-rose-600 border-white"
                       )}>
-                        {selectedRegion.boss!.avatar}
+                        {renderAvatar(selectedRegion.boss!.avatar)}
                       </div>
                       <div>
                         <h5 className="text-2xl font-black uppercase italic text-rose-900">{selectedRegion.boss!.name}</h5>

@@ -45,7 +45,8 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
   const isClickerMode = monster.combatType === 'clicker';
   
   const addLog = (msg: string) => setLog(prev => [msg, ...prev].slice(0, 5));
-  const isImageAvatar = player.avatar.startsWith('data:image');
+  const isImageAvatar = player.avatar.startsWith('data:image') || player.avatar.startsWith('/') || player.avatar.startsWith('http');
+  const isMonsterImageAvatar = monster.avatar.startsWith('/') || monster.avatar.startsWith('http') || monster.avatar.startsWith('data:');
 
   // Calcular multiplicador de XP actual para mostrar en la pantalla de victoria
   const xpMultiplier = (() => {
@@ -289,12 +290,16 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8">
           <div className="flex flex-col items-center space-y-6">
             <div className={cn(
-              "w-48 h-48 rounded-3xl bg-slate-800 border-4 border-rose-500 flex items-center justify-center text-8xl shadow-lg transition-all duration-300",
+              "w-48 h-48 rounded-3xl bg-slate-800 border-4 border-rose-500 flex items-center justify-center text-8xl shadow-lg transition-all duration-300 overflow-hidden",
               animating === "monster" && "scale-110 translate-y-4",
               monsterHp <= 0 && "opacity-0 scale-50",
               clickerPhase === 'active' && "animate-bounce"
             )}>
-              {monster.avatar}
+              {isMonsterImageAvatar ? (
+                <img src={monster.avatar} alt={monster.name} className="w-full h-full object-cover" />
+              ) : (
+                monster.avatar
+              )}
             </div>
             <div className="w-full space-y-2">
               <div className="flex justify-between text-rose-400 font-black uppercase text-xs">
