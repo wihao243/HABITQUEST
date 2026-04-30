@@ -5,10 +5,11 @@ import { Monster, CharacterStats, ShopItem } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Sword, Package, ShieldAlert, X, Zap, MousePointer2, Trophy, Coins, Star, ChevronRight } from "lucide-react";
+import { Sword, Package, ShieldAlert, X, Zap, MousePointer2, Trophy, Coins, Star, ChevronRight, Move } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DodgeArena } from "./DodgeArena";
 import { LightningDodge } from "./LightningDodge";
+import { MazeEscape } from "./MazeEscape";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useGameState } from "@/hooks/use-game-state";
 
@@ -33,6 +34,7 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
   const [showVictory, setShowVictory] = useState(false);
   const [animating, setAnimating] = useState<"player" | "monster" | null>(null);
   const [showDodge, setShowDodge] = useState(false);
+  const [showMaze, setShowMaze] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
 
   // Estados para el minijuego de Clicker (Mundo 3)
@@ -44,11 +46,14 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
   const isDodgeMode = monster.level >= 5;
   const isClickerMode = monster.combatType === 'clicker';
   
+  // Detectar si estamos en el Bosque de los Susurros (Región 1)
+  // Los IDs de monstruos de la R1 empiezan por m1, m2, m3 o b1
+  const isForestRegion = monster.id.startsWith('m1') || monster.id.startsWith('m2') || monster.id.startsWith('m3') || monster.id.startsWith('b1');
+
   const addLog = (msg: string) => setLog(prev => [msg, ...prev].slice(0, 5));
   const isImageAvatar = player.avatar.startsWith('data:image') || player.avatar.startsWith('/') || player.avatar.startsWith('http');
   const isMonsterImageAvatar = monster.avatar.startsWith('/') || monster.avatar.startsWith('http') || monster.avatar.startsWith('data:');
 
-  // Calcular multiplicador de XP actual para mostrar en la pantalla de victoria
   const xpMultiplier = (() => {
     let multiplier = 1;
     const now = virtualTime.getTime();
@@ -131,9 +136,7 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
 
   const handleManualClick = () => {
     if (clickerPhase !== 'active' || isFinished) return;
-    
     const damagePerClick = Math.floor(player.level / 2) + 1;
-    
     setMonsterHp(prev => {
       const next = Math.max(0, prev - damagePerClick);
       if (next <= 0 && !isFinished) {
@@ -152,7 +155,6 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
   const endClickerPhase = () => {
     setClickerPhase('none');
     addLog(`¡Tiempo agotado! El asalto ha terminado.`);
-    
     if (monsterHp > 0) {
       setIsPlayerTurn(false);
       if (isDodgeMode) setTimeout(() => setShowDodge(true), 300);
@@ -161,23 +163,56 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
 
   const handleUseItem = (item: ShopItem) => {
     if (!isPlayerTurn || isFinished || animating || clickerPhase !== 'none') return;
-    
     const healAmount = item.effect.hp || 0;
     const newHp = Math.min(player.maxHp, playerHp + healAmount);
     setPlayerHp(newHp);
     addLog(`Usas ${item.title} y recuperas ${healAmount} HP.`);
-    
     onUseItem(item.id);
     setShowInventory(false);
-
     setTimeout(() => {
       setIsPlayerTurn(false);
       if (isDodgeMode) setTimeout(() => setShowDodge(true), 300);
     }, 400);
   };
 
+  const handleEscapeClick = () => {
+    if (!isPlayerTurn || isFinished || animating || clickerPhase !== 'none') return;
+    
+    if (isForestRegion) {
+      setShowMaze(true);
+      addLog("¡Intentas huir por el laberinto del bosque!");
+    } else {
+      onEscape(playerHp);
+    }
+  };
+
+  const handleMazeSuccess = () => {
+    setShowMaze(false);
+    onEscape(playerHp);
+  };
+
+  const handleMazeFailure = (damage: number) => {
+    setShowMaze(false);
+    const newHp = Math.max(0, playerHp - damage);
+    setPlayerHp(newHp);
+    addLog(`¡${monster.name} te ha atrapado! Recibes ${damage} de daño.`);
+    
+    if (newHp <= 0) {
+      setIsFinished(true);
+      setTimeout(() => onLose(0), 800);
+    } else {
+      setIsPlayerTurn(false);
+      // Después de que te pille, el bicho ataca (si no es modo esquiva, ataca directo)
+      if (!isDodgeMode) {
+        // El useEffect de ataque del monstruo se encargará
+      } else {
+        setTimeout(() => setShowDodge(true), 300);
+      }
+    }
+  };
+
   useEffect(() => {
-    if (!isPlayerTurn && !isFinished && !isDodgeMode && !showDodge && clickerPhase === 'none') {
+    if (!isPlayerTurn && !isFinished && !isDodgeMode && !showDodge && !showMaze && clickerPhase === 'none') {
       const timer = setTimeout(() => {
         setAnimating("monster");
         const damage = Math.max(1, Math.floor(monster.damage - (player.attributes.fuerza * 0.5)));
@@ -198,7 +233,7 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
       }, 600);
       return () => clearTimeout(timer);
     }
-  }, [isPlayerTurn, isFinished, isDodgeMode, showDodge, monster.damage, monster.name, player.attributes.fuerza, playerHp, onLose, clickerPhase]);
+  }, [isPlayerTurn, isFinished, isDodgeMode, showDodge, showMaze, monster.damage, monster.name, player.attributes.fuerza, playerHp, onLose, clickerPhase]);
 
   const handleDodgeHit = useCallback((damage: number) => {
     setPlayerHp(prev => {
@@ -230,31 +265,22 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
               <div className="absolute inset-0 bg-yellow-500 blur-3xl opacity-20 animate-pulse" />
               <Trophy className="w-24 h-24 text-yellow-500 relative z-10 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" />
             </div>
-            
             <h2 className="text-5xl font-black text-white italic uppercase tracking-tighter mb-2">¡Victoria!</h2>
             <p className="text-indigo-400 font-bold uppercase tracking-widest text-sm mb-12">Has derrotado a {monster.name}</p>
-            
             <div className="grid grid-cols-2 gap-6 w-full max-w-md mb-12">
               <div className="bg-slate-800/50 border-2 border-blue-500/30 p-6 rounded-3xl text-center space-y-2">
                 <div className="flex justify-center"><Star className="w-8 h-8 text-blue-400" /></div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Experiencia</p>
                 <p className="text-3xl font-black text-white">+{finalXpReward}</p>
-                {xpMultiplier > 1 && (
-                  <p className="text-[10px] font-black text-blue-400 uppercase">Bonus x{xpMultiplier.toFixed(1)}</p>
-                )}
+                {xpMultiplier > 1 && <p className="text-[10px] font-black text-blue-400 uppercase">Bonus x{xpMultiplier.toFixed(1)}</p>}
               </div>
-              
               <div className="bg-slate-800/50 border-2 border-yellow-500/30 p-6 rounded-3xl text-center space-y-2">
                 <div className="flex justify-center"><Coins className="w-8 h-8 text-yellow-500" /></div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Oro Ganado</p>
                 <p className="text-3xl font-black text-white">+{monster.goldReward}</p>
               </div>
             </div>
-            
-            <Button 
-              onClick={() => onWin(monster.xpReward, monster.goldReward, playerHp)}
-              className="w-full max-w-md h-16 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xl uppercase italic tracking-tighter shadow-lg group"
-            >
+            <Button onClick={() => onWin(monster.xpReward, monster.goldReward, playerHp)} className="w-full max-w-md h-16 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xl uppercase italic tracking-tighter shadow-lg group">
               Reclamar Botín <ChevronRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
             </Button>
           </div>
@@ -295,11 +321,7 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
               monsterHp <= 0 && "opacity-0 scale-50",
               clickerPhase === 'active' && "animate-bounce"
             )}>
-              {isMonsterImageAvatar ? (
-                <img src={monster.avatar} alt={monster.name} className="w-full h-full object-cover" />
-              ) : (
-                monster.avatar
-              )}
+              {isMonsterImageAvatar ? <img src={monster.avatar} alt={monster.name} className="w-full h-full object-cover" /> : monster.avatar}
             </div>
             <div className="w-full space-y-2">
               <div className="flex justify-between text-rose-400 font-black uppercase text-xs">
@@ -316,11 +338,7 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
               animating === "player" && "scale-110 -translate-y-4",
               playerHp <= 0 && "grayscale opacity-50"
             )}>
-              {isImageAvatar ? (
-                <img src={player.avatar} alt={player.name} className="w-full h-full object-cover" />
-              ) : (
-                player.avatar
-              )}
+              {isImageAvatar ? <img src={player.avatar} alt={player.name} className="w-full h-full object-cover" /> : player.avatar}
             </div>
             <div className="w-full space-y-2">
               <div className="flex justify-between text-indigo-400 font-black uppercase text-xs">
@@ -333,25 +351,26 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
         </div>
 
         <div className="bg-slate-950 p-6 border-t-4 border-slate-800">
-          {showDodge ? (
+          {showMaze ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-center gap-2 text-emerald-500 font-black uppercase italic animate-pulse">
+                <Move className="w-5 h-5" /> ¡ESCAPE DEL LABERINTO!
+              </div>
+              <MazeEscape 
+                difficulty={monster.level} 
+                onSuccess={handleMazeSuccess} 
+                onFailure={handleMazeFailure} 
+              />
+            </div>
+          ) : showDodge ? (
             <div className="space-y-4">
               <div className="flex items-center justify-center gap-2 text-rose-500 font-black uppercase italic animate-pulse">
                 <ShieldAlert className="w-5 h-5" /> ¡ESQUIVA EL ATAQUE!
               </div>
               {isClickerMode ? (
-                <LightningDodge 
-                  duration={8} 
-                  onHit={handleDodgeHit} 
-                  onComplete={handleDodgeComplete} 
-                  difficulty={monster.level} 
-                />
+                <LightningDodge duration={8} onHit={handleDodgeHit} onComplete={handleDodgeComplete} difficulty={monster.level} />
               ) : (
-                <DodgeArena 
-                  duration={8} 
-                  onHit={handleDodgeHit} 
-                  onComplete={handleDodgeComplete} 
-                  difficulty={monster.level} 
-                />
+                <DodgeArena duration={8} onHit={handleDodgeHit} onComplete={handleDodgeComplete} difficulty={monster.level} />
               )}
             </div>
           ) : clickerPhase === 'countdown' ? (
@@ -366,10 +385,7 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
                 <Progress value={(clickerTimer / 5) * 100} className="h-6 flex-1 bg-slate-800 border-2 border-yellow-500" />
                 <span className="text-xl font-black text-white w-12">{clickerTimer.toFixed(1)}s</span>
               </div>
-              <Button 
-                onClick={handleManualClick}
-                className="w-full max-w-md h-24 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-black text-4xl uppercase italic tracking-tighter shadow-[0_0_30px_rgba(234,179,8,0.4)] active:scale-95 transition-transform"
-              >
+              <Button onClick={handleManualClick} className="w-full max-w-md h-24 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-black text-4xl uppercase italic tracking-tighter shadow-[0_0_30px_rgba(234,179,8,0.4)] active:scale-95 transition-transform">
                 <MousePointer2 className="w-10 h-10 mr-4" /> ¡GOLPEA!
               </Button>
             </div>
@@ -387,7 +403,7 @@ export const Combat = ({ monster, player, inventory, allItems, onWin, onLose, on
                 <Button disabled={!isPlayerTurn || isFinished || !!animating} onClick={() => setShowInventory(true)} className="h-full bg-indigo-600 hover:bg-indigo-500 font-black uppercase flex flex-col gap-1">
                   <Package className="w-5 h-5" /> Objetos
                 </Button>
-                <Button disabled={!isPlayerTurn || isFinished || !!animating} onClick={() => onEscape(playerHp)} variant="outline" className="col-span-2 border-2 border-slate-700 text-slate-400 font-black uppercase">
+                <Button disabled={!isPlayerTurn || isFinished || !!animating} onClick={handleEscapeClick} variant="outline" className="col-span-2 border-2 border-slate-700 text-slate-400 font-black uppercase">
                   Escapar
                 </Button>
               </div>
