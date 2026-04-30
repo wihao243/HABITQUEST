@@ -17,45 +17,55 @@ interface TreeObstacle {
 }
 
 export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps) => {
-  // Generar árboles circulares aleatorios
+  // Generar árboles circulares que NO se solapan
   const [trees] = useState<TreeObstacle[]>(() => {
     const obs: TreeObstacle[] = [];
-    const count = 25 + Math.floor(Math.random() * 10); // Más árboles al ser circulares
+    const maxAttempts = 150;
+    const targetCount = 35 + Math.floor(Math.random() * 10);
     
-    for (let i = 0; i < count; i++) {
-      const radius = 3 + Math.random() * 5; // Radio entre 3% y 8%
+    const startPos = { x: 8, y: 50 };
+    const exitPos = { x: 92, y: 50 };
+
+    for (let i = 0; i < maxAttempts && obs.length < targetCount; i++) {
+      const radius = 2.5 + Math.random() * 4.5;
       const x = radius + Math.random() * (100 - radius * 2);
       const y = radius + Math.random() * (100 - radius * 2);
 
-      // Zonas seguras: Inicio (10,10), Salida (90,10) y Spawn Monstruo (90,90)
-      const distToStart = Math.sqrt(Math.pow(x - 10, 2) + Math.pow(y - 10, 2));
-      const distToExit = Math.sqrt(Math.pow(x - 90, 2) + Math.pow(y - 10, 2));
-      const distToMonster = Math.sqrt(Math.pow(x - 90, 2) + Math.pow(y - 90, 2));
+      // Verificar distancia con otros árboles (evitar solapamiento)
+      const overlaps = obs.some(tree => {
+        const dist = Math.sqrt(Math.pow(x - tree.x, 2) + Math.pow(y - tree.y, 2));
+        return dist < (tree.radius + radius + 1.5); // 1.5% de margen de separación
+      });
 
-      // Evitar que los árboles tapen puntos clave
-      if (distToStart > 15 && distToExit > 15 && distToMonster > 12) {
+      if (overlaps) continue;
+
+      // Zonas seguras: Inicio y Salida
+      const distToStart = Math.sqrt(Math.pow(x - startPos.x, 2) + Math.pow(y - startPos.y, 2));
+      const distToExit = Math.sqrt(Math.pow(x - exitPos.x, 2) + Math.pow(y - exitPos.y, 2));
+
+      if (distToStart > 12 && distToExit > 12) {
         obs.push({ x, y, radius });
       }
     }
     return obs;
   });
 
-  const [playerPos, setPlayerPos] = useState({ x: 10, y: 10 });
-  const [monsterPos, setMonsterPos] = useState({ x: 90, y: 90 });
-  const [exitPos] = useState({ x: 90, y: 10 });
+  const [playerPos, setPlayerPos] = useState({ x: 8, y: 50 });
+  const [monsterPos, setMonsterPos] = useState({ x: 92, y: 85 });
+  const [exitPos] = useState({ x: 92, y: 50 });
   
-  const playerRef = useRef({ x: 10, y: 10 });
-  const monsterRef = useRef({ x: 90, y: 90 });
+  const playerRef = useRef({ x: 8, y: 50 });
+  const monsterRef = useRef({ x: 92, y: 85 });
   const keysRef = useRef<Record<string, boolean>>({});
 
-  const playerRadius = 2.0;
+  const playerRadius = 1.8;
 
   const checkCollision = (x: number, y: number) => {
     return trees.some(tree => {
       const dx = x - tree.x;
       const dy = y - tree.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      return distance < (tree.radius + playerRadius - 0.5); // Pequeño margen de error
+      return distance < (tree.radius + playerRadius - 0.3);
     });
   };
 
@@ -73,8 +83,8 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
       const dt = (time - lastTime) / 1000;
       lastTime = time;
 
-      // 1. Movimiento del jugador con colisiones circulares
-      const pSpeed = 65;
+      // 1. Movimiento del jugador
+      const pSpeed = 68;
       let nextX = playerRef.current.x;
       let nextY = playerRef.current.y;
 
@@ -86,18 +96,16 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
       nextX = Math.max(2, Math.min(98, nextX));
       nextY = Math.max(2, Math.min(98, nextY));
 
-      // Detección de colisión con deslizamiento suave por los círculos
       if (!checkCollision(nextX, nextY)) {
         playerRef.current.x = nextX;
         playerRef.current.y = nextY;
       } else {
-        // Intentar deslizarse en X o Y por separado
         if (!checkCollision(nextX, playerRef.current.y)) playerRef.current.x = nextX;
         else if (!checkCollision(playerRef.current.x, nextY)) playerRef.current.y = nextY;
       }
 
       // 2. Movimiento del monstruo (Persecución)
-      const mSpeed = 28 + (difficulty * 2.4);
+      const mSpeed = 24 + (difficulty * 2.5);
       const dx = playerRef.current.x - monsterRef.current.x;
       const dy = playerRef.current.y - monsterRef.current.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -108,19 +116,19 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
       }
 
       // 3. Colisión con el monstruo
-      if (dist < 4.5) {
+      if (dist < 4.2) {
         cancelAnimationFrame(requestID);
-        onFailure(Math.max(12, Math.floor(difficulty * 3)));
+        onFailure(Math.max(15, Math.floor(difficulty * 3.5)));
         return;
       }
 
-      // 4. Meta
+      // 4. Meta (Lado derecho)
       const distToExit = Math.sqrt(
         Math.pow(playerRef.current.x - exitPos.x, 2) + 
         Math.pow(playerRef.current.y - exitPos.y, 2)
       );
       
-      if (distToExit < 5) {
+      if (distToExit < 4.5) {
         cancelAnimationFrame(requestID);
         onSuccess();
         return;
@@ -141,14 +149,14 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
   }, [difficulty, exitPos, onFailure, onSuccess, trees]);
 
   return (
-    <div className="relative w-full aspect-square max-w-[300px] bg-[#021a11] border-4 border-[#0f4d36] rounded-2xl overflow-hidden mx-auto shadow-2xl">
+    <div className="relative w-full aspect-[16/9] max-w-[500px] bg-[#021a11] border-4 border-[#0f4d36] rounded-2xl overflow-hidden mx-auto shadow-2xl">
       {/* Suelo del bosque */}
       <div className="absolute inset-0 opacity-20" style={{ 
         backgroundImage: 'radial-gradient(#10b981 1px, transparent 1px)', 
-        backgroundSize: '15px 15px' 
+        backgroundSize: '20px 20px' 
       }} />
 
-      {/* Árboles (Obstáculos circulares) */}
+      {/* Árboles (Obstáculos circulares que no se solapan) */}
       {trees.map((tree, i) => (
         <div 
           key={i}
@@ -157,7 +165,7 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
             left: `${tree.x}%`, 
             top: `${tree.y}%`, 
             width: `${tree.radius * 2}%`, 
-            height: `${tree.radius * 2}%`,
+            height: `${tree.radius * 2 * (16/9)}%`, // Ajuste visual por el aspect ratio
             transform: 'translate(-50%, -50%)'
           }}
         >
@@ -165,30 +173,30 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
         </div>
       ))}
 
-      {/* Salida */}
+      {/* Salida (Extremo Derecho) */}
       <div 
-        className="absolute w-12 h-12 bg-emerald-400/20 border-2 border-emerald-400/50 rounded-full flex items-center justify-center animate-pulse"
+        className="absolute w-14 h-14 bg-emerald-400/20 border-2 border-emerald-400/50 rounded-full flex items-center justify-center animate-pulse"
         style={{ left: `${exitPos.x}%`, top: `${exitPos.y}%`, transform: 'translate(-50%, -50%)' }}
       >
-        <div className="w-8 h-8 bg-emerald-500/40 rounded-full flex items-center justify-center">
-          <DoorOpen className="w-5 h-5 text-emerald-200" />
+        <div className="w-10 h-10 bg-emerald-500/40 rounded-full flex items-center justify-center">
+          <DoorOpen className="w-6 h-6 text-emerald-200" />
         </div>
       </div>
 
       {/* Monstruo (Orbe Rojo) */}
       <div 
-        className="absolute w-6 h-6 bg-rose-600 rounded-full shadow-[0_0_25px_rgba(225,29,72,1)] z-10 border-2 border-rose-400"
+        className="absolute w-7 h-7 bg-rose-600 rounded-full shadow-[0_0_30px_rgba(225,29,72,1)] z-10 border-2 border-rose-400"
         style={{ left: `${monsterPos.x}%`, top: `${monsterPos.y}%`, transform: 'translate(-50%, -50%)' }}
       />
 
       {/* Jugador (Punto Blanco) */}
       <div 
-        className="absolute w-4 h-4 bg-white rounded-full shadow-[0_0_15px_white] z-20 border-2 border-emerald-900"
+        className="absolute w-5 h-5 bg-white rounded-full shadow-[0_0_20px_white] z-20 border-2 border-emerald-900"
         style={{ left: `${playerPos.x}%`, top: `${playerPos.y}%`, transform: 'translate(-50%, -50%)' }}
       />
 
       <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded text-[8px] font-black text-rose-500 uppercase">
-        <AlertTriangle className="w-2 h-2" /> ¡Escapa del bosque!
+        <AlertTriangle className="w-2 h-2" /> Cruza el bosque hacia la derecha
       </div>
     </div>
   );
