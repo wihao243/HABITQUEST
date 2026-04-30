@@ -94,8 +94,8 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
       const dt = (time - lastTime) / 1000;
       lastTime = time;
 
-      // 1. Movimiento del jugador (Velocidad reducida de 72 a 45)
-      const pSpeed = 45;
+      // 1. Movimiento del jugador (Velocidad reducida a 35)
+      const pSpeed = 35;
       let nextX = playerRef.current.x;
       let nextY = playerRef.current.y;
 
@@ -109,7 +109,7 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
       playerRef.current.x = Math.max(2, Math.min(98, resolved.x));
       playerRef.current.y = Math.max(2, Math.min(98, resolved.y));
 
-      // 2. Movimiento del monstruo (Velocidad reducida y escalado más suave)
+      // 2. Movimiento del monstruo
       const mSpeed = 15 + (difficulty * 1.5);
       const dx = playerRef.current.x - monsterRef.current.x;
       const dy = playerRef.current.y - monsterRef.current.y;
