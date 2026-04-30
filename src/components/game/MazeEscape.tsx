@@ -57,7 +57,6 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
 
   const playerRadius = 1.6;
 
-  // Función para resolver colisiones: empuja al jugador fuera de los círculos
   const resolveCollisions = (x: number, y: number) => {
     let finalX = x;
     let finalY = y;
@@ -69,10 +68,9 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
       const minDistance = tree.radius + playerRadius;
 
       if (distance < minDistance) {
-        // Calcular cuánto hay que empujar
         const overlap = minDistance - distance;
-        const nx = dx / distance; // Vector normal X
-        const ny = dy / distance; // Vector normal Y
+        const nx = dx / distance;
+        const ny = dy / distance;
         
         finalX += nx * overlap;
         finalY += ny * overlap;
@@ -96,8 +94,8 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
       const dt = (time - lastTime) / 1000;
       lastTime = time;
 
-      // 1. Movimiento del jugador
-      const pSpeed = 72;
+      // 1. Movimiento del jugador (Velocidad reducida de 72 a 45)
+      const pSpeed = 45;
       let nextX = playerRef.current.x;
       let nextY = playerRef.current.y;
 
@@ -106,15 +104,13 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
       if (keysRef.current['arrowleft'] || keysRef.current['a']) nextX -= pSpeed * dt;
       if (keysRef.current['arrowright'] || keysRef.current['d']) nextX += pSpeed * dt;
       
-      // Aplicar resolución de colisiones (esto permite deslizarse)
       const resolved = resolveCollisions(nextX, nextY);
       
-      // Limitar a los bordes del mapa
       playerRef.current.x = Math.max(2, Math.min(98, resolved.x));
       playerRef.current.y = Math.max(2, Math.min(98, resolved.y));
 
-      // 2. Movimiento del monstruo
-      const mSpeed = 25 + (difficulty * 2.6);
+      // 2. Movimiento del monstruo (Velocidad reducida y escalado más suave)
+      const mSpeed = 15 + (difficulty * 1.5);
       const dx = playerRef.current.x - monsterRef.current.x;
       const dy = playerRef.current.y - monsterRef.current.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
