@@ -10,33 +10,31 @@ interface MazeEscapeProps {
   difficulty: number;
 }
 
-interface Obstacle {
+interface TreeObstacle {
   x: number;
   y: number;
-  w: number;
-  h: number;
+  radius: number;
 }
 
 export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps) => {
-  // Generar el laberinto aleatorio al montar el componente
-  const [obstacles] = useState<Obstacle[]>(() => {
-    const obs: Obstacle[] = [];
-    const count = 10 + Math.floor(Math.random() * 5); // Entre 10 y 15 bloques
+  // Generar árboles circulares aleatorios
+  const [trees] = useState<TreeObstacle[]>(() => {
+    const obs: TreeObstacle[] = [];
+    const count = 25 + Math.floor(Math.random() * 10); // Más árboles al ser circulares
     
     for (let i = 0; i < count; i++) {
-      const isVertical = Math.random() > 0.5;
-      const w = isVertical ? 5 : 15 + Math.random() * 20;
-      const h = isVertical ? 15 + Math.random() * 20 : 5;
-      const x = Math.random() * (100 - w);
-      const y = Math.random() * (100 - h);
+      const radius = 3 + Math.random() * 5; // Radio entre 3% y 8%
+      const x = radius + Math.random() * (100 - radius * 2);
+      const y = radius + Math.random() * (100 - radius * 2);
 
       // Zonas seguras: Inicio (10,10), Salida (90,10) y Spawn Monstruo (90,90)
-      const distToStart = Math.sqrt(Math.pow(x + w/2 - 10, 2) + Math.pow(y + h/2 - 10, 2));
-      const distToExit = Math.sqrt(Math.pow(x + w/2 - 90, 2) + Math.pow(y + h/2 - 10, 2));
-      const distToMonster = Math.sqrt(Math.pow(x + w/2 - 90, 2) + Math.pow(y + h/2 - 90, 2));
+      const distToStart = Math.sqrt(Math.pow(x - 10, 2) + Math.pow(y - 10, 2));
+      const distToExit = Math.sqrt(Math.pow(x - 90, 2) + Math.pow(y - 10, 2));
+      const distToMonster = Math.sqrt(Math.pow(x - 90, 2) + Math.pow(y - 90, 2));
 
-      if (distToStart > 18 && distToExit > 18 && distToMonster > 15) {
-        obs.push({ x, y, w, h });
+      // Evitar que los árboles tapen puntos clave
+      if (distToStart > 15 && distToExit > 15 && distToMonster > 12) {
+        obs.push({ x, y, radius });
       }
     }
     return obs;
@@ -50,12 +48,15 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
   const monsterRef = useRef({ x: 90, y: 90 });
   const keysRef = useRef<Record<string, boolean>>({});
 
+  const playerRadius = 2.0;
+
   const checkCollision = (x: number, y: number) => {
-    const r = 2.2; // Radio de colisión del jugador
-    return obstacles.some(obs => 
-      x + r > obs.x && x - r < obs.x + obs.w &&
-      y + r > obs.y && y - r < obs.y + obs.h
-    );
+    return trees.some(tree => {
+      const dx = x - tree.x;
+      const dy = y - tree.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      return distance < (tree.radius + playerRadius - 0.5); // Pequeño margen de error
+    });
   };
 
   useEffect(() => {
@@ -72,8 +73,8 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
       const dt = (time - lastTime) / 1000;
       lastTime = time;
 
-      // 1. Movimiento del jugador con colisiones
-      const pSpeed = 62;
+      // 1. Movimiento del jugador con colisiones circulares
+      const pSpeed = 65;
       let nextX = playerRef.current.x;
       let nextY = playerRef.current.y;
 
@@ -85,17 +86,18 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
       nextX = Math.max(2, Math.min(98, nextX));
       nextY = Math.max(2, Math.min(98, nextY));
 
-      // Detección de colisión con deslizamiento
+      // Detección de colisión con deslizamiento suave por los círculos
       if (!checkCollision(nextX, nextY)) {
         playerRef.current.x = nextX;
         playerRef.current.y = nextY;
       } else {
+        // Intentar deslizarse en X o Y por separado
         if (!checkCollision(nextX, playerRef.current.y)) playerRef.current.x = nextX;
         else if (!checkCollision(playerRef.current.x, nextY)) playerRef.current.y = nextY;
       }
 
-      // 2. Movimiento del monstruo (Persecución implacable)
-      const mSpeed = 26 + (difficulty * 2.3);
+      // 2. Movimiento del monstruo (Persecución)
+      const mSpeed = 28 + (difficulty * 2.4);
       const dx = playerRef.current.x - monsterRef.current.x;
       const dy = playerRef.current.y - monsterRef.current.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -108,7 +110,7 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
       // 3. Colisión con el monstruo
       if (dist < 4.5) {
         cancelAnimationFrame(requestID);
-        onFailure(Math.max(10, Math.floor(difficulty * 2.8)));
+        onFailure(Math.max(12, Math.floor(difficulty * 3)));
         return;
       }
 
@@ -136,7 +138,7 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
       window.removeEventListener('keyup', handleKeyUp);
       cancelAnimationFrame(requestID);
     };
-  }, [difficulty, exitPos, onFailure, onSuccess, obstacles]);
+  }, [difficulty, exitPos, onFailure, onSuccess, trees]);
 
   return (
     <div className="relative w-full aspect-square max-w-[300px] bg-[#021a11] border-4 border-[#0f4d36] rounded-2xl overflow-hidden mx-auto shadow-2xl">
@@ -146,19 +148,20 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
         backgroundSize: '15px 15px' 
       }} />
 
-      {/* Obstáculos generados aleatoriamente */}
-      {obstacles.map((obs, i) => (
+      {/* Árboles (Obstáculos circulares) */}
+      {trees.map((tree, i) => (
         <div 
           key={i}
-          className="absolute bg-[#064e3b] border-2 border-[#065f46] flex flex-wrap items-center justify-center overflow-hidden"
+          className="absolute bg-[#064e3b] border-2 border-[#065f46] rounded-full flex items-center justify-center shadow-lg"
           style={{ 
-            left: `${obs.x}%`, 
-            top: `${obs.y}%`, 
-            width: `${obs.w}%`, 
-            height: `${obs.h}%` 
+            left: `${tree.x}%`, 
+            top: `${tree.y}%`, 
+            width: `${tree.radius * 2}%`, 
+            height: `${tree.radius * 2}%`,
+            transform: 'translate(-50%, -50%)'
           }}
         >
-          <TreePine className="w-3 h-3 text-[#022c22] opacity-30" />
+          <TreePine className="w-1/2 h-1/2 text-[#022c22] opacity-40" />
         </div>
       ))}
 
