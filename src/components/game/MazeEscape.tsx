@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Move, Skull, DoorOpen } from "lucide-react";
+import { DoorOpen, TreePine } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MazeEscapeProps {
@@ -19,6 +19,13 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
   const monsterRef = useRef({ x: 90, y: 90 });
   const keysRef = useRef<Record<string, boolean>>({});
   
+  // Generar algunos "árboles" decorativos aleatorios
+  const trees = useRef(Array.from({ length: 15 }, () => ({
+    x: 15 + Math.random() * 70,
+    y: 15 + Math.random() * 70,
+    size: 15 + Math.random() * 15
+  }))).current;
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => { keysRef.current[e.key.toLowerCase()] = true; };
     const handleKeyUp = (e: KeyboardEvent) => { keysRef.current[e.key.toLowerCase()] = false; };
@@ -34,7 +41,7 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
       lastTime = time;
 
       // 1. Movimiento del jugador
-      const pSpeed = 60;
+      const pSpeed = 65;
       if (keysRef.current['arrowup'] || keysRef.current['w']) playerRef.current.y -= pSpeed * dt;
       if (keysRef.current['arrowdown'] || keysRef.current['s']) playerRef.current.y += pSpeed * dt;
       if (keysRef.current['arrowleft'] || keysRef.current['a']) playerRef.current.x -= pSpeed * dt;
@@ -43,8 +50,8 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
       playerRef.current.x = Math.max(2, Math.min(98, playerRef.current.x));
       playerRef.current.y = Math.max(2, Math.min(98, playerRef.current.y));
 
-      // 2. Movimiento del monstruo (IA simple de persecución)
-      const mSpeed = 25 + (difficulty * 2);
+      // 2. Movimiento del monstruo
+      const mSpeed = 28 + (difficulty * 2.5);
       const dx = playerRef.current.x - monsterRef.current.x;
       const dy = playerRef.current.y - monsterRef.current.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -88,40 +95,55 @@ export const MazeEscape = ({ onSuccess, onFailure, difficulty }: MazeEscapeProps
   }, [difficulty, exitPos, onFailure, onSuccess]);
 
   return (
-    <div className="relative w-full aspect-square max-w-[300px] bg-emerald-950 border-4 border-emerald-800 rounded-xl overflow-hidden mx-auto shadow-2xl">
-      {/* Fondo de laberinto decorativo */}
-      <div className="absolute inset-0 opacity-20" style={{ 
-        backgroundImage: 'radial-gradient(#065f46 2px, transparent 2px)', 
-        backgroundSize: '20px 20px' 
+    <div className="relative w-full aspect-square max-w-[300px] bg-[#062c1e] border-4 border-[#0f4d36] rounded-2xl overflow-hidden mx-auto shadow-2xl">
+      {/* Textura de suelo de bosque */}
+      <div className="absolute inset-0 opacity-30" style={{ 
+        backgroundImage: 'radial-gradient(#10b981 1px, transparent 1px)', 
+        backgroundSize: '15px 15px' 
       }} />
 
-      {/* Salida */}
+      {/* Árboles decorativos */}
+      {trees.map((tree, i) => (
+        <TreePine 
+          key={i}
+          className="absolute text-[#064e3b] opacity-40"
+          style={{ 
+            left: `${tree.x}%`, 
+            top: `${tree.y}%`, 
+            width: `${tree.size}px`, 
+            height: `${tree.size}px`,
+            transform: 'translate(-50%, -50%)'
+          }}
+        />
+      ))}
+
+      {/* Salida (Claro del bosque) */}
       <div 
-        className="absolute w-10 h-10 bg-emerald-500/30 border-2 border-emerald-400 rounded-lg flex items-center justify-center animate-pulse"
+        className="absolute w-12 h-12 bg-emerald-400/20 border-2 border-emerald-400/50 rounded-full flex items-center justify-center animate-pulse"
         style={{ left: `${exitPos.x}%`, top: `${exitPos.y}%`, transform: 'translate(-50%, -50%)' }}
       >
-        <DoorOpen className="w-6 h-6 text-emerald-400" />
+        <div className="w-8 h-8 bg-emerald-500/40 rounded-full flex items-center justify-center">
+          <DoorOpen className="w-5 h-5 text-emerald-200" />
+        </div>
       </div>
 
       {/* Monstruo */}
       <div 
-        className="absolute w-8 h-8 bg-rose-600 rounded-full shadow-[0_0_15px_rgba(225,29,72,0.6)] flex items-center justify-center text-lg z-10"
+        className="absolute w-8 h-8 bg-rose-600 rounded-full shadow-[0_0_20px_rgba(225,29,72,0.8)] flex items-center justify-center text-lg z-10 border-2 border-rose-400"
         style={{ left: `${monsterPos.x}%`, top: `${monsterPos.y}%`, transform: 'translate(-50%, -50%)' }}
       >
         👹
       </div>
 
-      {/* Jugador */}
+      {/* Jugador (Punto blanco limpio) */}
       <div 
-        className="absolute w-6 h-6 bg-white rounded-md shadow-lg flex items-center justify-center text-xs z-20 border-2 border-emerald-900"
+        className="absolute w-5 h-5 bg-white rounded-full shadow-[0_0_15px_white] z-20 border-2 border-emerald-900"
         style={{ left: `${playerPos.x}%`, top: `${playerPos.y}%`, transform: 'translate(-50%, -50%)' }}
-      >
-        🏃
-      </div>
+      />
 
-      <div className="absolute bottom-2 left-0 w-full text-center">
-        <p className="text-[8px] font-black text-emerald-400 uppercase tracking-widest bg-black/40 py-1">
-          ¡Llega a la puerta! Usa WASD o Flechas
+      <div className="absolute bottom-0 left-0 w-full bg-black/60 backdrop-blur-sm py-1.5">
+        <p className="text-[9px] font-black text-emerald-400 uppercase tracking-[0.2em] text-center">
+          ESCAPE DEL BOSQUE
         </p>
       </div>
     </div>
