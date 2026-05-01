@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Quest } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Flame, Plus, Skull, Edit3, Trash2, RefreshCw, ChevronDown, ChevronUp, XCircle, Calendar, Clock, Coffee } from "lucide-react";
+import { CheckCircle2, Flame, Plus, Skull, Edit3, Trash2, RefreshCw, ChevronDown, ChevronUp, XCircle, Calendar, Clock, Coffee, Search, Filter, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { QuestDialog } from "./QuestDialog";
 import { useGameState } from "@/hooks/use-game-state";
@@ -31,13 +33,26 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
   const [showFailed, setShowFailed] = useState(true);
   const [showRestDays, setShowRestDays] = useState(false);
   
+  // Estados para filtros
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statFilter, setStatFilter] = useState<string>("all");
+  const [showFilters, setShowFilters] = useState(false);
+
   const [qualityDialogOpen, setQualityDialogOpen] = useState(false);
   const [selectedQuestId, setSelectedQuestId] = useState<string | null>(null);
   const [selectedQuestTitle, setSelectedQuestTitle] = useState("");
 
   const currentDayOfWeek = virtualTime.getDay();
 
-  const filteredQuests = quests.filter(q => q.type === type);
+  // Filtrado de misiones basado en búsqueda y atributo
+  const filteredQuests = useMemo(() => {
+    return quests.filter(q => {
+      if (q.type !== type) return false;
+      const matchesSearch = q.title.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStat = statFilter === "all" || q.stat === statFilter;
+      return matchesSearch && matchesStat;
+    });
+  }, [quests, type, searchQuery, statFilter]);
   
   const activeQuests = filteredQuests.filter(q => {
     if (q.completed || q.failed) return false;
@@ -234,17 +249,81 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
           </h3>
           {type === 'habit' && <GlobalHabitHistory stats={stats} quests={quests} />}
         </div>
-        <Button onClick={handleOpenCreate} size="sm" className="bg-slate-900 hover:bg-indigo-600 font-bold">
-          <Plus className="w-4 h-4 mr-2" /> Añadir
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              "border-2 font-bold h-9",
+              (searchQuery || statFilter !== "all") ? "border-indigo-500 text-indigo-600 bg-indigo-50" : "border-slate-200"
+            )}
+          >
+            <Filter className="w-4 h-4 mr-2" /> Filtros
+          </Button>
+          <Button onClick={handleOpenCreate} size="sm" className="bg-slate-900 hover:bg-indigo-600 font-bold h-9">
+            <Plus className="w-4 h-4 mr-2" /> Añadir
+          </Button>
+        </div>
       </div>
+
+      {/* Panel de Filtros */}
+      {showFilters && (
+        <Card className="p-4 border-2 border-slate-200 bg-slate-50/50 animate-in slide-in-from-top-2 duration-300">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input 
+                placeholder="Buscar por nombre..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 border-2 font-bold h-10 bg-white"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <div className="w-full md:w-48">
+              <Select value={statFilter} onValueChange={setStatFilter}>
+                <SelectTrigger className="border-2 font-bold h-10 bg-white">
+                  <SelectValue placeholder="Atributo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los atributos</SelectItem>
+                  {stats.attributeDefinitions.map(def => (
+                    <SelectItem key={def.id} value={def.id} className="font-bold">
+                      {def.icon} {def.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="grid gap-3">
         {activeQuests.map(q => renderQuestCard(q))}
         
         {activeQuests.length === 0 && completedQuests.length === 0 && failedQuests.length === 0 && (
           <div className="text-center py-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-            <p className="text-slate-400 font-bold italic">{config[type].empty}</p>
+            <p className="text-slate-400 font-bold italic">
+              {searchQuery || statFilter !== "all" ? "No hay resultados para los filtros aplicados." : config[type].empty}
+            </p>
+            {(searchQuery || statFilter !== "all") && (
+              <Button 
+                variant="link" 
+                onClick={() => { setSearchQuery(""); setStatFilter("all"); }}
+                className="text-indigo-600 font-black uppercase text-xs mt-2"
+              >
+                Limpiar filtros
+              </Button>
+            )}
           </div>
         )}
 
