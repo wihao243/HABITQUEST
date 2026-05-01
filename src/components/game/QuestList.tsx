@@ -36,6 +36,7 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
   // Estados para filtros
   const [searchQuery, setSearchQuery] = useState("");
   const [statFilter, setStatFilter] = useState<string>("all");
+  const [difficultyFilter, setDifficultyFilter] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
 
   const [qualityDialogOpen, setQualityDialogOpen] = useState(false);
@@ -44,15 +45,16 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
 
   const currentDayOfWeek = virtualTime.getDay();
 
-  // Filtrado de misiones basado en búsqueda y atributo
+  // Filtrado de misiones basado en búsqueda, atributo y dificultad
   const filteredQuests = useMemo(() => {
     return quests.filter(q => {
       if (q.type !== type) return false;
       const matchesSearch = q.title.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStat = statFilter === "all" || q.stat === statFilter;
-      return matchesSearch && matchesStat;
+      const matchesDifficulty = difficultyFilter === "all" || q.difficulty === difficultyFilter;
+      return matchesSearch && matchesStat && matchesDifficulty;
     });
-  }, [quests, type, searchQuery, statFilter]);
+  }, [quests, type, searchQuery, statFilter, difficultyFilter]);
   
   const activeQuests = filteredQuests.filter(q => {
     if (q.completed || q.failed) return false;
@@ -256,7 +258,7 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
             onClick={() => setShowFilters(!showFilters)}
             className={cn(
               "border-2 font-bold h-9",
-              (searchQuery || statFilter !== "all") ? "border-indigo-500 text-indigo-600 bg-indigo-50" : "border-slate-200"
+              (searchQuery || statFilter !== "all" || difficultyFilter !== "all") ? "border-indigo-500 text-indigo-600 bg-indigo-50" : "border-slate-200"
             )}
           >
             <Filter className="w-4 h-4 mr-2" /> Filtros
@@ -288,20 +290,35 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
                 </button>
               )}
             </div>
-            <div className="w-full md:w-48">
-              <Select value={statFilter} onValueChange={setStatFilter}>
-                <SelectTrigger className="border-2 font-bold h-10 bg-white">
-                  <SelectValue placeholder="Atributo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los atributos</SelectItem>
-                  {stats.attributeDefinitions.map(def => (
-                    <SelectItem key={def.id} value={def.id} className="font-bold">
-                      {def.icon} {def.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-2 w-full md:w-auto">
+              <div className="w-full md:w-40">
+                <Select value={statFilter} onValueChange={setStatFilter}>
+                  <SelectTrigger className="border-2 font-bold h-10 bg-white">
+                    <SelectValue placeholder="Atributo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los atributos</SelectItem>
+                    {stats.attributeDefinitions.map(def => (
+                      <SelectItem key={def.id} value={def.id} className="font-bold">
+                        {def.icon} {def.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-full md:w-40">
+                <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+                  <SelectTrigger className="border-2 font-bold h-10 bg-white">
+                    <SelectValue placeholder="Dificultad" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las dificultades</SelectItem>
+                    <SelectItem value="easy" className="font-bold text-emerald-600">Fácil</SelectItem>
+                    <SelectItem value="medium" className="font-bold text-amber-600">Media</SelectItem>
+                    <SelectItem value="hard" className="font-bold text-rose-600">Difícil</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </Card>
@@ -313,12 +330,12 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
         {activeQuests.length === 0 && completedQuests.length === 0 && failedQuests.length === 0 && (
           <div className="text-center py-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
             <p className="text-slate-400 font-bold italic">
-              {searchQuery || statFilter !== "all" ? "No hay resultados para los filtros aplicados." : config[type].empty}
+              {searchQuery || statFilter !== "all" || difficultyFilter !== "all" ? "No hay resultados para los filtros aplicados." : config[type].empty}
             </p>
-            {(searchQuery || statFilter !== "all") && (
+            {(searchQuery || statFilter !== "all" || difficultyFilter !== "all") && (
               <Button 
                 variant="link" 
-                onClick={() => { setSearchQuery(""); setStatFilter("all"); }}
+                onClick={() => { setSearchQuery(""); setStatFilter("all"); setDifficultyFilter("all"); }}
                 className="text-indigo-600 font-black uppercase text-xs mt-2"
               >
                 Limpiar filtros
