@@ -587,25 +587,30 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     deleteQuest: useCallback((id: string) => setQuests(prev => prev.filter(q => q.id !== id)), []),
     reorderQuests: useCallback((id: string, direction: 'up' | 'down') => {
       setQuests(prev => {
-        const quest = prev.find(q => q.id === id);
-        if (!quest) return prev;
+        const questToMove = prev.find(q => q.id === id);
+        if (!questToMove) return prev;
+
+        // Obtener todas las misiones del mismo tipo, ordenadas por su orden actual
+        const sameTypeQuests = prev
+          .filter(q => q.type === questToMove.type)
+          .sort((a, b) => (a.order || 0) - (b.order || 0));
         
-        const sameTypeQuests = prev.filter(q => q.type === quest.type).sort((a, b) => (a.order || 0) - (b.order || 0));
         const currentIndex = sameTypeQuests.findIndex(q => q.id === id);
+        const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+        if (targetIndex < 0 || targetIndex >= sameTypeQuests.length) return prev;
+
+        const targetQuest = sameTypeQuests[targetIndex];
         
-        if (direction === 'up' && currentIndex > 0) {
-          const prevQuest = sameTypeQuests[currentIndex - 1];
-          const tempOrder = quest.order;
-          quest.order = prevQuest.order;
-          prevQuest.order = tempOrder;
-        } else if (direction === 'down' && currentIndex < sameTypeQuests.length - 1) {
-          const nextQuest = sameTypeQuests[currentIndex + 1];
-          const tempOrder = quest.order;
-          quest.order = nextQuest.order;
-          nextQuest.order = tempOrder;
-        }
-        
-        return [...prev];
+        // Intercambiar órdenes de forma inmutable
+        const orderA = questToMove.order ?? currentIndex;
+        const orderB = targetQuest.order ?? targetIndex;
+
+        return prev.map(q => {
+          if (q.id === questToMove.id) return { ...q, order: orderB };
+          if (q.id === targetQuest.id) return { ...q, order: orderA };
+          return q;
+        });
       });
     }, []),
     updateProfile: useCallback((updates: Partial<CharacterStats>) => setStats(prev => ({ ...prev, ...updates })), []),
