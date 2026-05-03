@@ -94,6 +94,7 @@ export interface Quest {
   history?: string[];
   deadline?: string;
   activeDays?: number[]; // 0 = Domingo, 1 = Lunes, etc.
+  order?: number;
 }
 
 export interface Monster {

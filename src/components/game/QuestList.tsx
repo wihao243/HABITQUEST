@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Quest } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Flame, Plus, Skull, Edit3, Trash2, RefreshCw, ChevronDown, ChevronUp, XCircle, Calendar, Clock, Coffee, Search, Filter, X } from "lucide-react";
+import { CheckCircle2, Flame, Plus, Skull, Edit3, Trash2, RefreshCw, ChevronDown, ChevronUp, XCircle, Calendar, Clock, Coffee, Search, Filter, X, ArrowUp, ArrowDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -26,7 +26,7 @@ interface QuestListProps {
 }
 
 export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, onDelete }: QuestListProps) => {
-  const { stats, recoverStreak, virtualTime } = useGameState();
+  const { stats, recoverStreak, virtualTime, reorderQuests } = useGameState();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingQuest, setEditingQuest] = useState<Quest | undefined>(undefined);
   const [showCompleted, setShowCompleted] = useState(false);
@@ -47,13 +47,15 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
 
   // Filtrado de misiones basado en búsqueda, atributo y dificultad
   const filteredQuests = useMemo(() => {
-    return quests.filter(q => {
-      if (q.type !== type) return false;
-      const matchesSearch = q.title.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStat = statFilter === "all" || q.stat === statFilter;
-      const matchesDifficulty = difficultyFilter === "all" || q.difficulty === difficultyFilter;
-      return matchesSearch && matchesStat && matchesDifficulty;
-    });
+    return quests
+      .filter(q => {
+        if (q.type !== type) return false;
+        const matchesSearch = q.title.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesStat = statFilter === "all" || q.stat === statFilter;
+        const matchesDifficulty = difficultyFilter === "all" || q.difficulty === difficultyFilter;
+        return matchesSearch && matchesStat && matchesDifficulty;
+      })
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [quests, type, searchQuery, statFilter, difficultyFilter]);
   
   const activeQuests = filteredQuests.filter(q => {
@@ -119,6 +121,24 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
       )}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
+            {/* Controles de ordenamiento */}
+            {!quest.completed && !quest.failed && !isRestDay && (
+              <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button 
+                  onClick={() => reorderQuests(quest.id, 'up')}
+                  className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600"
+                >
+                  <ArrowUp className="w-3 h-3" />
+                </button>
+                <button 
+                  onClick={() => reorderQuests(quest.id, 'down')}
+                  className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600"
+                >
+                  <ArrowDown className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
             <div className={cn(
               "w-12 h-12 rounded-xl flex items-center justify-center text-white font-black shadow-lg",
               quest.failed ? "bg-slate-400" :

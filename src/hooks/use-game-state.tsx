@@ -23,6 +23,7 @@ interface GameStateContextType {
   addQuest: (data: any) => void;
   updateQuest: (id: string, data: any) => void;
   deleteQuest: (id: string) => void;
+  reorderQuests: (id: string, direction: 'up' | 'down') => void;
   updateProfile: (updates: Partial<CharacterStats>) => void;
   updateAttributeDefinitions: (definitions: AttributeDefinition[]) => void;
   adminReset: () => void;
@@ -150,7 +151,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     return () => clearInterval(interval);
   }, []);
 
-  // Lógica de temporizadores corregida
   useEffect(() => {
     if (!isInitialLoadDone) return;
     const now = virtualTime.getTime();
@@ -578,10 +578,36 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     }), []),
     addQuest: useCallback((data: any) => {
       checkFarming('add');
-      setQuests(prev => [...prev, { ...data, id: Math.random().toString(36).substr(2, 9), completed: false, streak: data.type !== 'todo' ? 0 : undefined }]);
+      setQuests(prev => {
+        const maxOrder = prev.filter(q => q.type === data.type).reduce((max, q) => Math.max(max, q.order || 0), -1);
+        return [...prev, { ...data, id: Math.random().toString(36).substr(2, 9), completed: false, streak: data.type !== 'todo' ? 0 : undefined, order: maxOrder + 1 }];
+      });
     }, [checkFarming]),
     updateQuest: useCallback((id: string, data: any) => setQuests(prev => prev.map(q => q.id === id ? { ...q, ...data } : q)), []),
     deleteQuest: useCallback((id: string) => setQuests(prev => prev.filter(q => q.id !== id)), []),
+    reorderQuests: useCallback((id: string, direction: 'up' | 'down') => {
+      setQuests(prev => {
+        const quest = prev.find(q => q.id === id);
+        if (!quest) return prev;
+        
+        const sameTypeQuests = prev.filter(q => q.type === quest.type).sort((a, b) => (a.order || 0) - (b.order || 0));
+        const currentIndex = sameTypeQuests.findIndex(q => q.id === id);
+        
+        if (direction === 'up' && currentIndex > 0) {
+          const prevQuest = sameTypeQuests[currentIndex - 1];
+          const tempOrder = quest.order;
+          quest.order = prevQuest.order;
+          prevQuest.order = tempOrder;
+        } else if (direction === 'down' && currentIndex < sameTypeQuests.length - 1) {
+          const nextQuest = sameTypeQuests[currentIndex + 1];
+          const tempOrder = quest.order;
+          quest.order = nextQuest.order;
+          nextQuest.order = tempOrder;
+        }
+        
+        return [...prev];
+      });
+    }, []),
     updateProfile: useCallback((updates: Partial<CharacterStats>) => setStats(prev => ({ ...prev, ...updates })), []),
     updateAttributeDefinitions: useCallback((definitions: AttributeDefinition[]) => setStats(prev => ({ ...prev, attributeDefinitions: definitions })), []),
     adminReset: useCallback(() => { setStats(INITIAL_CHARACTER); setQuests([]); setInventory([]); setTimeOffset(0); setBoughtItemsLog({}); }, []),
