@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Quest } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Flame, Plus, Skull, Edit3, Trash2, RefreshCw, ChevronDown, ChevronUp, XCircle, Calendar, Clock, Coffee, Search, Filter, X, ArrowUp, ArrowDown } from "lucide-react";
+import { CheckCircle2, Flame, Plus, Skull, Edit3, Trash2, RefreshCw, ChevronDown, ChevronUp, XCircle, Calendar, Clock, Coffee, Search, Filter, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,6 +14,9 @@ import { GlobalHabitHistory } from "./GlobalHabitHistory";
 import { QualitySelectionDialog } from "./QualitySelectionDialog";
 import { format, isBefore } from "date-fns";
 import { es } from "date-fns/locale";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableQuestItem } from "./SortableQuestItem";
 
 interface QuestListProps {
   quests: Quest[];
@@ -42,6 +45,11 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
   const [qualityDialogOpen, setQualityDialogOpen] = useState(false);
   const [selectedQuestId, setSelectedQuestId] = useState<string | null>(null);
   const [selectedQuestTitle, setSelectedQuestTitle] = useState("");
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   const currentDayOfWeek = virtualTime.getDay();
 
@@ -75,6 +83,13 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
     daily: { label: 'Misiones Diarias', color: 'text-blue-500', empty: 'No hay misiones diarias hoy.' },
     habit: { label: 'Hábitos', color: 'text-purple-500', empty: 'Crea hábitos para mejorar tus estadísticas.' },
     todo: { label: 'Tareas Únicas', color: 'text-green-500', empty: 'Lista de tareas pendientes.' },
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      reorderQuests(active.id as string, over.id as string);
+    }
   };
 
   const handleOpenCreate = () => {
@@ -114,31 +129,13 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
 
     return (
       <Card key={quest.id} className={cn(
-        "p-4 flex flex-col gap-4 border-2 transition-all group",
+        "p-4 flex flex-col gap-4 border-2 transition-all group w-full",
         quest.completed ? "opacity-50 bg-slate-50" : 
         quest.failed ? "opacity-60 bg-rose-50 border-rose-200" : 
         isRestDay ? "opacity-60 bg-slate-50 border-dashed border-slate-200" : "hover:border-indigo-400 shadow-md bg-white"
       )}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {/* Controles de ordenamiento */}
-            {!quest.completed && !quest.failed && !isRestDay && (
-              <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button 
-                  onClick={() => reorderQuests(quest.id, 'up')}
-                  className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600"
-                >
-                  <ArrowUp className="w-3 h-3" />
-                </button>
-                <button 
-                  onClick={() => reorderQuests(quest.id, 'down')}
-                  className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600"
-                >
-                  <ArrowDown className="w-3 h-3" />
-                </button>
-              </div>
-            )}
-
             <div className={cn(
               "w-12 h-12 rounded-xl flex items-center justify-center text-white font-black shadow-lg",
               quest.failed ? "bg-slate-400" :
@@ -345,7 +342,22 @@ export const QuestList = ({ quests, type, onComplete, onFail, onAdd, onUpdate, o
       )}
 
       <div className="grid gap-3">
-        {activeQuests.map(q => renderQuestCard(q))}
+        <DndContext 
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext 
+            items={activeQuests.map(q => q.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {activeQuests.map(q => (
+              <SortableQuestItem key={q.id} id={q.id}>
+                {renderQuestCard(q)}
+              </SortableQuestItem>
+            ))}
+          </SortableContext>
+        </DndContext>
         
         {activeQuests.length === 0 && completedQuests.length === 0 && failedQuests.length === 0 && (
           <div className="text-center py-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">

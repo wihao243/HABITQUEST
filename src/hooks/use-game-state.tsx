@@ -5,6 +5,7 @@ import { ALL_PENALTIES } from "@/data/penalties";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/lib/supabase";
 import { format, addDays, isSameDay, isSameWeek, isSameMonth, getWeek, subDays } from "date-fns";
+import { arrayMove } from "@dnd-kit/sortable";
 
 interface GameStateContextType {
   stats: CharacterStats;
@@ -23,7 +24,7 @@ interface GameStateContextType {
   addQuest: (data: any) => void;
   updateQuest: (id: string, data: any) => void;
   deleteQuest: (id: string) => void;
-  reorderQuests: (id: string, direction: 'up' | 'down') => void;
+  reorderQuests: (activeId: string, overId: string) => void;
   updateProfile: (updates: Partial<CharacterStats>) => void;
   updateAttributeDefinitions: (definitions: AttributeDefinition[]) => void;
   adminReset: () => void;
@@ -585,32 +586,17 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     }, [checkFarming]),
     updateQuest: useCallback((id: string, data: any) => setQuests(prev => prev.map(q => q.id === id ? { ...q, ...data } : q)), []),
     deleteQuest: useCallback((id: string) => setQuests(prev => prev.filter(q => q.id !== id)), []),
-    reorderQuests: useCallback((id: string, direction: 'up' | 'down') => {
+    reorderQuests: useCallback((activeId: string, overId: string) => {
       setQuests(prev => {
-        const questToMove = prev.find(q => q.id === id);
-        if (!questToMove) return prev;
-
-        // Obtener todas las misiones del mismo tipo, ordenadas por su orden actual
-        const sameTypeQuests = prev
-          .filter(q => q.type === questToMove.type)
-          .sort((a, b) => (a.order || 0) - (b.order || 0));
+        const oldIndex = prev.findIndex(q => q.id === activeId);
+        const newIndex = prev.findIndex(q => q.id === overId);
         
-        const currentIndex = sameTypeQuests.findIndex(q => q.id === id);
-        const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-
-        if (targetIndex < 0 || targetIndex >= sameTypeQuests.length) return prev;
-
-        const targetQuest = sameTypeQuests[targetIndex];
+        if (oldIndex === -1 || newIndex === -1) return prev;
         
-        // Intercambiar órdenes de forma inmutable
-        const orderA = questToMove.order ?? currentIndex;
-        const orderB = targetQuest.order ?? targetIndex;
-
-        return prev.map(q => {
-          if (q.id === questToMove.id) return { ...q, order: orderB };
-          if (q.id === targetQuest.id) return { ...q, order: orderA };
-          return q;
-        });
+        const newQuests = arrayMove(prev, oldIndex, newIndex);
+        
+        // Actualizar la propiedad 'order' para persistir el orden
+        return newQuests.map((q, idx) => ({ ...q, order: idx }));
       });
     }, []),
     updateProfile: useCallback((updates: Partial<CharacterStats>) => setStats(prev => ({ ...prev, ...updates })), []),
