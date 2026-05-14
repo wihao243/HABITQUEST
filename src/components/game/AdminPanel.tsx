@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon, RefreshCw } from "lucide-react";
+import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon, RefreshCw, Plus } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
 
 interface AdminPanelProps {
@@ -23,6 +23,7 @@ export const AdminPanel = ({
 }: AdminPanelProps) => {
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [customGold, setCustomGold] = useState("");
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +40,19 @@ export const AdminPanel = ({
     if (!open) {
       setIsAuthenticated(false);
       setPassword("");
+      setCustomGold("");
     }
+  };
+
+  const handleAddGold = () => {
+    const amount = parseInt(customGold);
+    if (isNaN(amount) || amount <= 0) {
+      showError("Introduce una cantidad válida");
+      return;
+    }
+    onAddGold(amount);
+    setCustomGold("");
+    showSuccess(`Añadido ${amount} de oro`);
   };
 
   return (
@@ -99,17 +112,31 @@ export const AdminPanel = ({
               </Button>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Trucos de Recursos</p>
+              
+              <div className="space-y-2">
+                <Label className="text-[9px] font-black uppercase text-slate-500">Inyectar Oro</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    type="number" 
+                    value={customGold} 
+                    onChange={(e) => setCustomGold(e.target.value)}
+                    placeholder="Cantidad..."
+                    className="h-10 border-2 font-bold"
+                  />
+                  <Button onClick={handleAddGold} variant="outline" className="border-2 border-yellow-500 text-yellow-700 font-bold shrink-0">
+                    <Plus className="w-4 h-4 mr-1" /> Añadir
+                  </Button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
-                <Button onClick={() => onAddGold(1000)} variant="outline" className="border-2 border-yellow-500 text-yellow-700 font-bold">
-                  <Coins className="w-4 h-4 mr-2" /> +1000 Oro
-                </Button>
                 <Button onClick={onLevelUp} variant="outline" className="border-2 border-blue-500 text-blue-700 font-bold">
                   <ArrowUpCircle className="w-4 h-4 mr-2" /> Subir Nivel
                 </Button>
-                <Button onClick={onResetHp} variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold col-span-2">
-                  <Heart className="w-4 h-4 mr-2" /> Restaurar Vida
+                <Button onClick={onResetHp} variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold">
+                  <Heart className="w-4 h-4 mr-2" /> Curar Todo
                 </Button>
               </div>
             </div>
