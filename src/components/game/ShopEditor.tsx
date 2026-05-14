@@ -35,7 +35,7 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
   });
 
   const calculateAutoCost = (effect: any) => {
-    const hpCost = (effect.hp || 0) * 10;
+    const hpCost = (effect.hp || 0) * 5; // 1 HP = 5 Oro
     const xpFlatCost = (effect.xpFlat || 0) * 10;
     const xpMultCost = Math.max(0, (effect.xpMultiplier - 1) * 500);
     const timerCost = (effect.timer || 0) * 1;
@@ -122,7 +122,7 @@ export const ShopEditor = ({ items, onAdd, onUpdate, onDelete }: ShopEditorProps
                 <Input 
                   placeholder="Buscar por nombre..." 
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 border-2 font-bold h-11"
                 />
               </div>

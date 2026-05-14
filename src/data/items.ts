@@ -2,13 +2,13 @@ import { ShopItem } from "../types/game";
 
 export const ALL_ITEMS: ShopItem[] = [
   // 🧪 Consumibles de Combate y Progreso
-  { id: 'c1', title: 'Poción de Vida Menor', cost: 20, category: 'consumible', icon: '🧪', rarity: 'comun', description: 'Restaura 30 HP inmediatamente.', effect: { hp: 30 } },
-  { id: 'c2', title: 'Poción de Vida Mayor', cost: 50, category: 'consumible', icon: '⚗️', rarity: 'raro', description: 'Restaura 80 HP inmediatamente.', effect: { hp: 80 } },
-  { id: 'c3', title: 'Elixir de Vitalidad', cost: 150, category: 'consumible', icon: '🍶', rarity: 'epico', description: 'Restaura toda tu vida.', effect: { hp: 999 } },
+  { id: 'c1', title: 'Poción de Vida Menor', cost: 150, category: 'consumible', icon: '🧪', rarity: 'comun', description: 'Restaura 30 HP inmediatamente.', effect: { hp: 30 } },
+  { id: 'c2', title: 'Poción de Vida Mayor', cost: 400, category: 'consumible', icon: '⚗️', rarity: 'raro', description: 'Restaura 80 HP inmediatamente.', effect: { hp: 80 } },
+  { id: 'c3', title: 'Elixir de Vitalidad', cost: 500, category: 'consumible', icon: '🍶', rarity: 'epico', description: 'Restaura toda tu vida (100 HP).', effect: { hp: 100 } },
   { id: 'c4', title: 'Pergamino de Sabiduría', cost: 100, category: 'consumible', icon: '📜', rarity: 'raro', description: 'Gana 50 XP instantáneamente.', effect: { xpFlat: 50 } },
   { id: 'c5', title: 'Tomo del Maestro', cost: 400, category: 'consumible', icon: '📕', rarity: 'epico', description: 'Gana 250 XP instantáneamente.', effect: { xpFlat: 250 } },
   
-  // ✨ Potenciadores de XP (Nuevos)
+  // ✨ Potenciadores de XP
   { id: 'xp1', title: 'Pergamino de Enfoque', cost: 120, category: 'consumible', icon: '✨', rarity: 'raro', description: 'Multiplica la XP ganada x1.5 durante 30 minutos.', effect: { xpMultiplier: 1.5, timer: 30 } },
   { id: 'xp2', title: 'Incienso de Sabiduría', cost: 250, category: 'consumible', icon: '🕯️', rarity: 'epico', description: 'Multiplica la XP ganada x2.0 durante 1 hora.', effect: { xpMultiplier: 2.0, timer: 60 } },
 
