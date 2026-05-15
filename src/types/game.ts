@@ -24,15 +24,6 @@ export interface DailyActivity {
   dailies: number;
 }
 
-export interface Team {
-  id: string;
-  name: string;
-  gold: number;
-  created_by: string;
-  created_at: string;
-  member_count?: number;
-}
-
 export interface GameStats {
   tasksCompleted: number;
   habitsCompleted: number;

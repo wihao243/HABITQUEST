@@ -11,12 +11,11 @@ import { Combat } from "@/components/game/Combat";
 import { AchievementsDialog } from "@/components/game/AchievementsDialog";
 import { StatsDialog } from "@/components/game/StatsDialog";
 import { Leaderboard } from "@/components/game/Leaderboard";
-import { Teams } from "@/components/game/Teams";
 import { AntiFarmOverlay } from "@/components/game/AntiFarmOverlay";
 import { AntiFarmWarning } from "@/components/game/AntiFarmWarning";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, Calendar, Repeat, CheckSquare, ShoppingBag, Package, Globe, LogOut, Users } from "lucide-react";
+import { Trophy, Calendar, Repeat, CheckSquare, ShoppingBag, Package, Globe, LogOut } from "lucide-react";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +37,6 @@ const Index = () => {
     { id: "habit", component: <QuestList quests={quests} type="habit" onComplete={completeQuest} onFail={failHabit} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
     { id: "todo", component: <QuestList quests={quests} type="todo" onComplete={completeQuest} onFail={failHabit} onAdd={addQuest} onUpdate={updateQuest} onDelete={deleteQuest} /> },
     { id: "world", component: <WorldMap player={stats} onFight={setActiveCombat} currentTime={virtualTime} /> },
-    { id: "teams", component: <Teams /> },
     { id: "ranking", component: <Leaderboard /> },
     { id: "shop", component: <Shop items={shopItems} boughtInRotation={boughtInRotation} onBuy={buyItem} allItems={allItems} onAddShopItem={addShopItem} onUpdateShopItem={updateShopItem} onDeleteShopItem={deleteShopItem} /> },
     { id: "inventory", component: <Inventory inventoryIds={inventory} onUseItem={useItem} activeTimers={stats.activeTimers} pausedTimers={{}} onTogglePause={() => {}} allItems={allItems} /> },
@@ -102,7 +100,7 @@ const Index = () => {
       <main className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
         <CharacterHeader stats={stats} onUpdateProfile={updateProfile} />
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-7 w-full h-14 bg-white border-2 border-slate-200 p-1 rounded-2xl shadow-sm sticky top-20 z-20">
+          <TabsList className="grid grid-cols-6 w-full h-14 bg-white border-2 border-slate-200 p-1 rounded-2xl shadow-sm sticky top-20 z-20">
             <TabsTrigger value="habit" className="rounded-xl data-[state=active]:bg-purple-600 data-[state=active]:text-white font-black text-[10px] uppercase tracking-tighter">
               <Repeat className="w-4 h-4 mr-1 hidden md:block" /> Hábitos
             </TabsTrigger>
@@ -111,9 +109,6 @@ const Index = () => {
             </TabsTrigger>
             <TabsTrigger value="world" className="rounded-xl data-[state=active]:bg-rose-600 data-[state=active]:text-white font-black text-[10px] uppercase tracking-tighter">
               <Globe className="w-4 h-4 mr-1 hidden md:block" /> Mundo
-            </TabsTrigger>
-            <TabsTrigger value="teams" className="rounded-xl data-[state=active]:bg-indigo-600 data-[state=active]:text-white font-black text-[10px] uppercase tracking-tighter">
-              <Users className="w-4 h-4 mr-1 hidden md:block" /> Equipos
             </TabsTrigger>
             <TabsTrigger value="ranking" className="rounded-xl data-[state=active]:bg-yellow-500 data-[state=active]:text-white font-black text-[10px] uppercase tracking-tighter">
               <Trophy className="w-4 h-4 mr-1 hidden md:block" /> Ranking
