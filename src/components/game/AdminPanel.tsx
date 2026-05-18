@@ -192,7 +192,7 @@ export const AdminPanel = ({
                         <SelectContent>
                           {users.map(u => (
                             <SelectItem key={u.id} value={u.id} className="font-bold">
-                              {u.game_state.avatar} {u.game_state.name} (LVL {u.game_state.level})
+                              {u.game_state.name} (LVL {u.game_state.level})
                             </SelectItem>
                           ))}
                         </SelectContent>
