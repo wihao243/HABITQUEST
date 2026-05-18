@@ -3,8 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon, RefreshCw, Plus } from "lucide-react";
+import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon, RefreshCw, Plus, ShieldAlert } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
+import { useGameState } from "@/hooks/use-game-state";
 
 interface AdminPanelProps {
   onReset: () => void;
@@ -21,27 +22,14 @@ interface AdminPanelProps {
 export const AdminPanel = ({ 
   onReset, onAddGold, onLevelUp, onClearInventory, onAdvanceTime, onResetToToday, onResetHp, onUnlockQuests, currentTime
 }: AdminPanelProps) => {
+  const { isAdmin, adminExists, claimAdmin } = useGameState();
   const [password, setPassword] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [customGold, setCustomGold] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleClaim = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === "5818") {
-      setIsAuthenticated(true);
-      showSuccess("Acceso concedido, Comandante.");
-    } else {
-      showError("Contraseña incorrecta. Acceso denegado.");
-      setPassword("");
-    }
-  };
-
-  const handleOpenChange = (open: boolean) => {
-    if (!open) {
-      setIsAuthenticated(false);
-      setPassword("");
-      setCustomGold("");
-    }
+    await claimAdmin(password);
+    setPassword("");
   };
 
   const handleAddGold = () => {
@@ -55,8 +43,36 @@ export const AdminPanel = ({
     showSuccess(`Añadido ${amount} de oro`);
   };
 
+  // Si ya hay un admin y no soy yo, no mostramos nada o mostramos acceso denegado
+  if (adminExists && !isAdmin) {
+    return (
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate-100">
+            <Settings className="w-5 h-5 text-slate-600" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[425px] bg-white rounded-2xl border-4 border-slate-900">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter text-rose-600 flex items-center gap-2">
+              <Lock className="w-6 h-6" /> Acceso Denegado
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-6 text-center space-y-4">
+            <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto">
+              <ShieldAlert className="w-8 h-8 text-rose-600" />
+            </div>
+            <p className="text-slate-600 font-bold">
+              Ya existe un Administrador Único para este reino. Solo él puede acceder a estas funciones.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
-    <Dialog onOpenChange={handleOpenChange}>
+    <Dialog>
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate-100">
           <Settings className="w-5 h-5 text-slate-600" />
@@ -65,13 +81,18 @@ export const AdminPanel = ({
       <DialogContent className="sm:max-w-[425px] bg-white rounded-2xl border-4 border-slate-900 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter text-rose-600 flex items-center gap-2">
-            {isAuthenticated ? <Unlock className="w-6 h-6" /> : <Lock className="w-6 h-6" />}
-            Modo Administrador
+            {isAdmin ? <Unlock className="w-6 h-6" /> : <Lock className="w-6 h-6" />}
+            {isAdmin ? "Consola de Mando" : "Reclamar Trono"}
           </DialogTitle>
         </DialogHeader>
         
-        {!isAuthenticated ? (
-          <form onSubmit={handleLogin} className="space-y-4 pt-4">
+        {!isAdmin ? (
+          <form onSubmit={handleClaim} className="space-y-4 pt-4">
+            <div className="bg-amber-50 border-2 border-amber-200 p-4 rounded-xl mb-4">
+              <p className="text-xs font-bold text-amber-800 leading-relaxed">
+                ⚠️ **ATENCIÓN:** El primero que introduzca la contraseña se convertirá en el **Administrador Único**. Nadie más podrá acceder a este panel.
+              </p>
+            </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-slate-500">Código de Acceso</Label>
               <Input 
@@ -84,7 +105,7 @@ export const AdminPanel = ({
               />
             </div>
             <Button type="submit" className="w-full bg-slate-900 hover:bg-rose-600 font-black uppercase h-12">
-              Desbloquear Consola
+              Convertirse en Admin
             </Button>
           </form>
         ) : (

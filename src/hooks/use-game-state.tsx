@@ -16,6 +16,8 @@ interface GameStateContextType {
   user: any;
   loading: boolean;
   activeTab: string;
+  isAdmin: boolean;
+  adminExists: boolean;
   setActiveTab: (tab: string) => void;
   completeQuest: (id: string, quality?: 'mal' | 'bien' | 'excelente') => void;
   failHabit: (id: string) => void;
@@ -54,6 +56,7 @@ interface GameStateContextType {
   showFarmWarning: boolean;
   closeFarmWarning: () => void;
   recoverStreak: (id: string) => void;
+  claimAdmin: (password: string) => Promise<boolean>;
 }
 
 const GameStateContext = createContext<GameStateContextType | undefined>(undefined);
@@ -114,6 +117,8 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("habit");
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminExists, setAdminExists] = useState(false);
   
   const [actionHistory, setActionHistory] = useState<{type: string, time: number}[]>([]);
   const [hasWarned, setHasWarned] = useState(false);
@@ -295,6 +300,19 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     return () => subscription.unsubscribe();
   }, []);
 
+  const checkAdminStatus = useCallback(async (userId: string) => {
+    try {
+      const { data: allProfiles, error } = await supabase.from('profiles').select('id, is_admin');
+      if (error) throw error;
+      
+      const existingAdmin = allProfiles?.find(p => p.is_admin === true);
+      setAdminExists(!!existingAdmin);
+      setIsAdmin(existingAdmin?.id === userId);
+    } catch (err) {
+      console.error("Error comprobando estado de admin:", err);
+    }
+  }, []);
+
   useEffect(() => {
     if (!user) return;
     const loadData = async () => {
@@ -319,6 +337,8 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
           if (data.inventory) setInventory(data.inventory);
           if (data.bought_items) setBoughtItemsLog(data.bought_items);
           if (data.all_items) setAllItems(data.all_items);
+          
+          await checkAdminStatus(user.id);
         }
       } catch (err) { 
         console.error("Error cargando perfil:", err); 
@@ -328,7 +348,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       }
     };
     loadData();
-  }, [user]);
+  }, [user, checkAdminStatus]);
 
   useEffect(() => {
     if (!isInitialLoadDone || !user) return;
@@ -336,6 +356,32 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     saveTimeoutRef.current = setTimeout(() => saveData(stats, quests, inventory, boughtItemsLog, allItems), 2000);
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
   }, [stats, quests, inventory, boughtItemsLog, allItems, user, isInitialLoadDone, saveData]);
+
+  const claimAdmin = async (password: string) => {
+    if (!user || adminExists) return false;
+    if (password !== "5818") {
+      showError("Contraseña incorrecta");
+      return false;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_admin: true })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      
+      setIsAdmin(true);
+      setAdminExists(true);
+      showSuccess("¡Ahora eres el Administrador Único!");
+      return true;
+    } catch (err) {
+      console.error("Error reclamando admin:", err);
+      showError("Error al reclamar el trono");
+      return false;
+    }
+  };
 
   const checkFarming = useCallback((type: string) => {
     const now = Date.now();
@@ -566,8 +612,8 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   }, [stats.gold, virtualTime]);
 
   const value = {
-    stats, quests, inventory, virtualTime, allItems, user, loading, activeTab, setActiveTab,
-    completeQuest, failHabit, useItem, recoverStreak,
+    stats, quests, inventory, virtualTime, allItems, user, loading, activeTab, isAdmin, adminExists,
+    setActiveTab, completeQuest, failHabit, useItem, recoverStreak, claimAdmin,
     takeDamage: useCallback((amount: number) => setStats(prev => {
       const newHp = Math.max(0, prev.hp - amount);
       let newPenalties = [...(prev.activePenalties || [])];
