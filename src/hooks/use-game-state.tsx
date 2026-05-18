@@ -365,12 +365,18 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     }
 
     try {
+      // Intentamos actualizar la columna is_admin. 
+      // Si falla porque la columna no existe, el error nos avisará.
       const { error } = await supabase
         .from('profiles')
         .update({ is_admin: true })
         .eq('id', user.id);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error al actualizar is_admin:", error);
+        showError("Error de base de datos. Contacta con soporte.");
+        return false;
+      }
       
       setIsAdmin(true);
       setAdminExists(true);
@@ -411,7 +417,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const now = virtualTime.getTime();
     Object.entries(stats.activeTimers || {}).forEach(([itemId, expiration]) => {
       if (expiration > now) {
-        const item = allItems.find(i => i.id === itemId);
+        const item = allItems.find(i => i.id === id);
         if (item?.effect.xpMultiplier) multiplier *= item.effect.xpMultiplier;
       }
     });
