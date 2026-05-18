@@ -302,8 +302,16 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
 
   const checkAdminStatus = useCallback(async (userId: string) => {
     try {
+      // Consultamos todos los perfiles para ver si alguno tiene is_admin = true
       const { data: allProfiles, error } = await supabase.from('profiles').select('id, is_admin');
-      if (error) throw error;
+      
+      if (error) {
+        // Si hay error (probablemente la columna no existe), asumimos que no hay admin
+        console.warn("Aviso: La columna is_admin podría no existir aún. Ejecuta el SQL.");
+        setAdminExists(false);
+        setIsAdmin(false);
+        return;
+      }
       
       const existingAdmin = allProfiles?.find(p => p.is_admin === true);
       setAdminExists(!!existingAdmin);
@@ -358,15 +366,20 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   }, [stats, quests, inventory, boughtItemsLog, allItems, user, isInitialLoadDone, saveData]);
 
   const claimAdmin = async (password: string) => {
-    if (!user || adminExists) return false;
+    if (!user) return false;
+    
+    // Si ya existe un admin y no soy yo, no puedo reclamar
+    if (adminExists && !isAdmin) {
+      showError("Ya existe un administrador único.");
+      return false;
+    }
+
     if (password !== "5818") {
       showError("Contraseña incorrecta");
       return false;
     }
 
     try {
-      // Intentamos actualizar la columna is_admin. 
-      // Si falla porque la columna no existe, el error nos avisará.
       const { error } = await supabase
         .from('profiles')
         .update({ is_admin: true })
@@ -374,7 +387,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
       
       if (error) {
         console.error("Error al actualizar is_admin:", error);
-        showError("Error de base de datos. Contacta con soporte.");
+        showError("Error de base de datos. ¿Has ejecutado el SQL?");
         return false;
       }
       
