@@ -3,13 +3,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon, RefreshCw, Plus, ShieldAlert, Users, UserCog, Search, Sparkles } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon, RefreshCw, Plus, ShieldAlert, Users, UserCog, Search, Sparkles, Check, ChevronsUpDown } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
 import { useGameState } from "@/hooks/use-game-state";
 import { supabase } from "@/lib/supabase";
 import { CharacterStats } from "@/types/game";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 interface AdminPanelProps {
   onReset: () => void;
@@ -40,6 +42,7 @@ export const AdminPanel = ({
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isFetchingUsers, setIsFetchingUsers] = useState(false);
   const [isUpdatingOther, setIsUpdatingOther] = useState(false);
+  const [isComboOpen, setIsComboOpen] = useState(false);
 
   const handleClaim = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,19 +187,51 @@ export const AdminPanel = ({
                   
                   <div className="bg-indigo-50 p-4 rounded-2xl border-2 border-indigo-100 space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-indigo-400">Seleccionar Usuario</Label>
-                      <Select value={selectedUserId || ""} onValueChange={setSelectedUserId}>
-                        <SelectTrigger className="border-2 border-indigo-200 font-bold h-11 bg-white">
-                          <SelectValue placeholder={isFetchingUsers ? "Cargando usuarios..." : "Elige un héroe..."} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {users.map(u => (
-                            <SelectItem key={u.id} value={u.id} className="font-bold">
-                              {u.game_state.name} (LVL {u.game_state.level})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label className="text-[10px] font-black uppercase text-indigo-400">Buscar Usuario</Label>
+                      <Popover open={isComboOpen} onOpenChange={setIsComboOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={isComboOpen}
+                            className="w-full justify-between border-2 border-indigo-200 font-bold h-11 bg-white"
+                          >
+                            {selectedUserId
+                              ? users.find((u) => u.id === selectedUserId)?.game_state.name
+                              : isFetchingUsers ? "Cargando usuarios..." : "Escribe el nombre de un héroe..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 border-2 border-slate-900 rounded-xl overflow-hidden">
+                          <Command>
+                            <CommandInput placeholder="Escribe para buscar..." className="h-11 font-bold" />
+                            <CommandList>
+                              <CommandEmpty className="p-4 text-center text-xs font-bold text-slate-400 uppercase">No se encontró ningún héroe.</CommandEmpty>
+                              <CommandGroup>
+                                {users.map((u) => (
+                                  <CommandItem
+                                    key={u.id}
+                                    value={u.game_state.name}
+                                    onSelect={() => {
+                                      setSelectedUserId(u.id);
+                                      setIsComboOpen(false);
+                                    }}
+                                    className="font-bold cursor-pointer"
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        selectedUserId === u.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {u.game_state.name} (LVL {u.game_state.level})
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
 
                     {selectedUser && (
