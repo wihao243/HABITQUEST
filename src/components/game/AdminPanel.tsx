@@ -36,6 +36,7 @@ export const AdminPanel = ({
   const { isAdmin, adminExists, claimAdmin } = useGameState();
   const [password, setPassword] = useState("");
   const [customGold, setCustomGold] = useState("");
+  const [otherUserGold, setOtherUserGold] = useState("");
   
   // Estados para gestión de otros usuarios
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -103,6 +104,17 @@ export const AdminPanel = ({
     onAddGold(amount);
     setCustomGold("");
     showSuccess(`Añadido ${amount} de oro`);
+  };
+
+  const handleAddGoldToOther = () => {
+    if (!selectedUserId) return;
+    const amount = parseInt(otherUserGold);
+    if (isNaN(amount) || amount <= 0) {
+      showError("Introduce una cantidad válida");
+      return;
+    }
+    updateOtherUser(selectedUserId, s => ({ ...s, gold: s.gold + amount }));
+    setOtherUserGold("");
   };
 
   const selectedUser = users.find(u => u.id === selectedUserId);
@@ -251,43 +263,59 @@ export const AdminPanel = ({
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button 
-                            disabled={isUpdatingOther}
-                            onClick={() => updateOtherUser(selectedUser.id, s => ({ ...s, gold: s.gold + 500 }))}
-                            variant="outline" size="sm" className="border-2 border-yellow-500 text-yellow-700 font-bold h-9"
-                          >
-                            <Coins className="w-3 h-3 mr-1" /> +500 Oro
-                          </Button>
-                          <Button 
-                            disabled={isUpdatingOther}
-                            onClick={() => updateOtherUser(selectedUser.id, s => ({ ...s, level: s.level + 1, maxHp: s.maxHp + 10, hp: s.maxHp + 10 }))}
-                            variant="outline" size="sm" className="border-2 border-blue-500 text-blue-700 font-bold h-9"
-                          >
-                            <ArrowUpCircle className="w-3 h-3 mr-1" /> Subir LVL
-                          </Button>
-                          <Button 
-                            disabled={isUpdatingOther}
-                            onClick={() => updateOtherUser(selectedUser.id, s => ({ ...s, hp: s.maxHp }))}
-                            variant="outline" size="sm" className="border-2 border-emerald-500 text-emerald-700 font-bold h-9"
-                          >
-                            <Heart className="w-3 h-3 mr-1" /> Curar HP
-                          </Button>
-                          <Button 
-                            disabled={isUpdatingOther}
-                            onClick={async () => {
-                              setIsUpdatingOther(true);
-                              try {
-                                const { error } = await supabase.from('profiles').update({ inventory: [] }).eq('id', selectedUser.id);
-                                if (error) throw error;
-                                showSuccess("Inventario vaciado");
-                              } catch (err) { showError("Error al vaciar"); }
-                              finally { setIsUpdatingOther(false); }
-                            }}
-                            variant="outline" size="sm" className="border-2 border-slate-400 text-slate-600 font-bold h-9"
-                          >
-                            <PackageX className="w-3 h-3 mr-1" /> Vaciar Inv.
-                          </Button>
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <Label className="text-[9px] font-black uppercase text-slate-500">Inyectar Oro al Usuario</Label>
+                            <div className="flex gap-2">
+                              <Input 
+                                type="number" 
+                                value={otherUserGold} 
+                                onChange={(e) => setOtherUserGold(e.target.value)}
+                                placeholder="Cantidad..."
+                                className="h-10 border-2 font-bold bg-white"
+                              />
+                              <Button 
+                                disabled={isUpdatingOther}
+                                onClick={handleAddGoldToOther} 
+                                variant="outline" 
+                                className="border-2 border-yellow-500 text-yellow-700 font-bold shrink-0"
+                              >
+                                <Plus className="w-4 h-4 mr-1" /> Dar Oro
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2">
+                            <Button 
+                              disabled={isUpdatingOther}
+                              onClick={() => updateOtherUser(selectedUser.id, s => ({ ...s, level: s.level + 1, maxHp: s.maxHp + 10, hp: s.maxHp + 10 }))}
+                              variant="outline" size="sm" className="border-2 border-blue-500 text-blue-700 font-bold h-9"
+                            >
+                              <ArrowUpCircle className="w-3 h-3 mr-1" /> +1 LVL
+                            </Button>
+                            <Button 
+                              disabled={isUpdatingOther}
+                              onClick={() => updateOtherUser(selectedUser.id, s => ({ ...s, hp: s.maxHp }))}
+                              variant="outline" size="sm" className="border-2 border-emerald-500 text-emerald-700 font-bold h-9"
+                            >
+                              <Heart className="w-3 h-3 mr-1" /> Curar
+                            </Button>
+                            <Button 
+                              disabled={isUpdatingOther}
+                              onClick={async () => {
+                                setIsUpdatingOther(true);
+                                try {
+                                  const { error } = await supabase.from('profiles').update({ inventory: [] }).eq('id', selectedUser.id);
+                                  if (error) throw error;
+                                  showSuccess("Inventario vaciado");
+                                } catch (err) { showError("Error al vaciar"); }
+                                finally { setIsUpdatingOther(false); }
+                              }}
+                              variant="outline" size="sm" className="border-2 border-slate-400 text-slate-600 font-bold h-9"
+                            >
+                              <PackageX className="w-3 h-3 mr-1" /> Vaciar
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     )}
