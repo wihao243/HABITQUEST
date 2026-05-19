@@ -33,7 +33,7 @@ interface UserProfile {
 export const AdminPanel = ({ 
   onReset, onAddGold, onLevelUp, onClearInventory, onAdvanceTime, onResetToToday, onResetHp, onUnlockQuests, currentTime
 }: AdminPanelProps) => {
-  const { isAdmin, adminExists, claimAdmin } = useGameState();
+  const { isAdmin, adminExists, claimAdmin, user: currentUser, stats: currentStats, updateProfile } = useGameState();
   const [password, setPassword] = useState("");
   const [customGold, setCustomGold] = useState("");
   const [otherUserGold, setOtherUserGold] = useState("");
@@ -88,14 +88,19 @@ export const AdminPanel = ({
       
       if (error) throw error;
       
-      // Actualizar lista local manteniendo la selección
+      // Actualizar lista local para que el UI refleje el cambio inmediatamente
       setUsers(prev => prev.map(u => u.id === userId ? { 
         ...u, 
         game_state: newStats,
         inventory: inventoryUpdate !== undefined ? inventoryUpdate : u.inventory 
       } : u));
+
+      // Si el admin se está editando a sí mismo a través de esta lista, actualizamos también el estado global
+      if (userId === currentUser?.id) {
+        updateProfile(newStats);
+      }
       
-      showSuccess("Usuario actualizado con éxito");
+      showSuccess("Cambio aplicado con éxito");
     } catch (err) {
       console.error("Error actualizando usuario:", err);
       showError("Error al aplicar el cambio");
@@ -198,14 +203,19 @@ export const AdminPanel = ({
           ) : (
             <div className="grid gap-8 animate-in fade-in zoom-in-95 duration-300">
               <div className="space-y-4">
-                <div className="flex items-center gap-2 text-indigo-600">
-                  <Users className="w-5 h-5" />
-                  <h3 className="text-sm font-black uppercase tracking-widest">Gestión de Otros Héroes</h3>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-indigo-600">
+                    <Users className="w-5 h-5" />
+                    <h3 className="text-sm font-black uppercase tracking-widest">Gestión de Otros Héroes</h3>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={fetchAllUsers} className="h-7 text-[10px] font-black uppercase text-slate-400 hover:text-indigo-600">
+                    <RefreshCw className={cn("w-3 h-3 mr-1", isFetchingUsers && "animate-spin")} /> Actualizar Lista
+                  </Button>
                 </div>
                 
                 <div className="bg-indigo-50 p-4 rounded-2xl border-2 border-indigo-100 space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-indigo-400">Buscar Usuario</Label>
+                    <Label className="text-[10px] font-black uppercase text-indigo-400">Seleccionar Héroe</Label>
                     <Popover open={isComboOpen} onOpenChange={setIsComboOpen}>
                       <PopoverTrigger asChild>
                         <Button
