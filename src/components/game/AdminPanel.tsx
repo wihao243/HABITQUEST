@@ -27,6 +27,7 @@ interface AdminPanelProps {
 interface UserProfile {
   id: string;
   game_state: CharacterStats;
+  inventory?: string[];
 }
 
 export const AdminPanel = ({ 
@@ -55,7 +56,7 @@ export const AdminPanel = ({
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, game_state')
+        .select('id, game_state, inventory')
         .not('game_state', 'is', null);
       
       if (error) throw error;
@@ -68,21 +69,32 @@ export const AdminPanel = ({
     }
   }, [isAdmin]);
 
-  const updateOtherUser = async (userId: string, updateFn: (stats: CharacterStats) => CharacterStats) => {
+  const updateOtherUser = async (userId: string, updateFn: (stats: CharacterStats) => CharacterStats, inventoryUpdate?: string[]) => {
     const userToUpdate = users.find(u => u.id === userId);
     if (!userToUpdate) return;
 
     setIsUpdatingOther(true);
     try {
       const newStats = updateFn(userToUpdate.game_state);
+      const updatePayload: any = { game_state: newStats };
+      if (inventoryUpdate !== undefined) {
+        updatePayload.inventory = inventoryUpdate;
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .update({ game_state: newStats })
+        .update(updatePayload)
         .eq('id', userId);
       
       if (error) throw error;
       
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, game_state: newStats } : u));
+      // Actualizar lista local manteniendo la selección
+      setUsers(prev => prev.map(u => u.id === userId ? { 
+        ...u, 
+        game_state: newStats,
+        inventory: inventoryUpdate !== undefined ? inventoryUpdate : u.inventory 
+      } : u));
+      
       showSuccess("Usuario actualizado con éxito");
     } catch (err) {
       console.error("Error actualizando usuario:", err);
@@ -296,15 +308,7 @@ export const AdminPanel = ({
                           </Button>
                           <Button 
                             disabled={isUpdatingOther}
-                            onClick={async () => {
-                              setIsUpdatingOther(true);
-                              try {
-                                const { error } = await supabase.from('profiles').update({ inventory: [] }).eq('id', selectedUser.id);
-                                if (error) throw error;
-                                showSuccess("Inventario vaciado");
-                              } catch (err) { showError("Error al vaciar"); }
-                              finally { setIsUpdatingOther(false); }
-                            }}
+                            onClick={() => updateOtherUser(selectedUser.id, s => s, [])}
                             variant="outline" size="sm" className="border-2 border-slate-400 text-slate-600 font-bold h-9"
                           >
                             <PackageX className="w-3 h-3 mr-1" /> Vaciar
