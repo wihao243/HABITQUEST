@@ -5,12 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon, RefreshCw, Plus, ShieldAlert, Users, UserCog, Search, Sparkles, Check, ChevronsUpDown } from "lucide-react";
+import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon, RefreshCw, Plus, ShieldAlert, Users, UserCog, Search, Sparkles, Check, ChevronsUpDown, Calendar, CheckCircle2, XCircle, Flame, Edit3, Trash2 as Trash2Icon } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
 import { useGameState } from "@/hooks/use-game-state";
 import { supabase } from "@/lib/supabase";
-import { CharacterStats } from "@/types/game";
+import { CharacterStats, Quest } from "@/types/game";
 import { cn } from "@/lib/utils";
+import { format, subDays } from "date-fns";
+import { es } from "date-fns/locale";
 
 interface AdminPanelProps {
   onReset: () => void;
@@ -27,7 +29,7 @@ interface AdminPanelProps {
 interface UserProfile {
   id: string;
   game_state: CharacterStats;
-  inventory?: string[];
+  quests?: Quest[];
 }
 
 export const AdminPanel = ({ 
@@ -43,6 +45,7 @@ export const AdminPanel = ({
   const [isFetchingUsers, setIsFetchingUsers] = useState(false);
   const [isUpdatingOther, setIsUpdatingOther] = useState(false);
   const [isComboOpen, setIsComboOpen] = useState(false);
+  const [showHabitManagement, setShowHabitManagement] = useState(false);
 
   const handleClaim = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,7 +59,7 @@ export const AdminPanel = ({
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, game_state, inventory')
+        .select('id, game_state, quests')
         .not('game_state', 'is', null);
       
       if (error) throw error;
@@ -160,14 +163,78 @@ export const AdminPanel = ({
     );
   }
 
+  // Helper function to get habit statistics
+  const getHabitStats = (habit: Quest) => {
+    const today = currentTime;
+    const last30Days = Array.from({ length: 30 }, (_, i) => subDays(today, i)).reverse();
+    const completedDays = habit.history || [];
+    
+    return {
+      totalCompleted: completedDays.length,
+      currentStreak: habit.streak || 0,
+      recoverableStreak: habit.recoverableStreak || 0,
+      completionRate: Math.round((completedDays.length / 30) * 100),
+      lastCompletedDate: habit.lastCompletedDate,
+      days: last30Days.map(date => ({
+        date,
+        isCompleted: completedDays.includes(format(date, 'yyyy-MM-dd')),
+        isRestDay: habit.activeDays && !habit.activeDays.includes(date.getDay())
+      }))
+    };
+  };
+
+  // Function to modify a habit
+  const modifyHabit = async (userId: string, habitId: string, updates: Partial<Quest>) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+    
+    const updatedQuests = user.quests?.map(q => 
+      q.id === habitId ? { ...q, ...updates } : q
+    ) || [];
+    
+    await updateOtherUser(userId, s => s, updatedQuests);
+  };
+
+  // Function to add a new habit
+  const addHabit = async (userId: string, habitData: Omit<Quest, 'id' | 'completed' | 'streak'>) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+    
+    const newHabit: Quest = {
+      ...habitData,
+      id: Math.random().toString(36).substr(2, 9),
+      completed: false,
+      streak: 0,
+      history: [],
+      order: (user.quests?.length || 0) + 1
+    };
+    
+    const updatedQuests = [...(user.quests || []), newHabit];
+    await updateOtherUser(userId, s => s, updatedQuests);
+  };
+
+  // Function to delete a habit
+  const deleteHabit = async (userId: string, habitId: string) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+    
+    const updatedQuests = user.quests?.filter(q => q.id !== habitId) || [];
+    await updateOtherUser(userId, s => s, updatedQuests);
+  };
+
   return (
-    <Dialog onOpenChange={(open) => open && isAdmin && fetchAllUsers()}>
+    <Dialog onOpenChange={(open) => {
+      if (open && isAdmin) {
+        fetchAllUsers();
+        setShowHabitManagement(false);
+      }
+    }}>
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate-100">
           <Settings className="w-5 h-5 text-slate-600" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] w-[95vw] bg-white rounded-2xl border-4 border-slate-900 max-h-[90vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[800px] w-[95vw] bg-white rounded-2xl border-4 border-slate-900 max-h-[90vh] flex flex-col p-0 overflow-hidden">
         <div className="p-6 border-b-4 border-slate-900 bg-slate-50 shrink-0">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter text-rose-600 flex items-center gap-2">
@@ -202,6 +269,7 @@ export const AdminPanel = ({
             </form>
           ) : (
             <div className="grid gap-8 animate-in fade-in zoom-in-95 duration-300">
+              {/* Sección de Gestión de Otros Usuarios */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-indigo-600">
@@ -243,6 +311,7 @@ export const AdminPanel = ({
                                   onSelect={() => {
                                     setSelectedUserId(u.id);
                                     setIsComboOpen(false);
+                                    setShowHabitManagement(false);
                                   }}
                                   className="font-bold cursor-pointer"
                                 >
@@ -263,8 +332,22 @@ export const AdminPanel = ({
                   </div>
 
                   {selectedUser && (
-                    <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
-                      <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-black uppercase tracking-widest text-indigo-600">
+                          Estadísticas de {selectedUser.game_state.name}
+                        </h4>
+                        <Button 
+                          onClick={() => setShowHabitManagement(!showHabitManagement)}
+                          variant="outline" 
+                          size="sm" 
+                          className="h-7 text-[10px] font-black uppercase text-indigo-600 border-indigo-200"
+                        >
+                          <Calendar className="w-3 h-3 mr-1" /> {showHabitManagement ? "Ocultar Hábitos" : "Gestionar Hábitos"}
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                         <div className="bg-white p-2 rounded-lg border border-indigo-100 text-center">
                           <p className="text-[8px] font-black text-slate-400 uppercase">Oro</p>
                           <p className="text-sm font-black text-indigo-600">{selectedUser.game_state.gold}</p>
@@ -277,54 +360,122 @@ export const AdminPanel = ({
                           <p className="text-[8px] font-black text-slate-400 uppercase">HP</p>
                           <p className="text-sm font-black text-indigo-600">{selectedUser.game_state.hp}/{selectedUser.game_state.maxHp}</p>
                         </div>
+                        <div className="bg-white p-2 rounded-lg border border-indigo-100 text-center">
+                          <p className="text-[8px] font-black text-slate-400 uppercase">Hábitos</p>
+                          <p className="text-sm font-black text-indigo-600">{(selectedUser.quests || []).filter(q => q.type === 'habit').length}</p>
+                        </div>
                       </div>
 
-                      <div className="space-y-3">
-                        <div className="space-y-1">
-                          <Label className="text-[9px] font-black uppercase text-slate-500">Inyectar Oro al Usuario</Label>
-                          <div className="flex gap-2">
-                            <Input 
-                              type="number" 
-                              value={otherUserGold} 
-                              onChange={(e) => setOtherUserGold(e.target.value)}
-                              placeholder="Cantidad..."
-                              className="h-10 border-2 font-bold bg-white"
-                            />
-                            <Button 
-                              disabled={isUpdatingOther}
-                              onClick={handleAddGoldToOther} 
-                              variant="outline" 
-                              className="border-2 border-yellow-500 text-yellow-700 font-bold shrink-0"
-                            >
-                              <Plus className="w-4 h-4 mr-1" /> Dar Oro
-                            </Button>
+                      {showHabitManagement && (
+                        <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                          <div className="bg-white p-4 rounded-xl border-2 border-indigo-200">
+                            <h5 className="text-xs font-black uppercase tracking-widest text-indigo-600 mb-3 flex items-center gap-2">
+                              <Calendar className="w-4 h-4" /> Gestión de Hábitos
+                            </h5>
+                            
+                            <div className="space-y-3">
+                              {(selectedUser.quests || []).filter(q => q.type === 'habit').map(habit => {
+                                const stats = getHabitStats(habit);
+                                return (
+                                  <div key={habit.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <div>
+                                        <p className="font-bold text-sm text-slate-800">{habit.title}</p>
+                                        <p className="text-[10px] text-slate-500">Dificultad: {habit.difficulty} | Stat: {habit.stat}</p>
+                                      </div>
+                                      <div className="flex gap-1">
+                                        <Button 
+                                          size="icon" 
+                                          variant="ghost" 
+                                          className="h-7 w-7 text-indigo-600 hover:bg-indigo-100"
+                                          onClick={() => {
+                                            // Edit habit logic would go here
+                                            showSuccess("Función de edición de hábito próximamente");
+                                          }}
+                                        >
+                                          <Edit3 className="w-3 h-3" />
+                                        </Button>
+                                        <Button 
+                                          size="icon" 
+                                          variant="ghost" 
+                                          className="h-7 w-7 text-rose-600 hover:bg-rose-100"
+                                          onClick={() => deleteHabit(selectedUser.id, habit.id)}
+                                        >
+                                          <Trash2Icon className="w-3 h-3" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-4 gap-1 mb-2">
+                                      <div className="text-center">
+                                        <p className="text-[8px] font-black text-slate-400">Completados</p>
+                                        <p className="text-xs font-black text-indigo-600">{stats.totalCompleted}</p>
+                                      </div>
+                                      <div className="text-center">
+                                        <p className="text-[8px] font-black text-slate-400">Racha</p>
+                                        <p className="text-xs font-black text-orange-600 flex items-center justify-center gap-1">
+                                          <Flame className="w-2 h-2" /> {stats.currentStreak}
+                                        </p>
+                                      </div>
+                                      <div className="text-center">
+                                        <p className="text-[8px] font-black text-slate-400">Efectividad</p>
+                                        <p className="text-xs font-black text-emerald-600">{stats.completionRate}%</p>
+                                      </div>
+                                      <div className="text-center">
+                                        <p className="text-[8px] font-black text-slate-400">Última</p>
+                                        <p className="text-xs font-black text-blue-600">
+                                          {stats.lastCompletedDate ? format(new Date(stats.lastCompletedDate), 'd/M') : 'Nunca'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="mt-3">
+                                      <p className="text-[9px] font-black text-slate-400 mb-1">Historial de los últimos 7 días:</p>
+                                      <div className="flex gap-1">
+                                        {stats.days.slice(-7).map((day, idx) => (
+                                          <div 
+                                            key={idx} 
+                                            className={cn(
+                                              "w-6 h-6 rounded text-[8px] font-black flex items-center justify-center",
+                                              day.isRestDay 
+                                                ? "bg-slate-100 text-slate-400 border border-slate-200" 
+                                                : day.isCompleted 
+                                                  ? "bg-emerald-100 text-emerald-700 border border-emerald-300" 
+                                                  : "bg-rose-100 text-rose-700 border border-rose-300"
+                                            )}
+                                            title={`${day.date.toLocaleDateString()}: ${day.isRestDay ? 'Descanso' : day.isCompleted ? 'Completado' : 'Faltó'}`}
+                                          >
+                                            {day.date.getDate()}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              
+                              {(selectedUser.quests || []).filter(q => q.type === 'habit').length === 0 && (
+                                <div className="text-center py-6 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
+                                  <p className="text-slate-400 font-bold italic">Este usuario no tiene hábitos registrados.</p>
+                                </div>
+                              )}
+                              
+                              <Button 
+                                onClick={() => addHabit(selectedUser.id, {
+                                  title: "Nuevo Hábito",
+                                  difficulty: "medium",
+                                  stat: selectedUser.game_state.attributeDefinitions[0]?.id || "fuerza",
+                                  type: "habit",
+                                  activeDays: [0, 1, 2, 3, 4, 5, 6]
+                                })}
+                                className="w-full bg-indigo-600 hover:bg-indigo-500 font-black uppercase text-xs h-10"
+                              >
+                                <Plus className="w-4 h-4 mr-2" /> Añadir Nuevo Hábito
+                              </Button>
+                            </div>
                           </div>
                         </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                          <Button 
-                            disabled={isUpdatingOther}
-                            onClick={() => updateOtherUser(selectedUser.id, s => ({ ...s, level: s.level + 1, maxHp: s.maxHp + 10, hp: s.maxHp + 10 }))}
-                            variant="outline" size="sm" className="border-2 border-blue-500 text-blue-700 font-bold h-9"
-                          >
-                            <ArrowUpCircle className="w-3 h-3 mr-1" /> +1 LVL
-                          </Button>
-                          <Button 
-                            disabled={isUpdatingOther}
-                            onClick={() => updateOtherUser(selectedUser.id, s => ({ ...s, hp: s.maxHp }))}
-                            variant="outline" size="sm" className="border-2 border-emerald-500 text-emerald-700 font-bold h-9"
-                          >
-                            <Heart className="w-3 h-3 mr-1" /> Curar
-                          </Button>
-                          <Button 
-                            disabled={isUpdatingOther}
-                            onClick={() => updateOtherUser(selectedUser.id, s => s, [])}
-                            variant="outline" size="sm" className="border-2 border-slate-400 text-slate-600 font-bold h-9"
-                          >
-                            <PackageX className="w-3 h-3 mr-1" /> Vaciar
-                          </Button>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   )}
                 </div>
