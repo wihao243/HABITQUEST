@@ -134,6 +134,17 @@ export const AdminPanel = ({
     setOtherUserGold("");
   };
 
+  const handleRemoveGoldFromOther = () => {
+    if (!selectedUserId) return;
+    const amount = parseInt(otherUserGold);
+    if (isNaN(amount) || amount <= 0) {
+      showError("Introduce una cantidad válida");
+      return;
+    }
+    updateOtherUser(selectedUserId, s => ({ ...s, gold: Math.max(0, s.gold - amount) }));
+    setOtherUserGold("");
+  };
+
   const selectedUser = users.find(u => u.id === selectedUserId);
 
   if (adminExists && !isAdmin) {
@@ -363,6 +374,57 @@ export const AdminPanel = ({
                         <div className="bg-white p-2 rounded-lg border border-indigo-100 text-center">
                           <p className="text-[8px] font-black text-slate-400 uppercase">Hábitos</p>
                           <p className="text-sm font-black text-indigo-600">{(selectedUser.quests || []).filter(q => q.type === 'habit').length}</p>
+                        </div>
+                      </div>
+
+                      {/* Sección de Gestión de Oro */}
+                      <div className="bg-white p-4 rounded-xl border-2 border-indigo-200 space-y-3">
+                        <h5 className="text-xs font-black uppercase tracking-widest text-amber-600 flex items-center gap-2">
+                          <Coins className="w-4 h-4" /> Gestión de Oro
+                        </h5>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label className="text-[9px] font-black uppercase text-slate-500">Añadir Oro</Label>
+                            <div className="flex gap-2">
+                              <Input 
+                                type="number" 
+                                value={otherUserGold} 
+                                onChange={(e) => setOtherUserGold(e.target.value)}
+                                placeholder="Cantidad..."
+                                className="h-10 border-2 font-bold bg-white"
+                              />
+                              <Button 
+                                disabled={isUpdatingOther}
+                                onClick={handleAddGoldToOther} 
+                                variant="outline" 
+                                className="border-2 border-emerald-500 text-emerald-700 font-bold shrink-0 h-10 px-3"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label className="text-[9px] font-black uppercase text-slate-500">Quitar Oro</Label>
+                            <div className="flex gap-2">
+                              <Input 
+                                type="number" 
+                                value={otherUserGold} 
+                                onChange={(e) => setOtherUserGold(e.target.value)}
+                                placeholder="Cantidad..."
+                                className="h-10 border-2 font-bold bg-white"
+                              />
+                              <Button 
+                                disabled={isUpdatingOther}
+                                onClick={handleRemoveGoldFromOther} 
+                                variant="outline" 
+                                className="border-2 border-rose-500 text-rose-600 font-bold shrink-0 h-10 px-3"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
