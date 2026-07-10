@@ -2,10 +2,11 @@ import { ShopItem } from "@/types/game";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingBag, Smartphone, Utensils, Coffee, Info } from "lucide-react";
+import { ShoppingBag, Smartphone, Utensils, Coffee, Info, Flame, Percent } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ShopEditor } from "./ShopEditor";
+import { useGameState } from "@/hooks/use-game-state";
 
 interface ShopProps {
   items: {
@@ -15,7 +16,6 @@ interface ShopProps {
   };
   boughtInRotation: Record<string, boolean>;
   onBuy: (item: ShopItem, source: string) => void;
-  // Props para edición pública
   allItems: ShopItem[];
   onAddShopItem: (item: Omit<ShopItem, 'id'>) => void;
   onUpdateShopItem: (id: string, updates: Partial<ShopItem>) => void;
@@ -26,8 +26,11 @@ export const Shop = ({
   items, boughtInRotation, onBuy, 
   allItems, onAddShopItem, onUpdateShopItem, onDeleteShopItem 
 }: ShopProps) => {
+  const { streakDiscount, totalHabitStreak } = useGameState();
+
   const renderItem = (item: ShopItem, source: string) => {
     const isSoldOut = boughtInRotation[item.id];
+    const discountedCost = Math.max(1, Math.floor(item.cost * (1 - streakDiscount / 100)));
 
     return (
       <Card key={`${source}-${item.id}`} className={cn(
@@ -71,13 +74,22 @@ export const Shop = ({
               disabled={isSoldOut}
               onClick={() => onBuy(item, source)}
               className={cn(
-                "w-full font-black border-2 transition-all",
+                "w-full font-black border-2 transition-all h-11",
                 isSoldOut 
                   ? "bg-slate-100 border-slate-200 text-slate-400" 
                   : "border-yellow-500 text-yellow-700 bg-white hover:bg-yellow-500 hover:text-white"
               )}
             >
-              {isSoldOut ? "Agotado" : `${item.cost} Oro`}
+              {isSoldOut ? (
+                "Agotado"
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  {streakDiscount > 0 && (
+                    <span className="line-through text-slate-400 text-xs font-bold">{item.cost}</span>
+                  )}
+                  <span>{discountedCost} Oro</span>
+                </span>
+              )}
             </Button>
           </div>
         </div>
@@ -87,18 +99,28 @@ export const Shop = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <ShoppingBag className="w-6 h-6 text-indigo-600" />
           <h3 className="text-xl font-black uppercase italic">Bazar de Recompensas</h3>
         </div>
         
-        <ShopEditor 
-          items={allItems} 
-          onAdd={onAddShopItem} 
-          onUpdate={onUpdateShopItem} 
-          onDelete={onDeleteShopItem} 
-        />
+        <div className="flex items-center gap-2">
+          {streakDiscount > 0 && (
+            <div className="flex items-center gap-1.5 bg-emerald-50 border-2 border-emerald-200 text-emerald-700 px-3 py-1.5 rounded-xl text-xs font-black uppercase animate-pulse">
+              <Percent className="w-4 h-4" />
+              <span>-{streakDiscount}% Descuento</span>
+              <span className="text-[10px] text-emerald-500 font-bold">({totalHabitStreak} Racha)</span>
+            </div>
+          )}
+          
+          <ShopEditor 
+            items={allItems} 
+            onAdd={onAddShopItem} 
+            onUpdate={onUpdateShopItem} 
+            onDelete={onDeleteShopItem} 
+          />
+        </div>
       </div>
 
       <Tabs defaultValue="daily" className="w-full">

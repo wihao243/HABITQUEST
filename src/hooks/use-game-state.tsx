@@ -18,6 +18,8 @@ interface GameStateContextType {
   activeTab: string;
   isAdmin: boolean;
   adminExists: boolean;
+  streakDiscount: number;
+  totalHabitStreak: number;
   setActiveTab: (tab: string) => void;
   completeQuest: (id: string, quality?: 'mal' | 'bien' | 'excelente') => void;
   failHabit: (id: string) => void;
@@ -127,6 +129,17 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const virtualTime = useMemo(() => new Date(tick + timeOffset), [tick, timeOffset]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const notifiedTimersRef = useRef<Set<string>>(new Set());
+
+  // Cálculo de descuento por racha de hábitos
+  const totalHabitStreak = useMemo(() => {
+    return quests
+      .filter(q => q.type === 'habit')
+      .reduce((sum, q) => sum + (q.streak || 0), 0);
+  }, [quests]);
+
+  const streakDiscount = useMemo(() => {
+    return Math.min(50, totalHabitStreak);
+  }, [totalHabitStreak]);
 
   const playAlarm = useCallback(() => {
     try {
@@ -302,11 +315,9 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
 
   const checkAdminStatus = useCallback(async (userId: string) => {
     try {
-      // Consultamos todos los perfiles para ver si alguno tiene is_admin = true
       const { data: allProfiles, error } = await supabase.from('profiles').select('id, is_admin');
       
       if (error) {
-        // Si hay error (probablemente la columna no existe), asumimos que no hay admin
         console.warn("Aviso: La columna is_admin podría no existir aún. Ejecuta el SQL.");
         setAdminExists(false);
         setIsAdmin(false);
@@ -368,7 +379,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   const claimAdmin = async (password: string) => {
     if (!user) return false;
     
-    // Si ya existe un admin y no soy yo, no puedo reclamar
     if (adminExists && !isAdmin) {
       showError("Ya existe un administrador único.");
       return false;
@@ -430,7 +440,7 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
     const now = virtualTime.getTime();
     Object.entries(stats.activeTimers || {}).forEach(([itemId, expiration]) => {
       if (expiration > now) {
-        const item = allItems.find(i => i.id === id);
+        const item = allItems.find(i => i.id === itemId);
         if (item?.effect.xpMultiplier) multiplier *= item.effect.xpMultiplier;
       }
     });
@@ -622,16 +632,18 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
   }, []);
 
   const buyItem = useCallback((item: ShopItem, source: string) => {
-    if (stats.gold >= item.cost) {
-      setStats(prev => ({ ...prev, gold: prev.gold - item.cost }));
+    const discountedCost = Math.max(1, Math.floor(item.cost * (1 - streakDiscount / 100)));
+    if (stats.gold >= discountedCost) {
+      setStats(prev => ({ ...prev, gold: prev.gold - discountedCost }));
       setInventory(prev => [...prev, item.id]);
       setBoughtItemsLog(prev => ({ ...prev, [item.id]: virtualTime.toISOString() }));
       showSuccess(`Comprado: ${item.title}`);
     } else showError("Oro insuficiente");
-  }, [stats.gold, virtualTime]);
+  }, [stats.gold, virtualTime, streakDiscount]);
 
   const value = {
     stats, quests, inventory, virtualTime, allItems, user, loading, activeTab, isAdmin, adminExists,
+    streakDiscount, totalHabitStreak,
     setActiveTab, completeQuest, failHabit, useItem, recoverStreak, claimAdmin,
     takeDamage: useCallback((amount: number) => setStats(prev => {
       const newHp = Math.max(0, prev.hp - amount);
@@ -660,7 +672,6 @@ export const GameStateProvider = ({ children }: { children: React.ReactNode }) =
         
         const newQuests = arrayMove(prev, oldIndex, newIndex);
         
-        // Actualizar la propiedad 'order' para persistir el orden
         return newQuests.map((q, idx) => ({ ...q, order: idx }));
       });
     }, []),
