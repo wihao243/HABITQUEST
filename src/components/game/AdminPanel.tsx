@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon, RefreshCw, Plus, ShieldAlert, Users, UserCog, Search, Sparkles, Check, ChevronsUpDown, Calendar, CheckCircle2, XCircle, Flame, Edit3, Trash2 as Trash2Icon } from "lucide-react";
+import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon, RefreshCw, Plus, ShieldAlert, Users, UserCog, Search, Sparkles, Check, ChevronsUpDown, Calendar, CheckCircle2, XCircle, Flame, Edit3, Trash2 as Trash2Icon, Percent } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
 import { useGameState } from "@/hooks/use-game-state";
 import { supabase } from "@/lib/supabase";
@@ -233,6 +233,13 @@ export const AdminPanel = ({
     await updateOtherUser(userId, s => s, updatedQuests);
   };
 
+  // Calcular descuento del usuario seleccionado
+  const selectedUserDiscount = selectedUser ? (() => {
+    const habits = (selectedUser.quests || []).filter(q => q.type === 'habit');
+    const totalStreak = habits.reduce((sum, q) => sum + (q.streak || 0), 0);
+    return Math.min(50, totalStreak);
+  })() : 0;
+
   return (
     <Dialog onOpenChange={(open) => {
       if (open && isAdmin) {
@@ -358,7 +365,7 @@ export const AdminPanel = ({
                         </Button>
                       </div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                         <div className="bg-white p-2 rounded-lg border border-indigo-100 text-center">
                           <p className="text-[8px] font-black text-slate-400 uppercase">Oro</p>
                           <p className="text-sm font-black text-indigo-600">{selectedUser.game_state.gold}</p>
@@ -374,6 +381,10 @@ export const AdminPanel = ({
                         <div className="bg-white p-2 rounded-lg border border-indigo-100 text-center">
                           <p className="text-[8px] font-black text-slate-400 uppercase">Hábitos</p>
                           <p className="text-sm font-black text-indigo-600">{(selectedUser.quests || []).filter(q => q.type === 'habit').length}</p>
+                        </div>
+                        <div className="bg-white p-2 rounded-lg border border-indigo-100 text-center">
+                          <p className="text-[8px] font-black text-slate-400 uppercase">Descuento</p>
+                          <p className="text-sm font-black text-emerald-600">-{selectedUserDiscount}%</p>
                         </div>
                       </div>
 
