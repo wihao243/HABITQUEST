@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon, RefreshCw, Plus, ShieldAlert, Users, UserCog, Search, Sparkles, Check, ChevronsUpDown, Calendar, CheckCircle2, XCircle, Flame, Edit3, Trash2 as Trash2Icon, Percent } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Settings, Trash2, Coins, ArrowUpCircle, PackageX, Clock, Lock, Unlock, Heart, UnlockIcon, RefreshCw, Plus, ShieldAlert, Users, UserCog, Search, Sparkles, Check, ChevronsUpDown, Calendar, CheckCircle2, XCircle, Flame, Edit3, Trash2 as Trash2Icon, Percent, CheckSquare, Repeat, ListTodo } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
 import { useGameState } from "@/hooks/use-game-state";
 import { supabase } from "@/lib/supabase";
@@ -45,7 +46,7 @@ export const AdminPanel = ({
   const [isFetchingUsers, setIsFetchingUsers] = useState(false);
   const [isUpdatingOther, setIsUpdatingOther] = useState(false);
   const [isComboOpen, setIsComboOpen] = useState(false);
-  const [showHabitManagement, setShowHabitManagement] = useState(false);
+  const [showQuestManagement, setShowQuestManagement] = useState(false);
 
   const handleClaim = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +73,12 @@ export const AdminPanel = ({
     }
   }, [isAdmin]);
 
-  const updateOtherUser = async (userId: string, updateFn: (stats: CharacterStats) => CharacterStats, inventoryUpdate?: string[]) => {
+  const updateOtherUser = async (
+    userId: string, 
+    updateFn: (stats: CharacterStats) => CharacterStats, 
+    inventoryUpdate?: string[],
+    questsUpdate?: Quest[]
+  ) => {
     const userToUpdate = users.find(u => u.id === userId);
     if (!userToUpdate) return;
 
@@ -82,6 +88,9 @@ export const AdminPanel = ({
       const updatePayload: any = { game_state: newStats };
       if (inventoryUpdate !== undefined) {
         updatePayload.inventory = inventoryUpdate;
+      }
+      if (questsUpdate !== undefined) {
+        updatePayload.quests = questsUpdate;
       }
 
       const { error } = await supabase
@@ -95,7 +104,8 @@ export const AdminPanel = ({
       setUsers(prev => prev.map(u => u.id === userId ? { 
         ...u, 
         game_state: newStats,
-        inventory: inventoryUpdate !== undefined ? inventoryUpdate : u.inventory 
+        inventory: inventoryUpdate !== undefined ? inventoryUpdate : u.inventory,
+        quests: questsUpdate !== undefined ? questsUpdate : u.quests
       } : u));
 
       // Si el admin se está editando a sí mismo a través de esta lista, actualizamos también el estado global
@@ -194,16 +204,69 @@ export const AdminPanel = ({
     };
   };
 
-  // Function to modify a habit
-  const modifyHabit = async (userId: string, habitId: string, updates: Partial<Quest>) => {
+  // Function to complete a quest for another user
+  const completeOtherUserQuest = async (userId: string, questId: string) => {
     const user = users.find(u => u.id === userId);
     if (!user) return;
+
+    const quest = user.quests?.find(q => q.id === questId);
+    if (!quest || quest.completed) return;
+
+    const rewards = { 
+      easy: { xp: 10, gold: 5, attr: 0.1 }, 
+      medium: { xp: 25, gold: 15, attr: 0.2 }, 
+      hard: { xp: 60, gold: 40, attr: 0.5 } 
+    };
+    const r = rewards[quest.difficulty];
+
+    const todayStr = format(currentTime, 'yyyy-MM-dd');
+    const yesterdayStr = format(subDays(currentTime, 1), 'yyyy-MM-dd');
     
-    const updatedQuests = user.quests?.map(q => 
-      q.id === habitId ? { ...q, ...updates } : q
-    ) || [];
-    
-    await updateOtherUser(userId, s => s, updatedQuests);
+    const updatedQuests = user.quests?.map(q => {
+      if (q.id === questId) {
+        let newStreak = q.streak || 0;
+        if (q.type !== 'todo') {
+          if (q.lastCompletedDate === yesterdayStr) newStreak += 1;
+          else if (q.lastCompletedDate !== todayStr) newStreak = 1;
+        }
+        const newHistory = q.type !== 'todo' ? [...(q.history || []), todayStr] : (q.history || []);
+        return { 
+          ...q, 
+          completed: true, 
+          lastCompletedDate: todayStr, 
+          streak: q.type !== 'todo' ? newStreak : undefined, 
+          recoverableStreak: undefined, 
+          history: newHistory 
+        };
+      }
+      return q;
+    }) || [];
+
+    await updateOtherUser(userId, (prev) => {
+      let newXp = prev.xp + r.xp;
+      let newLevel = prev.level;
+      let newMaxXp = prev.maxXp;
+      let newMaxHp = prev.maxHp;
+      let newHp = prev.hp;
+      while (newXp >= newMaxXp) {
+        newXp -= newMaxXp; 
+        newLevel += 1; 
+        newMaxXp = Math.floor(newMaxXp * 1.2); 
+        newMaxHp += 10; 
+        newHp = newMaxHp;
+      }
+      return {
+        ...prev, 
+        xp: newXp, 
+        level: newLevel, 
+        maxXp: newMaxXp, 
+        hp: newHp, 
+        maxHp: newMaxHp, 
+        gold: prev.gold + r.gold,
+        attributes: { ...prev.attributes, [quest.stat]: (prev.attributes[quest.stat] || 1) + r.attr },
+        gameStats: { ...prev.gameStats, totalGoldEarned: prev.gameStats.totalGoldEarned + r.gold }
+      };
+    }, undefined, updatedQuests);
   };
 
   // Function to add a new habit
@@ -221,7 +284,7 @@ export const AdminPanel = ({
     };
     
     const updatedQuests = [...(user.quests || []), newHabit];
-    await updateOtherUser(userId, s => s, updatedQuests);
+    await updateOtherUser(userId, s => s, undefined, updatedQuests);
   };
 
   // Function to delete a habit
@@ -230,7 +293,7 @@ export const AdminPanel = ({
     if (!user) return;
     
     const updatedQuests = user.quests?.filter(q => q.id !== habitId) || [];
-    await updateOtherUser(userId, s => s, updatedQuests);
+    await updateOtherUser(userId, s => s, undefined, updatedQuests);
   };
 
   // Calcular descuento del usuario seleccionado
@@ -244,7 +307,7 @@ export const AdminPanel = ({
     <Dialog onOpenChange={(open) => {
       if (open && isAdmin) {
         fetchAllUsers();
-        setShowHabitManagement(false);
+        setShowQuestManagement(false);
       }
     }}>
       <DialogTrigger asChild>
@@ -329,7 +392,7 @@ export const AdminPanel = ({
                                   onSelect={() => {
                                     setSelectedUserId(u.id);
                                     setIsComboOpen(false);
-                                    setShowHabitManagement(false);
+                                    setShowQuestManagement(false);
                                   }}
                                   className="font-bold cursor-pointer"
                                 >
@@ -356,12 +419,12 @@ export const AdminPanel = ({
                           Estadísticas de {selectedUser.game_state.name}
                         </h4>
                         <Button 
-                          onClick={() => setShowHabitManagement(!showHabitManagement)}
+                          onClick={() => setShowQuestManagement(!showQuestManagement)}
                           variant="outline" 
                           size="sm" 
                           className="h-7 text-[10px] font-black uppercase text-indigo-600 border-indigo-200"
                         >
-                          <Calendar className="w-3 h-3 mr-1" /> {showHabitManagement ? "Ocultar Hábitos" : "Gestionar Hábitos"}
+                          <Calendar className="w-3 h-3 mr-1" /> {showQuestManagement ? "Ocultar Misiones" : "Gestionar Misiones"}
                         </Button>
                       </div>
 
@@ -379,8 +442,8 @@ export const AdminPanel = ({
                           <p className="text-sm font-black text-indigo-600">{selectedUser.game_state.hp}/{selectedUser.game_state.maxHp}</p>
                         </div>
                         <div className="bg-white p-2 rounded-lg border border-indigo-100 text-center">
-                          <p className="text-[8px] font-black text-slate-400 uppercase">Hábitos</p>
-                          <p className="text-sm font-black text-indigo-600">{(selectedUser.quests || []).filter(q => q.type === 'habit').length}</p>
+                          <p className="text-[8px] font-black text-slate-400 uppercase">Misiones</p>
+                          <p className="text-sm font-black text-indigo-600">{(selectedUser.quests || []).length}</p>
                         </div>
                         <div className="bg-white p-2 rounded-lg border border-indigo-100 text-center">
                           <p className="text-[8px] font-black text-slate-400 uppercase">Descuento</p>
@@ -439,113 +502,137 @@ export const AdminPanel = ({
                         </div>
                       </div>
 
-                      {showHabitManagement && (
+                      {showQuestManagement && (
                         <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
                           <div className="bg-white p-4 rounded-xl border-2 border-indigo-200">
                             <h5 className="text-xs font-black uppercase tracking-widest text-indigo-600 mb-3 flex items-center gap-2">
-                              <Calendar className="w-4 h-4" /> Gestión de Hábitos
+                              <Calendar className="w-4 h-4" /> Gestión de Misiones
                             </h5>
                             
-                            <div className="space-y-3">
-                              {(selectedUser.quests || []).filter(q => q.type === 'habit').map(habit => {
-                                const stats = getHabitStats(habit);
-                                return (
-                                  <div key={habit.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                    <div className="flex items-center justify-between mb-2">
-                                      <div>
-                                        <p className="font-bold text-sm text-slate-800">{habit.title}</p>
-                                        <p className="text-[10px] text-slate-500">Dificultad: {habit.difficulty} | Stat: {habit.stat}</p>
-                                      </div>
-                                      <div className="flex gap-1">
-                                        <Button 
-                                          size="icon" 
-                                          variant="ghost" 
-                                          className="h-7 w-7 text-indigo-600 hover:bg-indigo-100"
-                                          onClick={() => {
-                                            // Edit habit logic would go here
-                                            showSuccess("Función de edición de hábito próximamente");
-                                          }}
-                                        >
-                                          <Edit3 className="w-3 h-3" />
-                                        </Button>
-                                        <Button 
-                                          size="icon" 
-                                          variant="ghost" 
-                                          className="h-7 w-7 text-rose-600 hover:bg-rose-100"
-                                          onClick={() => deleteHabit(selectedUser.id, habit.id)}
-                                        >
-                                          <Trash2Icon className="w-3 h-3" />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-4 gap-1 mb-2">
-                                      <div className="text-center">
-                                        <p className="text-[8px] font-black text-slate-400">Completados</p>
-                                        <p className="text-xs font-black text-indigo-600">{stats.totalCompleted}</p>
-                                      </div>
-                                      <div className="text-center">
-                                        <p className="text-[8px] font-black text-slate-400">Racha</p>
-                                        <p className="text-xs font-black text-orange-600 flex items-center justify-center gap-1">
-                                          <Flame className="w-2 h-2" /> {stats.currentStreak}
-                                        </p>
-                                      </div>
-                                      <div className="text-center">
-                                        <p className="text-[8px] font-black text-slate-400">Efectividad</p>
-                                        <p className="text-xs font-black text-emerald-600">{stats.completionRate}%</p>
-                                      </div>
-                                      <div className="text-center">
-                                        <p className="text-[8px] font-black text-slate-400">Última</p>
-                                        <p className="text-xs font-black text-blue-600">
-                                          {stats.lastCompletedDate ? format(new Date(stats.lastCompletedDate), 'd/M') : 'Nunca'}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="mt-3">
-                                      <p className="text-[9px] font-black text-slate-400 mb-1">Historial de los últimos 7 días:</p>
-                                      <div className="flex gap-1">
-                                        {stats.days.slice(-7).map((day, idx) => (
-                                          <div 
-                                            key={idx} 
-                                            className={cn(
-                                              "w-6 h-6 rounded text-[8px] font-black flex items-center justify-center",
-                                              day.isRestDay 
-                                                ? "bg-slate-100 text-slate-400 border border-slate-200" 
-                                                : day.isCompleted 
-                                                  ? "bg-emerald-100 text-emerald-700 border border-emerald-300" 
-                                                  : "bg-rose-100 text-rose-700 border border-rose-300"
-                                            )}
-                                            title={`${day.date.toLocaleDateString()}: ${day.isRestDay ? 'Descanso' : day.isCompleted ? 'Completado' : 'Faltó'}`}
-                                          >
-                                            {day.date.getDate()}
+                            <Tabs defaultValue="habit" className="w-full">
+                              <TabsList className="grid grid-cols-3 w-full bg-slate-100 p-1 rounded-xl border-2 border-slate-200 h-auto mb-4">
+                                <TabsTrigger value="habit" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-[10px] uppercase py-2 flex items-center justify-center gap-1">
+                                  <Repeat className="w-3 h-3" /> Hábitos
+                                </TabsTrigger>
+                                <TabsTrigger value="daily" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-[10px] uppercase py-2 flex items-center justify-center gap-1">
+                                  <CheckSquare className="w-3 h-3" /> Diarias
+                                </TabsTrigger>
+                                <TabsTrigger value="todo" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-[10px] uppercase py-2 flex items-center justify-center gap-1">
+                                  <ListTodo className="w-3 h-3" /> Tareas
+                                </TabsTrigger>
+                              </TabsList>
+
+                              {["habit", "daily", "todo"].map((type) => (
+                                <TabsContent key={type} value={type} className="space-y-3">
+                                  {(selectedUser.quests || []).filter(q => q.type === type).map(quest => {
+                                    const stats = type === 'habit' ? getHabitStats(quest) : null;
+                                    return (
+                                      <div key={quest.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col gap-2">
+                                        <div className="flex items-center justify-between">
+                                          <div>
+                                            <p className={cn("font-bold text-sm text-slate-800", quest.completed && "line-through text-slate-400")}>
+                                              {quest.title}
+                                            </p>
+                                            <p className="text-[10px] text-slate-500">Dificultad: {quest.difficulty} | Stat: {quest.stat}</p>
                                           </div>
-                                        ))}
+                                          <div className="flex items-center gap-2">
+                                            {quest.completed ? (
+                                              <span className="bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase px-2 py-1 rounded-full flex items-center gap-1">
+                                                <CheckCircle2 className="w-3 h-3" /> Completada
+                                              </span>
+                                            ) : (
+                                              <Button 
+                                                size="sm" 
+                                                onClick={() => completeOtherUserQuest(selectedUser.id, quest.id)}
+                                                className="bg-slate-900 hover:bg-indigo-600 text-white font-black uppercase text-[9px] h-8 px-3"
+                                              >
+                                                Completar
+                                              </Button>
+                                            )}
+                                            <Button 
+                                              size="icon" 
+                                              variant="ghost" 
+                                              className="h-8 w-8 text-rose-600 hover:bg-rose-100"
+                                              onClick={() => deleteHabit(selectedUser.id, quest.id)}
+                                            >
+                                              <Trash2Icon className="w-4 h-4" />
+                                            </Button>
+                                          </div>
+                                        </div>
+                                        
+                                        {type === 'habit' && stats && (
+                                          <>
+                                            <div className="grid grid-cols-4 gap-1 mt-1">
+                                              <div className="text-center">
+                                                <p className="text-[8px] font-black text-slate-400">Completados</p>
+                                                <p className="text-xs font-black text-indigo-600">{stats.totalCompleted}</p>
+                                              </div>
+                                              <div className="text-center">
+                                                <p className="text-[8px] font-black text-slate-400">Racha</p>
+                                                <p className="text-xs font-black text-orange-600 flex items-center justify-center gap-1">
+                                                  <Flame className="w-2 h-2" /> {stats.currentStreak}
+                                                </p>
+                                              </div>
+                                              <div className="text-center">
+                                                <p className="text-[8px] font-black text-slate-400">Efectividad</p>
+                                                <p className="text-xs font-black text-emerald-600">{stats.completionRate}%</p>
+                                              </div>
+                                              <div className="text-center">
+                                                <p className="text-[8px] font-black text-slate-400">Última</p>
+                                                <p className="text-xs font-black text-blue-600">
+                                                  {stats.lastCompletedDate ? format(new Date(stats.lastCompletedDate), 'd/M') : 'Nunca'}
+                                                </p>
+                                              </div>
+                                            </div>
+                                            
+                                            <div className="mt-2">
+                                              <p className="text-[9px] font-black text-slate-400 mb-1">Historial de los últimos 7 días:</p>
+                                              <div className="flex gap-1">
+                                                {stats.days.slice(-7).map((day, idx) => (
+                                                  <div 
+                                                    key={idx} 
+                                                    className={cn(
+                                                      "w-6 h-6 rounded text-[8px] font-black flex items-center justify-center",
+                                                      day.isRestDay 
+                                                        ? "bg-slate-100 text-slate-400 border border-slate-200" 
+                                                        : day.isCompleted 
+                                                          ? "bg-emerald-100 text-emerald-700 border border-emerald-300" 
+                                                          : "bg-rose-100 text-rose-700 border border-rose-300"
+                                                    )}
+                                                    title={`${day.date.toLocaleDateString()}: ${day.isRestDay ? 'Descanso' : day.isCompleted ? 'Completado' : 'Faltó'}`}
+                                                  >
+                                                    {day.date.getDate()}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          </>
+                                        )}
                                       </div>
+                                    );
+                                  })}
+
+                                  {(selectedUser.quests || []).filter(q => q.type === type).length === 0 && (
+                                    <div className="text-center py-6 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
+                                      <p className="text-slate-400 font-bold italic">Este usuario no tiene misiones de este tipo.</p>
                                     </div>
-                                  </div>
-                                );
+                                  )}
+                                </TabsContent>
+                              ))}
+                            </Tabs>
+
+                            <Button 
+                              onClick={() => addHabit(selectedUser.id, {
+                                title: "Nuevo Hábito",
+                                difficulty: "medium",
+                                stat: selectedUser.game_state.attributeDefinitions[0]?.id || "fuerza",
+                                type: "habit",
+                                activeDays: [0, 1, 2, 3, 4, 5, 6]
                               })}
-                              
-                              {(selectedUser.quests || []).filter(q => q.type === 'habit').length === 0 && (
-                                <div className="text-center py-6 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
-                                  <p className="text-slate-400 font-bold italic">Este usuario no tiene hábitos registrados.</p>
-                                </div>
-                              )}
-                              
-                              <Button 
-                                onClick={() => addHabit(selectedUser.id, {
-                                  title: "Nuevo Hábito",
-                                  difficulty: "medium",
-                                  stat: selectedUser.game_state.attributeDefinitions[0]?.id || "fuerza",
-                                  type: "habit",
-                                  activeDays: [0, 1, 2, 3, 4, 5, 6]
-                                })}
-                                className="w-full bg-indigo-600 hover:bg-indigo-500 font-black uppercase text-xs h-10"
-                              >
-                                <Plus className="w-4 h-4 mr-2" /> Añadir Nuevo Hábito
-                              </Button>
-                            </div>
+                              className="w-full bg-indigo-600 hover:bg-indigo-500 font-black uppercase text-xs h-10 mt-4"
+                            >
+                              <Plus className="w-4 h-4 mr-2" /> Añadir Nuevo Hábito
+                            </Button>
                           </div>
                         </div>
                       )}
